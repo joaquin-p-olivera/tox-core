@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+.venv/
+
+# Environment files: only the .env.default template is tracked
+.env
+.env.*
+!.env.default
+
+# Local SQLite database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

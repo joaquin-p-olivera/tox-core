@@ -1,0 +1,866 @@
+[
+  {
+    "id": "geo-australia",
+    "category": "geografia",
+    "question": "¿Cuál es la capital de Australia?",
+    "choices": [
+      "Sídney",
+      "Canberra",
+      "Melbourne",
+      "Brisbane"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "geo-amazonas",
+    "category": "geografia",
+    "question": "¿Cuál es el río más caudaloso de Sudamérica?",
+    "choices": [
+      "Orinoco",
+      "Paraná",
+      "Amazonas",
+      "Magdalena"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "geo-pacifico",
+    "category": "geografia",
+    "question": "¿Cuál es el océano más grande del planeta?",
+    "choices": [
+      "Atlántico",
+      "Índico",
+      "Pacífico",
+      "Ártico"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "geo-egipto",
+    "category": "geografia",
+    "question": "¿En qué continente está Egipto?",
+    "choices": [
+      "Asia",
+      "África",
+      "Europa",
+      "Oceanía"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "geo-canada",
+    "category": "geografia",
+    "question": "¿Cuál es la capital de Canadá?",
+    "choices": [
+      "Toronto",
+      "Vancouver",
+      "Montreal",
+      "Ottawa"
+    ],
+    "answer": 3
+  },
+  {
+    "id": "geo-rusia",
+    "category": "geografia",
+    "question": "¿Cuál es el país más grande del mundo por superficie?",
+    "choices": [
+      "Canadá",
+      "China",
+      "Estados Unidos",
+      "Rusia"
+    ],
+    "answer": 3
+  },
+  {
+    "id": "geo-andes",
+    "category": "geografia",
+    "question": "¿Cómo se llama la cordillera que recorre Sudamérica de norte a sur?",
+    "choices": [
+      "Los Alpes",
+      "Los Andes",
+      "Los Urales",
+      "Las Rocosas"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "geo-japon",
+    "category": "geografia",
+    "question": "¿Cuál es la capital de Japón?",
+    "choices": [
+      "Tokio",
+      "Kioto",
+      "Osaka",
+      "Seúl"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "geo-italia",
+    "category": "geografia",
+    "question": "¿Qué país tiene forma de bota?",
+    "choices": [
+      "Grecia",
+      "Portugal",
+      "Italia",
+      "Croacia"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "geo-sahara",
+    "category": "geografia",
+    "question": "¿Cuál es el desierto cálido más grande del mundo?",
+    "choices": [
+      "Gobi",
+      "Sahara",
+      "Kalahari",
+      "Atacama"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "geo-everest",
+    "category": "geografia",
+    "question": "¿Cuál es la montaña más alta del mundo sobre el nivel del mar?",
+    "choices": [
+      "K2",
+      "Aconcagua",
+      "Kilimanjaro",
+      "Everest"
+    ],
+    "answer": 3
+  },
+  {
+    "id": "geo-coliseo",
+    "category": "geografia",
+    "question": "¿En qué ciudad está el Coliseo?",
+    "choices": [
+      "Atenas",
+      "Roma",
+      "París",
+      "Madrid"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-mercurio",
+    "category": "ciencia",
+    "question": "¿Cuál es el planeta más cercano al Sol?",
+    "choices": [
+      "Venus",
+      "Marte",
+      "Mercurio",
+      "Júpiter"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "ciencia-oro",
+    "category": "ciencia",
+    "question": "¿Cuál es el símbolo químico del oro?",
+    "choices": [
+      "Or",
+      "Au",
+      "Ag",
+      "Go"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-huesos",
+    "category": "ciencia",
+    "question": "¿Cuántos huesos tiene un adulto humano?",
+    "choices": [
+      "106",
+      "206",
+      "306",
+      "406"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-fotosintesis",
+    "category": "ciencia",
+    "question": "¿Qué gas absorben las plantas para hacer la fotosíntesis?",
+    "choices": [
+      "Oxígeno",
+      "Nitrógeno",
+      "Dióxido de carbono",
+      "Helio"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "ciencia-jupiter",
+    "category": "ciencia",
+    "question": "¿Cuál es el planeta más grande del sistema solar?",
+    "choices": [
+      "Saturno",
+      "Júpiter",
+      "Neptuno",
+      "Tierra"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-luz",
+    "category": "ciencia",
+    "question": "¿A qué velocidad viaja la luz en el vacío, aproximadamente?",
+    "choices": [
+      "3.000 km/s",
+      "30.000 km/s",
+      "300.000 km/s",
+      "3.000.000 km/s"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "ciencia-femur",
+    "category": "ciencia",
+    "question": "¿Cuál es el hueso más largo del cuerpo humano?",
+    "choices": [
+      "Húmero",
+      "Fémur",
+      "Tibia",
+      "Columna vertebral"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-guepardo",
+    "category": "ciencia",
+    "question": "¿Cuál es el animal terrestre más rápido?",
+    "choices": [
+      "León",
+      "Caballo",
+      "Guepardo",
+      "Galgo"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "ciencia-planetas",
+    "category": "ciencia",
+    "question": "¿Cuántos planetas tiene el sistema solar?",
+    "choices": [
+      "7",
+      "8",
+      "9",
+      "10"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-sol",
+    "category": "ciencia",
+    "question": "¿De qué está hecho principalmente el Sol?",
+    "choices": [
+      "Hierro y níquel",
+      "Oxígeno y carbono",
+      "Hidrógeno y helio",
+      "Nitrógeno y argón"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "ciencia-agua",
+    "category": "ciencia",
+    "question": "¿Cuál es la fórmula química del agua?",
+    "choices": [
+      "CO2",
+      "H2O",
+      "O2",
+      "NaCl"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-colon",
+    "category": "historia",
+    "question": "¿En qué año llegó Colón a América?",
+    "choices": [
+      "1392",
+      "1492",
+      "1592",
+      "1692"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-muro",
+    "category": "historia",
+    "question": "¿En qué año cayó el Muro de Berlín?",
+    "choices": [
+      "1979",
+      "1985",
+      "1989",
+      "1995"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "hist-luna",
+    "category": "historia",
+    "question": "¿Quién fue el primer ser humano en pisar la Luna?",
+    "choices": [
+      "Buzz Aldrin",
+      "Yuri Gagarin",
+      "Neil Armstrong",
+      "Michael Collins"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "hist-guerra",
+    "category": "historia",
+    "question": "¿En qué año terminó la Segunda Guerra Mundial?",
+    "choices": [
+      "1918",
+      "1939",
+      "1945",
+      "1950"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "hist-machu",
+    "category": "historia",
+    "question": "¿Qué civilización construyó Machu Picchu?",
+    "choices": [
+      "Azteca",
+      "Maya",
+      "Inca",
+      "Olmeca"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "hist-piramides",
+    "category": "historia",
+    "question": "¿Qué civilización construyó las pirámides de Giza?",
+    "choices": [
+      "Romana",
+      "Egipcia",
+      "Griega",
+      "Persa"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-quijote",
+    "category": "cultura",
+    "question": "¿Quién escribió Don Quijote de la Mancha?",
+    "choices": [
+      "Miguel de Cervantes",
+      "Lope de Vega",
+      "Federico García Lorca",
+      "Jorge Luis Borges"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "cultura-garcia-marquez",
+    "category": "cultura",
+    "question": "¿Quién escribió Cien años de soledad?",
+    "choices": [
+      "Mario Vargas Llosa",
+      "Julio Cortázar",
+      "Gabriel García Márquez",
+      "Pablo Neruda"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "cultura-guitarra",
+    "category": "cultura",
+    "question": "¿Cuántas cuerdas tiene una guitarra clásica estándar?",
+    "choices": [
+      "4",
+      "5",
+      "6",
+      "7"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "cultura-harry",
+    "category": "cultura",
+    "question": "¿Cómo se llama el mago protagonista de los libros de J. K. Rowling?",
+    "choices": [
+      "Harry Potter",
+      "Percy Jackson",
+      "Merlín",
+      "Gandalf"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "cultura-beatles",
+    "category": "cultura",
+    "question": "¿Qué banda lanzó el álbum Abbey Road?",
+    "choices": [
+      "The Rolling Stones",
+      "The Beatles",
+      "Queen",
+      "Pink Floyd"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-arcoiris",
+    "category": "cultura",
+    "question": "¿Cuántos colores tiene el arcoíris?",
+    "choices": [
+      "5",
+      "6",
+      "7",
+      "8"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "cultura-brasil",
+    "category": "cultura",
+    "question": "¿Qué idioma se habla principalmente en Brasil?",
+    "choices": [
+      "Español",
+      "Portugués",
+      "Inglés",
+      "Francés"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-monalisa",
+    "category": "cultura",
+    "question": "¿Quién pintó la Mona Lisa?",
+    "choices": [
+      "Miguel Ángel",
+      "Rafael",
+      "Leonardo da Vinci",
+      "Picasso"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "cultura-vangogh",
+    "category": "cultura",
+    "question": "¿Quién pintó La noche estrellada?",
+    "choices": [
+      "Claude Monet",
+      "Vincent van Gogh",
+      "Salvador Dalí",
+      "Frida Kahlo"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "dep-futbol",
+    "category": "deportes",
+    "question": "¿Cuántos jugadores tiene cada equipo en la cancha en un partido de fútbol?",
+    "choices": [
+      "9",
+      "10",
+      "11",
+      "12"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "dep-mundial-1930",
+    "category": "deportes",
+    "question": "¿Qué país ganó el primer Mundial de fútbol, en 1930?",
+    "choices": [
+      "Argentina",
+      "Brasil",
+      "Italia",
+      "Uruguay"
+    ],
+    "answer": 3
+  },
+  {
+    "id": "dep-olimpicos",
+    "category": "deportes",
+    "question": "¿Cada cuántos años se juegan los Juegos Olímpicos de verano?",
+    "choices": [
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "dep-triple",
+    "category": "deportes",
+    "question": "¿Cuántos puntos vale un triple en el básquet?",
+    "choices": [
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "dep-wimbledon",
+    "category": "deportes",
+    "question": "¿Qué deporte se juega en Wimbledon?",
+    "choices": [
+      "Golf",
+      "Críquet",
+      "Tenis",
+      "Rugby"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "dep-mundial-2022",
+    "category": "deportes",
+    "question": "¿Qué selección ganó el Mundial de fútbol de 2022?",
+    "choices": [
+      "Francia",
+      "Argentina",
+      "Croacia",
+      "Brasil"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "uy-capital",
+    "category": "uruguay",
+    "question": "¿Cuál es la capital de Uruguay?",
+    "choices": [
+      "Salto",
+      "Montevideo",
+      "Punta del Este",
+      "Paysandú"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "uy-artigas",
+    "category": "uruguay",
+    "question": "¿Quién es considerado el prócer de la independencia uruguaya?",
+    "choices": [
+      "José Gervasio Artigas",
+      "José de San Martín",
+      "Simón Bolívar",
+      "Bernardo O'Higgins"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "uy-mate",
+    "category": "uruguay",
+    "question": "¿Qué infusión se toma con bombilla, típica de Uruguay?",
+    "choices": [
+      "Té",
+      "Café",
+      "Mate",
+      "Chocolate caliente"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "uy-norte",
+    "category": "uruguay",
+    "question": "¿Con qué país limita Uruguay al norte?",
+    "choices": [
+      "Argentina",
+      "Brasil",
+      "Paraguay",
+      "Chile"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "uy-candombe",
+    "category": "uruguay",
+    "question": "¿Qué ritmo de tambores es emblema del carnaval uruguayo?",
+    "choices": [
+      "Samba",
+      "Cumbia",
+      "Candombe",
+      "Milonga"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "uy-chivito",
+    "category": "uruguay",
+    "question": "¿Cuál de estos es un sándwich típico uruguayo?",
+    "choices": [
+      "Chivito",
+      "Choripán",
+      "Pancho",
+      "Lomito"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "uy-maracanazo",
+    "category": "uruguay",
+    "question": "¿Contra qué selección ganó Uruguay el partido decisivo del Mundial de 1950?",
+    "choices": [
+      "Argentina",
+      "España",
+      "Brasil",
+      "Suecia"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "uy-centenario",
+    "category": "uruguay",
+    "question": "¿Cómo se llama el estadio de Montevideo donde se jugó la final del primer Mundial?",
+    "choices": [
+      "Estadio Centenario",
+      "Estadio Campeón del Siglo",
+      "Estadio Gran Parque Central",
+      "Estadio Luis Franzini"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "juegos-creeper",
+    "category": "juegos",
+    "question": "¿En qué juego aparece el explosivo Creeper?",
+    "choices": [
+      "Terraria",
+      "Roblox",
+      "Minecraft",
+      "Fortnite"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "juegos-valve",
+    "category": "juegos",
+    "question": "¿Qué empresa desarrolló Half-Life?",
+    "choices": [
+      "Valve",
+      "Blizzard",
+      "id Software",
+      "Epic Games"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "juegos-zelda",
+    "category": "juegos",
+    "question": "En la saga The Legend of Zelda, ¿cómo se llama el héroe que manejás?",
+    "choices": [
+      "Zelda",
+      "Ganon",
+      "Link",
+      "Epona"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "juegos-pacman",
+    "category": "juegos",
+    "question": "¿Cuántos fantasmas te persiguen en el Pac-Man original?",
+    "choices": [
+      "Dos",
+      "Tres",
+      "Cuatro",
+      "Cinco"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "juegos-minecraft-release",
+    "category": "juegos",
+    "question": "¿En qué año salió la versión completa (1.0) de Minecraft?",
+    "choices": [
+      "2009",
+      "2011",
+      "2013",
+      "2015"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-luigi",
+    "category": "juegos",
+    "question": "¿Cómo se llama el hermano menor de Mario?",
+    "choices": [
+      "Wario",
+      "Toad",
+      "Yoshi",
+      "Luigi"
+    ],
+    "answer": 3
+  },
+  {
+    "id": "juegos-witcher",
+    "category": "juegos",
+    "question": "¿Qué estudio desarrolló The Witcher 3: Wild Hunt?",
+    "choices": [
+      "BioWare",
+      "CD Projekt Red",
+      "Bethesda",
+      "Ubisoft"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-lol",
+    "category": "juegos",
+    "question": "¿Cómo se llama el mapa principal 5v5 de League of Legends?",
+    "choices": [
+      "Abismo de los Lamentos",
+      "Bosque Retorcido",
+      "Grieta del Invocador",
+      "Nexus Blitz"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "juegos-los-santos",
+    "category": "juegos",
+    "question": "¿En qué juego transcurre la ciudad ficticia de Los Santos?",
+    "choices": [
+      "Watch Dogs",
+      "Grand Theft Auto V",
+      "Saints Row 2",
+      "Mafia III"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-freeman",
+    "category": "juegos",
+    "question": "¿Quién es el protagonista de Half-Life?",
+    "choices": [
+      "Gordon Freeman",
+      "Adrian Shephard",
+      "Alyx Vance",
+      "Barney Calhoun"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "juegos-pikachu",
+    "category": "juegos",
+    "question": "¿Qué Pokémon es el número 25 de la Pokédex nacional?",
+    "choices": [
+      "Pikachu",
+      "Eevee",
+      "Jigglypuff",
+      "Meowth"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "juegos-atreus",
+    "category": "juegos",
+    "question": "¿Cómo se llama el hijo de Kratos en el God of War de 2018?",
+    "choices": [
+      "Tyr",
+      "Atreus",
+      "Baldur",
+      "Mimir"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-xbox",
+    "category": "juegos",
+    "question": "¿Qué empresa creó la consola Xbox?",
+    "choices": [
+      "Sony",
+      "Nintendo",
+      "Sega",
+      "Microsoft"
+    ],
+    "answer": 3
+  },
+  {
+    "id": "juegos-tetris",
+    "category": "juegos",
+    "question": "¿De cuántos cuadraditos está formada cada pieza (tetromino) de Tetris?",
+    "choices": [
+      "3",
+      "4",
+      "5",
+      "6"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-fallout",
+    "category": "juegos",
+    "question": "¿Cuál es la moneda en los juegos de Fallout?",
+    "choices": [
+      "Créditos",
+      "Gil",
+      "Chapas de botella",
+      "Rupias"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "juegos-portal",
+    "category": "juegos",
+    "question": "¿Qué juego popularizó la frase \"The cake is a lie\" (el pastel es mentira)?",
+    "choices": [
+      "BioShock",
+      "Portal",
+      "Half-Life 2",
+      "Braid"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-elden-ring",
+    "category": "juegos",
+    "question": "¿Qué famoso autor de fantasía colaboró en la mitología de Elden Ring?",
+    "choices": [
+      "J. R. R. Tolkien",
+      "Brandon Sanderson",
+      "George R. R. Martin",
+      "Patrick Rothfuss"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "juegos-cs",
+    "category": "juegos",
+    "question": "En los mapas clásicos de desactivación de bomba de Counter-Strike, ¿cuántos sitios para plantar hay?",
+    "choices": [
+      "Uno",
+      "Dos",
+      "Tres",
+      "Cuatro"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-fortnite",
+    "category": "juegos",
+    "question": "¿Qué estudio creó Fortnite?",
+    "choices": [
+      "Epic Games",
+      "Riot Games",
+      "Respawn",
+      "Bungie"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "juegos-miyamoto",
+    "category": "juegos",
+    "question": "¿Quién es el creador original de Super Mario?",
+    "choices": [
+      "Hideo Kojima",
+      "Shigeru Miyamoto",
+      "Satoru Iwata",
+      "Hidetaka Miyazaki"
+    ],
+    "answer": 1
+  }
+]
