@@ -59,6 +59,11 @@ class Reply(BaseModel):
         default=None,
         description="Name of an audio to send instead of text; the bot downloads it from GET /api/v1/audios/{name}.",
     )
+    sticker: str | None = Field(
+        default=None,
+        description="Id of a generated sticker to send instead of text; the bot downloads it from "
+        "GET /api/v1/stickers/{id}. Short-lived: fetch it right away.",
+    )
 
 
 class MessageResponse(BaseModel):

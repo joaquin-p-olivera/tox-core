@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     HOST_HISTORY_DAYS: int = Field(default=7, ge=1, le=90)
     # Per request. Keep the total (list + deploys, roughly 2x this) below the bots' API timeout (10 s).
     RENDER_API_TIMEOUT_SECONDS: int = Field(default=4, ge=1, le=8)
+    # How long generated media (!sticker images, !voz audio) stays available for the bot to download
+    # before it's dropped from memory. Only needs to outlive the bot's own fetch, right after the command runs.
+    MEDIA_CACHE_SECONDS: int = Field(default=120, ge=10, le=600)
+    # Wall-clock ceiling for one !voz call: network synthesis + the ffmpeg conversion to Ogg/Opus.
+    # Edge TTS's own timeouts aren't fully reliable (observed hangs past them), so this is enforced separately.
+    TTS_TIMEOUT_SECONDS: int = Field(default=20, ge=5, le=60)
 
     @property
     def host_ignored_units(self) -> frozenset[str]:

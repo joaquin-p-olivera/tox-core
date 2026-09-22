@@ -2,8 +2,9 @@ import random
 import re
 
 from ..schemas import Mention, Reply
-from ..services import audio_library, audio_picker, chat_members
+from ..services import audio_library, audio_picker, chat_members, media_cache, sticker_generator, tts_generator
 from ..services.content import load_json
+from .flags import normalize_flag
 from .registry import CommandContext, command
 
 _DICE = re.compile(r"^(\d{1,2})?d(\d{1,4})$")
@@ -56,6 +57,58 @@ def choose(ctx: CommandContext) -> str:
     if len(options) < 2:
         return f"Dame al menos dos opciones: {ctx.prefix}elegir pizza | sushi"
     return f"🤔 {random.choice(options)}"
+
+
+@command(
+    "sticker",
+    description="Genera un sticker (imagen) con el texto que le pases",
+    usage="sticker <texto>",
+    category=CATEGORY,
+)
+def sticker(ctx: CommandContext) -> str | Reply:
+    if not ctx.raw_args.strip():
+        return f"Uso: {ctx.prefix}sticker <texto> — por ejemplo {ctx.prefix}sticker hola mundo"
+    try:
+        image = sticker_generator.render_sticker(ctx.raw_args)
+    except sticker_generator.TextTooLong as error:
+        return str(error)
+    sticker_id = media_cache.store(image, "image/webp", ctx.settings.MEDIA_CACHE_SECONDS)
+    return Reply(sticker=sticker_id)
+
+
+@command(
+    "voz",
+    description="Lo dice con voz de hombre (por defecto) o mujer con -m",
+    usage="voz [-h | -m] <texto>",
+    category=CATEGORY,
+)
+def voz(ctx: CommandContext) -> str | Reply:
+    usage = f"Uso: {ctx.prefix}voz [-h | -m] <texto>"
+    raw = ctx.raw_args.strip()
+    if not raw:
+        return usage
+
+    # Only a LEADING flag is recognised: the rest is spoken as-is, so a sentence that happens to
+    # contain a hyphenated word (e.g. "el resultado fue -3") is never mistaken for a flag.
+    voice = tts_generator.DEFAULT_VOICE
+    first, _, rest = raw.partition(" ")
+    normalized_first = normalize_flag(first)
+    if normalized_first.startswith("-"):
+        flag = normalized_first.lstrip("-")
+        if flag not in tts_generator.FLAG_VOICES:
+            return usage
+        voice, raw = tts_generator.FLAG_VOICES[flag], rest.strip()
+
+    text = raw
+    if not text:
+        return usage
+
+    try:
+        audio = tts_generator.synthesize(text, voice, ctx.settings.TTS_TIMEOUT_SECONDS)
+    except (tts_generator.TextTooLong, tts_generator.TtsError) as error:
+        return str(error)
+    audio_id = media_cache.store(audio, tts_generator.MIMETYPE, ctx.settings.MEDIA_CACHE_SECONDS)
+    return Reply(audio=audio_id)
 
 
 @command(

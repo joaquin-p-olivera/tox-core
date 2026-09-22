@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from .config import get_settings
 from .database import SessionLocal, init_db
 from .services.host_sampler import HostSampler
-from .routers import audios, messages
+from .routers import audios, messages, stickers
 
 settings = get_settings()
 
@@ -42,3 +42,4 @@ def health_check():
 
 app.include_router(messages.router)
 app.include_router(audios.router)
+app.include_router(stickers.router)

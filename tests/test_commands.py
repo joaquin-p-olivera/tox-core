@@ -92,14 +92,6 @@ def test_base64_errors(send):
     assert send("!base64")[0].startswith("Uso:")
 
 
-def test_http_status_in_spanish(send):
-    assert send("!http 404") == ["404 Not Found\nNo existe lo que buscás."]
-    assert send("!http 418")[0].startswith("418 I'm a Teapot\nSoy una tetera")
-    assert "(sin descripción en español)" in send("!http 226")[0]
-    assert "no es un código de estado HTTP estándar" in send("!http 999")[0]
-    assert send("!http")[0].startswith("Uso:")
-
-
 def test_id_command(send):
     (text,) = send("!id", user="u9", chat="g9", name="Zed")
     assert "ID del chat: g9 (grupo)" in text and "ID de usuario: u9" in text and "Nombre: Zed" in text

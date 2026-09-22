@@ -18,6 +18,9 @@ cp .env.default .env   # set API_KEY (see the comment inside for a one-liner)
 ./start_dev.sh         # creates .venv, installs deps, runs uvicorn with --reload on 127.0.0.1:8000
 ```
 
+**System dependency:** `!voz` needs `ffmpeg` on `PATH` (not a pip package — install it separately, e.g. `apt install
+ffmpeg` or a static build). Without it, `!voz` fails with a clear error; every other command works fine.
+
 Interactive docs: <http://127.0.0.1:8000/docs>. Run the tests with:
 
 ```bash
@@ -98,9 +101,8 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `base64 codificar\|decodificar <texto>` | `b64`                      | Base64 helper                                             |
 | `url codificar\|decodificar <texto>`   |                            | URL-encode / decode                                       |
 | `hash <md5\|sha1\|sha256\|sha512> <texto>` |                        | Hash of a text                                            |
-| `json <json>`                          |                            | Validates and pretty-prints JSON (reports line/column of errors) |
-| `base <número>`                        |                            | Number in decimal, hex, binary and octal                  |
-| `http <código>`                        |                            | Explains an HTTP status code                              |
+| `sticker <texto>`                      |                            | Generates a meme-style sticker with the given text        |
+| `voz [-h \| -m] <texto>`               |                            | Says the text out loud: `-h` a man's voice (default), `-m` a woman's       |
 
 ### `!m`: text or audio
 
@@ -126,6 +128,34 @@ versions would be picked):
 mkdir -p media/originals
 ffmpeg -i media/originals/1.m4a -vn -map_metadata -1 -c:a libopus -b:a 48k -ar 48000 -ac 1 -application voip media/m/1.ogg
 ```
+
+### `!sticker` and `!voz`: generated media
+
+Both generate content on the fly and hand it to the bots as ordinary bytes over HTTP — nothing is ever written to
+disk. `app/services/media_cache.py` is a short-lived, in-memory (RAM only) store: a command renders the bytes once,
+keeps them there for `MEDIA_CACHE_SECONDS` (default 120 s — only needs to outlive the bot's own download, right after
+the reply), and they're gone. If the API restarts before a bot fetches one, it's simply lost; the chat can just ask again.
+
+**`!sticker <texto>`** renders a classic meme-style sticker (`app/services/sticker_generator.py`, via Pillow): a
+512×512 WEBP, white background, bold black text, centered and auto-wrapped to fit (up to 200 characters). The reply
+carries `"sticker": "<id>"`, fetched from `GET /api/v1/stickers/{id}`.
+
+**`!voz [-h | -m] <texto>`** (up to 300 characters) says the text out loud using Microsoft Edge's free, unofficial
+neural voices (`app/services/tts_generator.py`) — the same engine behind Edge's "Read aloud" feature, no API key.
+`-h` (default) is a man's voice, `-m` a woman's; both are Uruguayan Spanish (`es-UY-MateoNeural` /
+`es-UY-ValentinaNeural`). Only a *leading* flag is recognised, so a sentence that happens to start with a hyphenated
+word other than `-h`/`-m` is rejected with the usage line rather than mis-read, while one later in the sentence
+(`el resultado fue -3`) is spoken literally. The MP3 that Edge returns is converted to Ogg/Opus with `ffmpeg`
+(a required external dependency, invoked as a subprocess piping bytes in and out — no temp files), matching `!m`'s
+audio: a WhatsApp voice note, and the only format Telegram's `sendVoice` accepts as an actual voice message. The
+reply reuses the same `"audio": "<id>"` field and `GET /api/v1/audios/{id}` endpoint as `!m` (which first tries
+`AUDIOS_DIR`, then falls back to the media cache), so the bots needed no changes at all for this command.
+Synthesis and conversion each run under a hard wall-clock timeout (`TTS_TIMEOUT_SECONDS`, default 20 s) enforced
+independently of Edge TTS's own timeouts, which were observed to not always fire on a broken connection.
+
+`!voz` sends the text to Microsoft's servers over the network each time it's used (an unofficial client of the same
+backend Edge's browser uses, not an affiliated/official API) — that's the trade-off for not running a heavy model on
+this machine. `!sticker` is fully local (Pillow only, no network).
 
 ### `!mute`
 

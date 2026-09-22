@@ -29,7 +29,7 @@ def test_m_sends_an_audio_when_the_dice_say_so(client, audios_dir, audio_probabi
     add_audio(audios_dir, "risa.m4a")
     audio_probability(1.0)
     (reply,) = raw(client, "!m", participants=MEMBERS)
-    assert reply == {"text": "", "mentions": [], "audio": "risa.m4a"}
+    assert reply == {"text": "", "mentions": [], "audio": "risa.m4a", "sticker": None}
 
 
 def test_m_tags_someone_when_the_dice_say_so(client, audios_dir, audio_probability):
