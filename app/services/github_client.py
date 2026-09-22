@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 import httpx
+from cachetools import TTLCache
 
 logger = logging.getLogger("tox.github")
 
@@ -226,8 +227,45 @@ def fetch_issues(client: httpx.Client, repo: Repo) -> RepoResult:
     return RepoResult(repo, issues, more=len(raw) >= PER_PAGE)
 
 
+# Per (repo, kind) — a burst of !github calls (or one query matching several repos) shares one entry per
+# repo, and only the entries that actually expired are re-fetched. cachetools.TTLCache isn't thread-safe
+# on its own (per its docs), hence the lock around every access. Only successful results are cached, so a
+# transient GitHub failure is retried on the very next call instead of sticking for an hour.
+CACHE_TTL_SECONDS = 3600
+_cache: TTLCache = TTLCache(maxsize=256, ttl=CACHE_TTL_SECONDS)
+_cache_lock = threading.Lock()
+
+
+def reset_cache() -> None:
+    """For tests: drops every cached repo result."""
+    with _cache_lock:
+        _cache.clear()
+
+
+def _cache_key(repo: Repo, kind: str) -> tuple[str, str]:
+    return (repo.full, kind)
+
+
 def fetch_all(client: httpx.Client, repos: list[Repo], kind: str) -> list[RepoResult]:
-    """Every repo in parallel; one failing repo doesn't affect the others."""
+    """Every repo not already cached is fetched in parallel; one failing repo doesn't affect the others."""
     fetch = fetch_pull_requests if kind == "pulls" else fetch_issues
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        return list(pool.map(lambda repo: fetch(client, repo), repos))
+    results: dict[Repo, RepoResult] = {}
+    to_fetch: list[Repo] = []
+    with _cache_lock:
+        for repo in repos:
+            cached = _cache.get(_cache_key(repo, kind))
+            if cached is not None:
+                results[repo] = cached
+            else:
+                to_fetch.append(repo)
+
+    if to_fetch:
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            fetched = dict(zip(to_fetch, pool.map(lambda repo: fetch(client, repo), to_fetch)))
+        with _cache_lock:
+            for repo, result in fetched.items():
+                if result.error is None:
+                    _cache[_cache_key(repo, kind)] = result
+        results.update(fetched)
+
+    return [results[repo] for repo in repos]

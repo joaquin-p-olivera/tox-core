@@ -39,6 +39,7 @@ def hub(monkeypatch, settings):
     object.__setattr__(settings, "GITHUB_TOKEN", "")
     object.__setattr__(settings, "GITHUB_TOKEN_FROM_GH", False)
     gc.reset_token_cache()
+    gc.reset_cache()
 
     def handler(request: httpx.Request) -> httpx.Response:
         fake.requests.append(request)
@@ -388,6 +389,37 @@ def test_the_empty_count_only_includes_repos_that_were_read(send, hub):
     hub.fail["acme/proj-api"] = 500          # 1 of 4 fails, the 3 others have nothing open
     text = ask(send)
     assert text.splitlines()[0] == "✅ Sin PRs abiertos en 3 repos" and "⚠️ acme/proj-api: GitHub respondió 500." in text
+
+
+# ---- caching (1 hour, per repo + kind) -----------------------------------------------------------
+
+def test_a_second_call_is_served_from_cache(send, hub):
+    hub.pulls["acme/proj-api"] = [pr(1)]
+    ask(send, "!github acme/proj-api")
+    calls_after_first = len(hub.requests)
+    ask(send, "!github acme/proj-api")
+    assert len(hub.requests) == calls_after_first, "no new request on the second call"
+
+
+def test_a_failed_fetch_is_not_cached(send, hub):
+    hub.fail["acme/proj-api"] = 500
+    ask(send, "!github acme/proj-api")
+    calls_after_failure = len(hub.requests)
+    hub.fail.clear()
+    hub.pulls["acme/proj-api"] = [pr(1)]
+    assert "📦" in ask(send, "!github acme/proj-api"), "a retried call must succeed, not reuse the failure"
+    assert len(hub.requests) > calls_after_failure
+
+
+def test_cache_is_scoped_by_repo_and_by_kind(send, hub):
+    hub.pulls["acme/proj-api"] = [pr(1)]
+    hub.pulls["acme/proj-web"] = [pr(2)]
+    hub.issues["acme/proj-api"] = [issue(3)]
+    ask(send, "!github acme/proj-api")           # caches (proj-api, pulls)
+    before_others = len(hub.requests)
+    ask(send, "!github acme/proj-web")           # different repo: must still hit the network
+    ask(send, "!github acme/proj-api -i")        # same repo, different kind: must still hit the network
+    assert len(hub.requests) > before_others
 
 
 # ---- safety -------------------------------------------------------------------------------------
