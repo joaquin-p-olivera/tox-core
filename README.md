@@ -421,6 +421,41 @@ about 12-20), so give it credentials. **Private repos need them**, by either of 
 
 The token is never shown in any reply. The API needs a restart to read a changed `.env`.
 
+## Proactive alerts
+
+The API can message a chat on its own, with no command behind it. Today the only source is a background health
+check on local services (the same ones `!service -L` looks at):
+
+```
+[ALERTA] 🔴 trip-trace-telegram-bot: caído, revisar (falló).
+```
+
+```
+[ALERTA] 🟢 trip-trace-telegram-bot: se recuperó (activo).
+```
+
+Every `ALERT_CHECK_INTERVAL_SECONDS`, the API checks the services listed in `ALERT_SERVICES` (comma-separated
+names from `services.json`) exactly like `!service -L <name>` would, and remembers the last state of each. A
+message is only sent on a **change**: going down sends one alert, staying down sends nothing more, and
+recovering sends exactly one more. A service already down the very first time the API starts stays silent
+(nothing was ever told to be down), but from then on every change is reported. When the service defines
+`info` (and optionally `last_usage`) in `services.json`, the alert also includes the same extra lines
+`!service -L <name>` shows (since when up/down, memory, CPU, restarts) — fetched only for the one alert
+being sent, not on every check.
+
+Alerts are queued in the database, one row per destination chat, and each bot picks its own up by polling
+`GET /api/v1/alerts/pending?platform=...` (fetch-and-delete, so nothing is ever sent twice). Bots are still
+thin forwarders: the alert logic (what to check, when it counts as a change) lives entirely in the API, the
+same as every command.
+
+**Setup.** In `.env`:
+- `ALERT_SERVICES`: comma-separated names from `services.json`. Empty (default) = the whole feature is off.
+- `ALERT_CHECK_INTERVAL_SECONDS` (default 300, i.e. 5 min).
+- `ALERT_WHATSAPP_GROUP_JIDS` / `ALERT_TELEGRAM_CHAT_IDS`: comma-separated destinations, same ids `!whoami`
+  or `ALLOWED_GROUP_JIDS`/`ALLOWED_CHAT_IDS` use. Both are independent: set either, both, or neither per
+  platform. Each bot also has its own `ALERTS_POLL_INTERVAL_SECONDS` / `ALERTS_POLL_INTERVAL_MS` (default
+  ~30 s) controlling how quickly it notices a queued alert — unrelated to how often the API itself checks.
+
 ## Adding a command
 
 Create a handler in `app/commands/` and decorate it — it appears in `!help` automatically:

@@ -57,6 +57,13 @@ class Settings(BaseSettings):
     # Wall-clock ceiling for one !voz call: network synthesis + the ffmpeg conversion to Ogg/Opus.
     # Edge TTS's own timeouts aren't fully reliable (observed hangs past them), so this is enforced separately.
     TTS_TIMEOUT_SECONDS: int = Field(default=20, ge=5, le=60)
+    # Proactive alerts: a background check on a fixed list of LOCAL services (from SERVICES_FILE, by name,
+    # comma-separated). Empty = the feature is off. A service going down/up sends exactly one message per
+    # transition (not one per check) to every chat below; nobody has to ask !service for it.
+    ALERT_SERVICES: str = ""
+    ALERT_CHECK_INTERVAL_SECONDS: int = Field(default=300, ge=30, le=3600)
+    ALERT_WHATSAPP_GROUP_JIDS: str = ""
+    ALERT_TELEGRAM_CHAT_IDS: str = ""
 
     @property
     def host_ignored_units(self) -> frozenset[str]:
@@ -67,9 +74,26 @@ class Settings(BaseSettings):
         """Admin identities as "platform:user_id" (same shape as IncomingMessage.user_key)."""
         return frozenset(item.strip() for item in self.ADMIN_USER_IDS.split(",") if item.strip())
 
+    def admin_ids_for(self, platform: str) -> list[str]:
+        """Admin user ids of one platform only, e.g. for tagging them in a proactive alert."""
+        prefix = f"{platform}:"
+        return [key[len(prefix):] for key in self.admin_user_keys if key.startswith(prefix)]
+
     @property
     def command_prefixes_list(self) -> List[str]:
         return [p.strip() for p in self.COMMAND_PREFIXES.split(",") if p.strip()]
+
+    @property
+    def alert_services_list(self) -> list[str]:
+        return [item.strip() for item in self.ALERT_SERVICES.split(",") if item.strip()]
+
+    @property
+    def alert_whatsapp_group_jids(self) -> list[str]:
+        return [item.strip() for item in self.ALERT_WHATSAPP_GROUP_JIDS.split(",") if item.strip()]
+
+    @property
+    def alert_telegram_chat_ids(self) -> list[str]:
+        return [item.strip() for item in self.ALERT_TELEGRAM_CHAT_IDS.split(",") if item.strip()]
 
 
 @lru_cache

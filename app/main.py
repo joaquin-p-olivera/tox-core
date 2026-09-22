@@ -5,8 +5,9 @@ from fastapi import FastAPI
 
 from .config import get_settings
 from .database import SessionLocal, init_db
+from .services.alert_monitor import AlertMonitor
 from .services.host_sampler import HostSampler
-from .routers import audios, messages, stickers
+from .routers import alerts, audios, messages, stickers
 
 settings = get_settings()
 
@@ -27,9 +28,12 @@ async def lifespan(app: FastAPI):
     init_db()
     sampler = HostSampler(SessionLocal, settings.HOST_SAMPLE_INTERVAL_SECONDS, settings.HOST_HISTORY_DAYS)
     sampler.start()  # a no-op when HOST_SAMPLE_INTERVAL_SECONDS=0
+    monitor = AlertMonitor(SessionLocal, settings)
+    monitor.start()  # a no-op when ALERT_SERVICES is empty
     logger.info("tox API started (env=%s)", settings.APP_ENV)
     yield
     sampler.stop()
+    monitor.stop()
 
 
 app = FastAPI(title="Tox API", lifespan=lifespan)
@@ -43,3 +47,4 @@ def health_check():
 app.include_router(messages.router)
 app.include_router(audios.router)
 app.include_router(stickers.router)
+app.include_router(alerts.router)
