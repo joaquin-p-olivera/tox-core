@@ -4,6 +4,7 @@ import os
 # The database is in-memory so the tests never touch the development database file.
 os.environ["API_KEY"] = "test-key"
 os.environ["DATABASE_URL"] = "sqlite://"
+os.environ["HOST_SAMPLE_INTERVAL_SECONDS"] = "0"  # no background sampler thread in tests
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,8 +20,20 @@ API_KEY = "test-key"
 
 
 @pytest.fixture
-def settings() -> Settings:
-    return Settings(API_KEY=API_KEY, TRIVIA_TIMEOUT_SECONDS=60)
+def audios_dir(tmp_path):
+    """An empty audio folder per test, so the developer's real audios never leak into the tests."""
+    path = tmp_path / "audios"
+    path.mkdir()
+    return path
+
+
+@pytest.fixture
+def settings(audios_dir, tmp_path) -> Settings:
+    # SERVICES_FILE points at a per-test file that doesn't exist yet: the developer's real services.json
+    # must never be reachable from the tests.
+    return Settings(_env_file=None, API_KEY=API_KEY, TRIVIA_TIMEOUT_SECONDS=60,
+                    ADMIN_USER_IDS="whatsapp:admin1@lid, telegram:99", AUDIOS_DIR=str(audios_dir),
+                    SERVICES_FILE=str(tmp_path / "services.json"), SERVICE_COMMAND_TIMEOUT_SECONDS=2)
 
 
 @pytest.fixture

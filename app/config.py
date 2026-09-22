@@ -2,6 +2,7 @@ import os
 from functools import lru_cache
 from typing import List
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +23,43 @@ class Settings(BaseSettings):
     TRIVIA_TIMEOUT_SECONDS: int = 60
     COMMAND_PREFIXES: str = "!,/"
     LOG_LEVEL: str = "INFO"
+    ADMIN_USER_IDS: str = ""
+    # Folder with the sound clips !m can send (relative paths resolve against the working directory).
+    # If it is missing or empty, !m simply always tags someone.
+    AUDIOS_DIR: str = "media/m"
+    # Chance (0-1) that !m sends a random audio instead of tagging someone
+    M_AUDIO_PROBABILITY: float = Field(default=0.5, ge=0, le=1)
+    # API key for the admin-only !service status command (read-only use). Empty = disabled.
+    RENDER_API_KEY: str = ""
+    # Local services the admin-only `!service -L` may start/stop/query: an allowlist in a JSON file
+    SERVICES_FILE: str = "services.json"
+    # Keep this below the bots' API timeout (10 s by default) so the chat gets an answer
+    SERVICE_COMMAND_TIMEOUT_SECONDS: int = Field(default=8, ge=1, le=60)
+    # Failed systemd units that `!service -L pc` should not count as a problem (comma-separated), e.g. harmless leftovers
+    HOST_IGNORED_UNITS: str = ""
+    # `!github` (admin only): the repos it may look at, comma-separated "owner/name" or GitHub URLs, and a read-only token.
+    # The token is optional for public repos (60 requests/hour without it) and required for private ones.
+    GITHUB_REPOS: str = ""
+    GITHUB_TOKEN: str = ""
+    # When GITHUB_TOKEN is empty, take the token of the GitHub CLI session (`gh auth login`) instead. Handy, but that token
+    # usually has broad scopes; a fine-grained read-only GITHUB_TOKEN is the safer choice.
+    GITHUB_TOKEN_FROM_GH: bool = False
+    GITHUB_TIMEOUT_SECONDS: int = Field(default=5, ge=1, le=8)
+    # The API records CPU, memory, temperature and battery of this machine every N seconds (0 = off) to show peaks and
+    # battery trends in `!service -L host`. Samples older than HOST_HISTORY_DAYS are deleted.
+    HOST_SAMPLE_INTERVAL_SECONDS: int = Field(default=60, ge=0, le=3600)
+    HOST_HISTORY_DAYS: int = Field(default=7, ge=1, le=90)
+    # Per request. Keep the total (list + deploys, roughly 2x this) below the bots' API timeout (10 s).
+    RENDER_API_TIMEOUT_SECONDS: int = Field(default=4, ge=1, le=8)
+
+    @property
+    def host_ignored_units(self) -> frozenset[str]:
+        return frozenset(item.strip() for item in self.HOST_IGNORED_UNITS.split(",") if item.strip())
+
+    @property
+    def admin_user_keys(self) -> frozenset[str]:
+        """Admin identities as "platform:user_id" (same shape as IncomingMessage.user_key)."""
+        return frozenset(item.strip() for item in self.ADMIN_USER_IDS.split(",") if item.strip())
 
     @property
     def command_prefixes_list(self) -> List[str]:

@@ -8,6 +8,11 @@ class Participant(BaseModel):
 
     user_id: str = Field(min_length=1)
     user_name: str | None = None
+    aliases: list[str] = Field(
+        default_factory=list,
+        max_length=8,
+        description="Other IDs of the same person (WhatsApp: LID and phone number). Used to match mutes.",
+    )
 
 
 class IncomingMessage(BaseModel):
@@ -48,8 +53,12 @@ class Reply(BaseModel):
     """One chat message to send. ``{@0}``, ``{@1}``... in ``text`` are replaced by the bot with
     a real mention of ``mentions[0]``, ``mentions[1]``..., rendered in the platform's own way."""
 
-    text: str
+    text: str = ""
     mentions: list[Mention] = Field(default_factory=list)
+    audio: str | None = Field(
+        default=None,
+        description="Name of an audio to send instead of text; the bot downloads it from GET /api/v1/audios/{name}.",
+    )
 
 
 class MessageResponse(BaseModel):

@@ -26,22 +26,22 @@ def test_m_mentions_a_participant_other_than_the_sender(client):
 
 
 def test_m_without_participants_uses_users_seen_in_the_chat(client):
-    raw(client, "!ping", user="u2", name="Bob")
-    raw(client, "!ping", user="u3", name="Carla")
+    raw(client, "!id", user="u2", name="Bob")
+    raw(client, "!id", user="u3", name="Carla")
     (reply,) = raw(client, "!m", user="u1", name="Alice")
     assert reply["mentions"][0]["user_id"] in ("u2", "u3")
 
 
 def test_seen_users_are_per_chat(client):
-    raw(client, "!ping", user="u2", name="Bob", chat="other-chat")
+    raw(client, "!id", user="u2", name="Bob", chat="other-chat")
     (reply,) = raw(client, "!m", user="u1", chat="g1")
     assert reply["mentions"] == []
-    assert reply["text"] == "Todavía no conozco a nadie más en este chat para etiquetar."
+    assert reply["text"] == "No tengo a nadie para etiquetar todavía (o están todos en mute)."
 
 
 def test_m_alone_in_the_chat(client):
     (reply,) = raw(client, "!m", participants=[{"user_id": "u1", "user_name": "Alice"}])
-    assert reply["mentions"] == [] and "Todavía no conozco" in reply["text"]
+    assert reply["mentions"] == [] and "No tengo a nadie" in reply["text"]
 
 
 def test_m_in_private_chat(client):
@@ -50,18 +50,19 @@ def test_m_in_private_chat(client):
 
 
 def test_m_works_on_telegram_too(client):
-    raw(client, "/ping", user="10", name="Bob", platform="telegram")
+    raw(client, "/id", user="10", name="Bob", platform="telegram")
     (reply,) = raw(client, "/m@tox_bot", user="11", name="Alice", platform="telegram")
     assert reply["mentions"] == [{"user_id": "10", "user_name": "Bob"}]
 
 
 def test_plain_replies_have_no_mentions(client):
-    assert raw(client, "!ping") == [{"text": "pong", "mentions": []}]
+    (reply,) = raw(client, "!uuid")
+    assert reply["mentions"] == [] and reply["audio"] is None and len(reply["text"]) == 36
 
 
 @pytest.mark.parametrize("name_change", ["Alicia", None])
 def test_seen_user_name_is_kept_up_to_date(client, name_change):
-    raw(client, "!ping", user="u2", name="Bob")
-    raw(client, "!ping", user="u2", name=name_change)
+    raw(client, "!id", user="u2", name="Bob")
+    raw(client, "!id", user="u2", name=name_change)
     (reply,) = raw(client, "!m", user="u1")
     assert reply["mentions"][0]["user_name"] == (name_change or "Bob")

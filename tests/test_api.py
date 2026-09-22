@@ -1,6 +1,6 @@
 from .conftest import API_KEY
 
-PAYLOAD = {"platform": "whatsapp", "chat_id": "g", "user_id": "u", "text": "!ping"}
+PAYLOAD = {"platform": "whatsapp", "chat_id": "g", "user_id": "u", "text": "!uuid"}
 
 
 def test_health(client):
@@ -19,7 +19,8 @@ def test_rejects_wrong_api_key(client):
 def test_accepts_valid_api_key(client):
     response = client.post("/api/v1/messages", json=PAYLOAD, headers={"X-API-Key": API_KEY})
     assert response.status_code == 200
-    assert response.json() == {"replies": [{"text": "pong", "mentions": []}]}
+    (reply,) = response.json()["replies"]
+    assert len(reply["text"]) == 36 and reply["mentions"] == [] and reply["audio"] is None
 
 
 def test_validates_payload(client):

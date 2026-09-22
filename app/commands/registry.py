@@ -24,6 +24,10 @@ class CommandContext:
     db: Session
     settings: Settings
 
+    @property
+    def is_admin(self) -> bool:
+        return self.message.user_key in self.settings.admin_user_keys
+
 
 HandlerResult = str | Reply | list[str | Reply] | None
 Handler = Callable[[CommandContext], HandlerResult]
@@ -37,6 +41,7 @@ class Command:
     usage: str
     aliases: tuple[str, ...]
     category: str
+    admin_only: bool = False
 
 
 _COMMANDS: dict[str, Command] = {}  # keyed by name and by every alias
@@ -49,6 +54,7 @@ def command(
     usage: str | None = None,
     aliases: Sequence[str] = (),
     category: str = "General",
+    admin_only: bool = False,
 ) -> Callable[[Handler], Handler]:
     def decorator(handler: Handler) -> Handler:
         cmd = Command(
@@ -58,6 +64,7 @@ def command(
             usage=usage or name,
             aliases=tuple(aliases),
             category=category,
+            admin_only=admin_only,
         )
         for token in (name, *aliases):
             if token in _COMMANDS:

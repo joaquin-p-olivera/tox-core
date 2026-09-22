@@ -25,7 +25,7 @@ def parse_command(text: str, prefixes: list[str]) -> tuple[str, str, str] | None
         if not rest or rest[0].isspace():
             return None
         parts = rest.split(maxsplit=1)
-        # Telegram appends the bot username in groups: "/ping@tox_bot".
+        # Telegram appends the bot username in groups: "/chiste@tox_bot".
         token = parts[0].split("@", 1)[0].lower()
         if not _COMMAND_TOKEN.match(token):
             return None
@@ -55,6 +55,9 @@ def handle_message(message: IncomingMessage, db: Session, settings: Settings) ->
         db=db,
         settings=settings,
     )
+    if cmd.admin_only and not ctx.is_admin:
+        return [Reply(text="Este comando es solo para administradores.")]
+
     try:
         result = cmd.handler(ctx)
     except Exception:

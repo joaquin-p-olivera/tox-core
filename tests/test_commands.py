@@ -1,14 +1,14 @@
 import re
 
 
-def test_ping_both_prefixes(send):
-    assert send("!ping") == ["pong"]
-    assert send("/ping") == ["pong"]
-
-
 def test_non_command_and_unknown_command_are_silent(send):
     assert send("buen día") == []
     assert send("!nolaconozco") == []
+
+
+def test_removed_commands_are_gone(send):
+    for text in ("!ping", "/ping", "!p", "!moneda", "!cara"):
+        assert send(text) == [], text
 
 
 def test_old_english_command_names_are_gone(send):
@@ -22,9 +22,22 @@ def test_chiste(send):
         assert len(replies) == 1 and replies[0]
 
 
+def test_jokes_are_general_not_about_software():
+    """Guards the content: the user asked for generic jokes only, no programming or gaming ones."""
+    from app.services.content import load_json
+
+    jokes = load_json("jokes.json")
+    assert len(jokes) == len(set(jokes)) and len(jokes) >= 25
+    forbidden = ("bug", "código", "codigo", "programa", "software", "hardware", "sql", "git", "windows",
+                 "gamer", "jefe final", "feature", "udp", "caché", "cache", "binario", "array", "qa ", "java", "python")
+    for joke in jokes:
+        lowered = joke.lower()
+        assert not any(word in lowered for word in forbidden), joke
+
+
 def test_ayuda_lists_every_category_in_spanish(send):
     (text,) = send("!ayuda")
-    for expected in ("Comandos disponibles", "!ping", "!chiste", "!trivia", "!dado", "!m",
+    for expected in ("Comandos disponibles", "!chiste", "!trivia", "!dado", "!m",
                      "!uuid", "General", "Diversión", "Juegos", "Herramientas"):
         assert expected in text
     assert text.index("General") < text.index("Diversión") < text.index("Juegos") < text.index("Herramientas")
@@ -36,7 +49,7 @@ def test_help_alias_still_works(send):
 
 def test_ayuda_uses_the_prefix_the_user_typed(send):
     (text,) = send("/ayuda")
-    assert "/ping" in text and "!ping" not in text
+    assert "/chiste" in text and "!chiste" not in text
 
 
 def test_ayuda_for_one_command(send):
@@ -56,10 +69,6 @@ def test_dado_rejects_bad_input(send):
     assert send("!dado banana")[0].startswith("Uso:")
     assert send("!dado 99d6")[0].startswith("Usá entre 1 y")
     assert send("!dado 1d1")[0].startswith("Usá entre 1 y")
-
-
-def test_moneda(send):
-    assert send("!moneda")[0] in ("🪙 Cara", "🪙 Cruz")
 
 
 def test_elegir(send):

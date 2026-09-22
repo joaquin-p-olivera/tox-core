@@ -2,7 +2,7 @@ import random
 import re
 
 from ..schemas import Mention, Reply
-from ..services import chat_members
+from ..services import audio_library, audio_picker, chat_members
 from ..services.content import load_json
 from .registry import CommandContext, command
 
@@ -42,11 +42,6 @@ def roll(ctx: CommandContext) -> str:
     return f"🎲 {' + '.join(map(str, rolls))} = {sum(rolls)} ({count}d{sides})"
 
 
-@command("moneda", description="Tira una moneda", aliases=("cara",), category=CATEGORY)
-def flip(ctx: CommandContext) -> str:
-    return f"🪙 {random.choice(['Cara', 'Cruz'])}"
-
-
 @command(
     "elegir",
     description="Elige una opción al azar. Separalas con | o ,",
@@ -65,15 +60,21 @@ def choose(ctx: CommandContext) -> str:
 
 @command(
     "m",
-    description="Pregunta por la mamá de alguien del grupo, elegido al azar",
+    description="Pregunta por la mamá de alguien del grupo (o manda un audio), al azar",
     category=CATEGORY,
 )
 def mother(ctx: CommandContext) -> str | Reply:
     if not ctx.message.is_group:
         return "Este comando es para grupos."
+
+    audios = audio_library.list_audios(ctx.settings.AUDIOS_DIR)
     target = chat_members.pick_random_other(ctx.db, ctx.message)
+
+    # Audio when the dice say so, or when there's nobody to tag but we still have something to send.
+    if audios and (target is None or random.random() < ctx.settings.M_AUDIO_PROBABILITY):
+        return Reply(audio=audio_picker.pick_audio(ctx.db, ctx.message.chat_key, audios).name)
     if target is None:
-        return "Todavía no conozco a nadie más en este chat para etiquetar."
+        return "No tengo a nadie para etiquetar todavía (o están todos en mute)."
     return Reply(
         text="y tu mamá donde está? {@0}",
         mentions=[Mention(user_id=target.user_id, user_name=target.user_name)],

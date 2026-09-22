@@ -15,3 +15,10 @@ __pycache__/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Downloaded media (e.g. media/m: the sound clips for !m) is local content: never tracked
+media/
+
+# Which commands the bot may run on this machine is local configuration (only the example is tracked)
+services.json
+

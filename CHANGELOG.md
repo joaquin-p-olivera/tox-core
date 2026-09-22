@@ -12,8 +12,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Initial FastAPI scaffold: settings (`.env` / `.env.prod` selected by `APP_ENV`), SQLite database, API key authentication (`X-API-Key`), `/health`.
 - `POST /api/v1/messages`: platform-agnostic entry point the bots forward chat messages to.
 - Command framework with decorator-based registry, `!` and `/` prefixes, aliases and an auto-generated `!help`.
-- Commands, all in Spanish: `ping`, `ayuda`, `id`, `chiste`, `dado`, `moneda`, `elegir`, `m`, `uuid`, `base64`, `http`.
+- Commands, all in Spanish: `ayuda`, `id`, `chiste`, `dado`, `elegir`, `m`, `uuid`, `base64`, `http`.
+- Developer tools: `hash`, `json`, `url`, `base`.
+- Jokes are general only (general, dark and spicy); no programming or gaming jokes.
 - `m`: asks `y tu mamá donde está?` and mentions a random chat member other than the sender.
 - Replies can carry `mentions` (`{@0}` placeholders) and messages can carry the chat's `participants`; users seen in a chat are remembered as a fallback member list.
+- `m` also sends a random audio from `media/m` (`AUDIOS_DIR`, `M_AUDIO_PROBABILITY`); skipped when the folder is missing or empty. `GET /api/v1/audios/{name}` serves the clips to the bots; `media/` is git-ignored.
+- `m` never repeats the same audio twice in a row in a chat (last audio remembered per chat in `last_audios`).
+- `mute`: toggles whether the sender can be tagged in the chat. Muted users are excluded from `m` and any future tagging command (`taggable_members`).
+- `service` (admin only): shows whether the hosted services and databases (Postgres, key-value) are up, or one in detail (status, region, last deploys, panel link, database expiry), using the provider's read-only REST API (`RENDER_API_KEY`). Names matching several resources list them all. The detail also shows memory and CPU of the last hour (provider metrics API; 💤 when there are none, i.e. probably asleep), only the last 2 deploys, and each deploy ends with a short local date and time.
+- `service -L` (admin only): query (default), start (`-up`) or stop (`-down`) the local services of this PC from an allowlist (`services.json`), without a shell, with a timeout and an audit log entry per action.
+- `service -L <name>` shows a detailed status when the service defines `info` / `last_usage`: since when it is up or down, memory, CPU (now, average, total) and the last run's usage. A stopped service now shows 🔴.
+- `service -L` with no service name prints a one-line usage instead of listing the services. An unknown name reports configuration problems of `services.json`, if any.
+- `service -L host` (or `master`): read-only report of the machine the API runs on: uptime, CPU (load, per-core usage, model, frequency, thermal throttling), temperature, memory, swap, disks, battery (level, plug, health, autonomy or time to full), biggest memory users, failed units, pending reboot and remote sessions. A background sampler (`HOST_SAMPLE_INTERVAL_SECONDS`, `HOST_HISTORY_DAYS`) records vitals in `host_samples` to show peaks and battery trends.
+- `github` / `gh` (admin only): open PRs (`-r`, the default) or issues (`-i`) of one repo of `GITHUB_REPOS` (a name or part of it; a repo is required, `!github` alone prints a usage helper). PRs show author, assignees, days open, commit count, draft/open, head → base branch and link, most days open first; issues show number, title and assignee. Read-only GitHub REST calls; private repos through `GITHUB_TOKEN` or the `gh` CLI session (`GITHUB_TOKEN_FROM_GH`).
+- Admin-only commands are hidden from `ayuda` for non-admins.
+- Admin support: `ADMIN_USER_IDS` setting, `@command(admin_only=True)`, and `!id` shows the caller's role.
 - Multiplayer trivia game (`trivia`, `responder`, `ranking`) with 72 questions in 7 categories (general knowledge, Uruguay and games) and a per-chat leaderboard.
 - Test suite (pytest) covering the router, every command, the trivia rules and API authentication.

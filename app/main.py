@@ -4,8 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from .config import get_settings
-from .database import init_db
-from .routers import messages
+from .database import SessionLocal, init_db
+from .services.host_sampler import HostSampler
+from .routers import audios, messages
 
 settings = get_settings()
 
@@ -24,8 +25,11 @@ async def lifespan(app: FastAPI):
             'python3 -c "import secrets; print(secrets.token_urlsafe(32))"'
         )
     init_db()
+    sampler = HostSampler(SessionLocal, settings.HOST_SAMPLE_INTERVAL_SECONDS, settings.HOST_HISTORY_DAYS)
+    sampler.start()  # a no-op when HOST_SAMPLE_INTERVAL_SECONDS=0
     logger.info("tox API started (env=%s)", settings.APP_ENV)
     yield
+    sampler.stop()
 
 
 app = FastAPI(title="Tox API", lifespan=lifespan)
@@ -37,3 +41,4 @@ def health_check():
 
 
 app.include_router(messages.router)
+app.include_router(audios.router)
