@@ -94,6 +94,9 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `dado [NdM \| M]`                      | `dados`                    | Dice, default `1d6` (e.g. `2d6`, `d20`, `20`)             |
 | `elegir a \| b \| c`                   |                            | Picks one option (separate with `\|` or `,`)              |
 | `m`                                    |                            | Randomly: `y tu mamá donde está? @someone` (never the sender) or a random audio from `media/m` |
+| `risa`                                 |                            | Sends a random laugh audio from `media/risa`               |
+| `futbol <país>`                        | `fut`                      | This week's fixtures for Uruguay/Ecuador/Argentina/España's top league |
+| `tabla <país>`                         |                            | The current standings table, as an image                  |
 | `trivia [categoría]`                   | `preguntas`                | Starts a multiplayer trivia question                      |
 | `responder <A-D>`                      | `a`, `b`, `c`, `d`         | Answers the open question (`!b` is a shortcut)            |
 | `ranking`                              | `top`, `puntajes`          | Per-chat trivia leaderboard                               |
@@ -129,12 +132,19 @@ mkdir -p media/originals
 ffmpeg -i media/originals/1.m4a -vn -map_metadata -1 -c:a libopus -b:a 48k -ar 48000 -ac 1 -application voip media/m/1.ogg
 ```
 
-### `!sticker` and `!voz`: generated media
+### `!risa`
 
-Both generate content on the fly and hand it to the bots as ordinary bytes over HTTP — nothing is ever written to
-disk. `app/services/media_cache.py` is a short-lived, in-memory (RAM only) store: a command renders the bytes once,
+Same mechanism as `!m`'s audio branch (`audio_library` + `audio_picker`), but its own folder (`media/risa`,
+`RISA_AUDIOS_DIR`) and its own "last sent" history per chat, so it never interferes with `!m`'s. If the folder
+is missing or empty, it says so instead of failing silently.
+
+### `!sticker`, `!voz` and `!tabla`: generated media
+
+All three generate content on the fly and hand it to the bots as ordinary bytes over HTTP — nothing is ever written
+to disk. `app/services/media_cache.py` is a short-lived, in-memory (RAM only) store: a command renders the bytes once,
 keeps them there for `MEDIA_CACHE_SECONDS` (default 120 s — only needs to outlive the bot's own download, right after
 the reply), and they're gone. If the API restarts before a bot fetches one, it's simply lost; the chat can just ask again.
+`!tabla`'s table image (`GET /api/v1/images/{id}`) reuses this same cache, alongside stickers and TTS audio.
 
 **`!sticker <texto>`** renders a classic meme-style sticker (`app/services/sticker_generator.py`, via Pillow): a
 512×512 WEBP, white background, bold black text, centered and auto-wrapped to fit (up to 200 characters). The reply
@@ -375,6 +385,53 @@ data, an invented power draw) to compute peaks from, which is why the API keeps 
 **Installing a program as a user service** (what `trip-trace-telegram-bot` uses): put a unit in `~/.config/systemd/user/`, then
 `systemctl --user daemon-reload && systemctl --user enable --now <name>.service`, and `loginctl enable-linger $USER` so it also starts
 at boot without logging in. Logs: `journalctl --user -u <name> -f`.
+
+## Football: `futbol` / `fut` and `tabla`
+
+```
+!futbol uruguay  → this week's fixtures for Uruguay's top league
+!fut espana      → "fut" is the same command as "futbol"; "espana"/"spain" both work
+!tabla argentina → the current standings table, sent as an image
+```
+
+Covers exactly 4 countries: Uruguay, Ecuador, Argentina and España (any spelling: accents/case don't matter,
+and "spain" is accepted too). Anything else prints the 4 valid names, no request made.
+
+```
+⚽ Fixtures — Uruguay
+• Peñarol 1-2 Nacional (finalizado)
+• Danubio vs Defensor Sporting — sáb 26/09 18:00
+```
+
+Fixtures are chronological, covering a rolling window around today (fixture rounds don't line up with
+calendar weeks, so this isn't a strict Mon-Sun cut).
+
+`!tabla` sends the standings as an **image** (`app/services/table_image.py`, Pillow — no new dependency),
+not text: a title, a header row and one row per team, each real zone/group (confirmed for Argentina's
+"Zona A"/"Zona B" this season) as its own labelled block. If rendering fails for any reason, it falls
+back to a plain-text table instead of breaking the command. The image itself isn't cached separately —
+the standings data already is, and drawing it from that data takes well under a second even for the
+largest table (Argentina's 30 rows), so another cache layer wouldn't be worth the complexity.
+
+A league can also split its year into several stages (confirmed real for Uruguay: Apertura → Intermedio
+→ Clausura → playoffs, each with its own table). `!tabla` asks ESPN which stage is current instead of
+assuming one, and falls back to the regular-season stage if the current one doesn't have a table yet
+(happens right when a new stage starts).
+
+**No API key needed.** It uses ESPN's own public JSON API (the same one espn.com's site calls), which is
+undocumented but needs no credentials and does have the current season. **API-Football was tried first**
+(see `app/services/football_client.py`'s docstring) but its free plan turned out to only allow seasons
+2022-2024 — useless for "this week"'s matches — so it was dropped entirely.
+
+**Caching.** Same idea as `!github`'s (`app/services/github_client.py`): a `cachetools.TTLCache`, keyed
+by (country, fixtures/table), only successful results cached. `FOOTBALL_CACHE_TTL_SECONDS` (default 24 h)
+is much longer than GitHub's hardcoded hour, since there's no per-call cost to worry about here (ESPN's
+endpoint publishes no quota) — it's purely about not hammering an undocumented API and keeping the
+command fast; lower it in `.env` for fresher scores during a matchday. It's in-memory only, like every
+other cache in this app: an API restart clears it.
+
+Being unofficial, ESPN's API could change or disappear without notice — if `!futbol` starts failing, that
+module is the one to look at first.
 
 ## GitHub PRs and issues (`github` or `gh`, admin only)
 

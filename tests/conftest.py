@@ -28,11 +28,20 @@ def audios_dir(tmp_path):
 
 
 @pytest.fixture
-def settings(audios_dir, tmp_path) -> Settings:
+def risa_audios_dir(tmp_path):
+    """Same idea as audios_dir, but for !risa's own folder."""
+    path = tmp_path / "risa-audios"
+    path.mkdir()
+    return path
+
+
+@pytest.fixture
+def settings(audios_dir, risa_audios_dir, tmp_path) -> Settings:
     # SERVICES_FILE points at a per-test file that doesn't exist yet: the developer's real services.json
     # must never be reachable from the tests.
     return Settings(_env_file=None, API_KEY=API_KEY, TRIVIA_TIMEOUT_SECONDS=60,
                     ADMIN_USER_IDS="whatsapp:admin1@lid, telegram:99", AUDIOS_DIR=str(audios_dir),
+                    RISA_AUDIOS_DIR=str(risa_audios_dir),
                     SERVICES_FILE=str(tmp_path / "services.json"), SERVICE_COMMAND_TIMEOUT_SECONDS=2)
 
 

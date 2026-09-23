@@ -7,7 +7,7 @@ from .config import get_settings
 from .database import SessionLocal, init_db
 from .services.alert_monitor import AlertMonitor
 from .services.host_sampler import HostSampler
-from .routers import alerts, audios, messages, stickers
+from .routers import alerts, audios, images, messages, stickers
 
 settings = get_settings()
 
@@ -48,3 +48,4 @@ app.include_router(messages.router)
 app.include_router(audios.router)
 app.include_router(stickers.router)
 app.include_router(alerts.router)
+app.include_router(images.router)

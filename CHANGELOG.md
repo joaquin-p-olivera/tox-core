@@ -40,3 +40,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   polls its own with `GET /api/v1/alerts/pending?platform=...` (fetch-and-delete, at-most-once delivery).
 - The alert message includes the same extra detail as `!service -L <name>` (since when up/down, memory,
   CPU, restarts) when the service defines `info` in `services.json`.
+- `risa`: sends a random laugh audio from `media/risa` (`RISA_AUDIOS_DIR`), reusing `!m`'s audio machinery
+  (`audio_library`, `audio_picker`, `GET /api/v1/audios/{name}`) but with its own folder and its own
+  per-chat "last sent" history, independent of `!m`'s.
+- `futbol` / `fut <país>`: this week's fixtures for Uruguay/Ecuador/Argentina/España's top league, via
+  ESPN's public API (no key needed). API-Football was tried first but its free plan doesn't cover the
+  current season, only 2022-2024, so it was dropped.
+- `tabla <país>`: the current standings table, sent as an image (`app/services/table_image.py`, Pillow)
+  via the same `media_cache` + `GET /api/v1/images/{id}` mechanism as `!sticker`/`!voz`; falls back to
+  plain text if rendering fails. A league split into real zones (Argentina's this season) shows each
+  zone as its own ranked table. Was originally `futbol -t`, split into its own command. A league's
+  active stage isn't hardcoded either: it's read from ESPN (confirmed real for Uruguay: Apertura,
+  Intermedio, Clausura and playoffs each have a different id), falling back to the regular season if
+  the current stage doesn't have a table populated yet.
+- `!futbol`/`!tabla` results are cached like `!github`'s (`cachetools.TTLCache`), now
+  `FOOTBALL_CACHE_TTL_SECONDS` = 24 h by default (raised from 30 min: no quota to protect here, just
+  being kind to an undocumented API). The rendered table image itself isn't cached separately —
+  building it from the already-cached data takes well under a second even for the largest table.

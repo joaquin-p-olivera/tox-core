@@ -112,6 +112,20 @@ def voz(ctx: CommandContext) -> str | Reply:
 
 
 @command(
+    "risa",
+    description="Manda un audio de risa",
+    category=CATEGORY,
+)
+def laugh(ctx: CommandContext) -> str | Reply:
+    audios = audio_library.list_audios(ctx.settings.RISA_AUDIOS_DIR)
+    if not audios:
+        return "No tengo audios de risa configurados."
+    # A distinct chat_key (":risa") so this doesn't share !m's own "last audio" memory per chat.
+    choice = audio_picker.pick_audio(ctx.db, f"{ctx.message.chat_key}:risa", audios)
+    return Reply(audio=choice.name)
+
+
+@command(
     "m",
     description="Pregunta por la mamá de alguien del grupo (o manda un audio), al azar",
     category=CATEGORY,

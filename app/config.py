@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     AUDIOS_DIR: str = "media/m"
     # Chance (0-1) that !m sends a random audio instead of tagging someone
     M_AUDIO_PROBABILITY: float = Field(default=0.5, ge=0, le=1)
+    # Folder with the sound clips !risa can send. If it is missing or empty, !risa says so instead.
+    RISA_AUDIOS_DIR: str = "media/risa"
     # API key for the admin-only !service status command (read-only use). Empty = disabled.
     RENDER_API_KEY: str = ""
     # Local services the admin-only `!service -L` may start/stop/query: an allowlist in a JSON file
@@ -45,6 +47,10 @@ class Settings(BaseSettings):
     # usually has broad scopes; a fine-grained read-only GITHUB_TOKEN is the safer choice.
     GITHUB_TOKEN_FROM_GH: bool = False
     GITHUB_TIMEOUT_SECONDS: int = Field(default=5, ge=1, le=8)
+    # `!futbol` (público): fixtures o tabla de la liga top de Uruguay, Ecuador, Argentina o España,
+    # vía la API pública (no oficial, sin key) de ESPN. No requiere credenciales.
+    FOOTBALL_TIMEOUT_SECONDS: int = Field(default=6, ge=1, le=10)
+    FOOTBALL_CACHE_TTL_SECONDS: int = Field(default=86400, ge=300, le=86400)  # 24 h por defecto, como !github
     # The API records CPU, memory, temperature and battery of this machine every N seconds (0 = off) to show peaks and
     # battery trends in `!service -L host`. Samples older than HOST_HISTORY_DAYS are deleted.
     HOST_SAMPLE_INTERVAL_SECONDS: int = Field(default=60, ge=0, le=3600)
