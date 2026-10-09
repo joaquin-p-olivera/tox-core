@@ -7,6 +7,7 @@ import pytest
 
 from app.services import service_status
 
+from tests.conftest import REFUSED
 KEY = "rnd_test_secret_key"
 ADMIN = "admin1@lid"
 
@@ -91,7 +92,7 @@ def ask(send, text="!service"):
 # ---- access -------------------------------------------------------------------------------------
 
 def test_only_admins_can_use_it(send, status_api):
-    assert send("!service", user="someone@lid") == ["Este comando es solo para administradores."]
+    assert send("!service", user="someone@lid") == REFUSED
     assert status_api.requests == [], "a non-admin must never trigger a call to the provider"
 
 

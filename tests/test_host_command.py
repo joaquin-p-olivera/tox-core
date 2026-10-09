@@ -8,6 +8,7 @@ from app.models import HostSample
 from app.services import host_status
 from tests.test_host_status import cpu_machine, healthy_machine
 
+from tests.conftest import REFUSED
 ADMIN = "admin1@lid"
 
 
@@ -48,7 +49,7 @@ def test_the_old_name_is_gone(send, machine):
 
 def test_only_admins_and_nothing_is_read_for_others(send, machine):
     for name in ("host", "master"):
-        assert send(f"!service -L {name}", user="someone@lid") == ["Este comando es solo para administradores."]
+        assert send(f"!service -L {name}", user="someone@lid") == REFUSED
     assert machine.ran == [], "a non-admin must not make the API touch the machine"
 
 

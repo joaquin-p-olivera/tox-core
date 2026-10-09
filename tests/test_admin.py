@@ -5,6 +5,7 @@ from app.commands.registry import command
 from app.config import Settings
 
 
+from tests.conftest import REFUSED
 @pytest.fixture
 def admin_only_command():
     """Registers a throwaway admin-only command and cleans the global registry afterwards."""
@@ -39,4 +40,4 @@ def test_admin_ids_are_namespaced_by_platform(send):
 
 def test_admin_only_command(send, admin_only_command):
     assert send("!secreto", user="admin1@lid") == ["top secret"]
-    assert send("!secreto", user="someone@lid") == ["Este comando es solo para administradores."]
+    assert send("!secreto", user="someone@lid") == REFUSED

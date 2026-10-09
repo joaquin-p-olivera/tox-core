@@ -9,6 +9,7 @@ import pytest
 
 from app.services import service_control
 
+from tests.conftest import REFUSED
 ADMIN = "admin1@lid"
 PY = sys.executable
 
@@ -45,7 +46,7 @@ def test_non_admins_can_never_run_anything(send, services_file, tmp_path):
     marker = tmp_path / "started"
     services_file(demo(marker))
     for text in ("!service -L demo -up", "!service -l demo -down", "!service --local demo -up", "!service -L demo", "!service -L"):
-        assert send(text, user="someone@lid") == ["Este comando es solo para administradores."]
+        assert send(text, user="someone@lid") == REFUSED
     assert not marker.exists(), "a non-admin must never get a program executed"
 
 
@@ -54,7 +55,7 @@ def test_admin_ids_are_per_platform(send, services_file, tmp_path):
     services_file(demo(marker))
     # "99" is an admin on Telegram only
     assert ask(send, "/service -L demo -up", user="99", platform="telegram").startswith("✅")
-    assert send("!service -L demo -down", user="99", platform="whatsapp") == ["Este comando es solo para administradores."]
+    assert send("!service -L demo -down", user="99", platform="whatsapp") == REFUSED
 
 
 @pytest.mark.parametrize("flag", ["-L", "-l", "--local", "–L", "—local", "-LOCAL".replace("-LOCAL", "--LOCAL")])

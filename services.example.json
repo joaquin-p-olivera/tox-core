@@ -1,0 +1,86 @@
+{
+  "mi-bot": {
+    "description": "Ejemplo: un bot que corre como servicio de systemd de usuario",
+    "start": [
+      "systemctl",
+      "--user",
+      "start",
+      "mi-bot.service"
+    ],
+    "stop": [
+      "systemctl",
+      "--user",
+      "stop",
+      "mi-bot.service"
+    ],
+    "status": [
+      "systemctl",
+      "--user",
+      "is-active",
+      "mi-bot.service"
+    ],
+    "info": [
+      "systemctl",
+      "--user",
+      "show",
+      "mi-bot.service",
+      "-p",
+      "ActiveState,ActiveEnterTimestamp,ActiveExitTimestamp,InactiveEnterTimestamp,MainPID,MemoryCurrent,MemoryPeak,CPUUsageNSec,NRestarts,Result,ExecMainStatus"
+    ],
+    "last_usage": [
+      "journalctl",
+      "--user",
+      "-u",
+      "mi-bot.service",
+      "-g",
+      "Consumed",
+      "-n",
+      "1",
+      "-o",
+      "short-iso",
+      "--no-pager"
+    ]
+  },
+  "pg": {
+    "description": "Ejemplo: PostgreSQL del sistema (Ubuntu). Ajustá la versión/clúster con pg_lsclusters",
+    "start": [
+      "systemctl",
+      "start",
+      "postgresql@16-main"
+    ],
+    "stop": [
+      "systemctl",
+      "stop",
+      "postgresql@16-main"
+    ],
+    "status": [
+      "systemctl",
+      "is-active",
+      "postgresql@16-main"
+    ],
+    "info": [
+      "systemctl",
+      "show",
+      "postgresql@16-main",
+      "-p",
+      "ActiveState,ActiveEnterTimestamp,ActiveExitTimestamp,InactiveEnterTimestamp,MainPID,MemoryCurrent,MemoryPeak,CPUUsageNSec,NRestarts,Result,ExecMainStatus"
+    ],
+    "last_usage": [
+      "journalctl",
+      "-u",
+      "postgresql@16-main",
+      "-g",
+      "Consumed",
+      "-n",
+      "1",
+      "-o",
+      "short-iso",
+      "--no-pager"
+    ],
+    "health": [
+      "pg_isready",
+      "-p",
+      "5432"
+    ]
+  }
+}

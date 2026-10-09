@@ -90,10 +90,13 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `github <repo> [-r \| -i]`             | `gh`                       | **Admin only.** Open PRs (`-r`, default) or issues (`-i`) of one of your configured GitHub repos |
 | `service [nombre]`                     |                            | **Admin only.** Whether your hosted services and databases are up; with a name, the detail of one |
 | `service -L [nombre] [-up \| -down]`    |                            | **Admin only.** Query (default), start (`-up`) or stop (`-down`) the *local* services of this PC (see below) |
+| `ipmaster`                             | `ipm`                      | **Admin only.** This PC's IP on the local network and the other devices connected to it (see below) |
+| `fred`                                 |                            | **Admin only.** URLs of the Fred frontend (`:5200`) and admin module (`:5201`) on this PC's LAN address (see below) |
 | `chiste`                               |                            | Random joke (general, dark and spicy; no tech jokes)      |
 | `dado [NdM \| M]`                      | `dados`                    | Dice, default `1d6` (e.g. `2d6`, `d20`, `20`)             |
 | `elegir a \| b \| c`                   |                            | Picks one option (separate with `\|` or `,`)              |
 | `m`                                    |                            | Randomly: `y tu mamá donde está? @someone` (never the sender) or a random audio from `media/m` |
+| `gay @usuario`                         |                            | Says how "gay" the tagged user is: a random 0-100 % (fixed for some people, see `users.json`); tagging the bot gets a cheeky answer |
 | `risa`                                 |                            | Sends a random laugh audio from `media/risa`               |
 | `futbol <país>`                        | `fut`                      | This week's fixtures for Uruguay/Ecuador/Argentina/España's top league |
 | `tabla <país>`                         |                            | The current standings table, as an image                  |
@@ -206,10 +209,32 @@ the platform prefix matters):
 ADMIN_USER_IDS=whatsapp:111111111111111@lid,telegram:123456789
 ```
 
-Send `!id` in a chat: it shows your user ID and `Rol: admin` or `Rol: usuario`. Mark a command as admin-only with
-`@command(..., admin_only=True)`; everybody else gets "Este comando es solo para administradores." No admin-only
+**In a group, being on that list isn't enough:** on WhatsApp the bot also tells the API whether you administer *that* group
+(`sender_is_group_admin`), and admin commands (`!service`, `!github`, `!uid`) need both. Someone on the list who isn't an admin
+of the group where they write is treated as a normal user there. If the group's member list can't be read, nobody is
+considered an admin of it for that message (never guessed). Private chats only look at the list, and so does a platform that
+doesn't report it (Telegram, today). Nothing about group admins is stored anywhere: the bot reads the group's roster from
+WhatsApp for every command sent in a group and the API uses it only for that one request, so a change of group admins applies
+immediately.
+
+Send `!id` in a chat: it shows your user ID and `Rol: admin` or `Rol: usuario` (saying so when you're on the list but not an
+admin of that group). Mark a command as admin-only with
+`@command(..., admin_only=True)`; everybody else gets no message at all: the bot just reacts to their command with 🚫. No admin-only
 commands exist yet. Note that WhatsApp may identify the same person by LID in groups and by phone number elsewhere;
 list the form you see in `!id` for the chats where you need it.
+
+**`!uid`** (admin only, and hidden: not in `!ayuda`, not even for admins; anyone else just gets a 🚫 reaction) helps you build that list. Send it in a
+group and the API prints one line per user in its log, as `platform:user_id — name | other ids` (the list the platform
+gives the bot, plus you; on Telegram only the users the bot has already seen), ready to copy. WhatsApp often sends no name
+for a group member, so a missing one is completed with the name the API learned when that person used a command; the
+other ids include their phone number (`tel +598...`) when WhatsApp shares it. The chat gets no message: the bot just
+reacts to your command with 👍. Look for the `UID` lines in the API's console output.
+
+**`users.json`** (`USERS_FILE`, git-ignored — copy `users.example.json`) is the local directory you build from that output:
+`"Name": ["platform:user_id", ...]`. Commands use it to give certain people special behaviour without relying on the display
+name (anyone can change theirs). List every id of the same person (WhatsApp shows one person as a LID in some places and as
+a phone number in others). It's read on every call, so edits apply without restarting. Today only `!gay` uses it: "Leandro 1899"
+always gets 1899 % (`FIXED_GAY_PERCENT` in `app/commands/fun.py`).
 
 ## Service status (admin only)
 
@@ -512,6 +537,85 @@ same as every command.
   or `ALLOWED_GROUP_JIDS`/`ALLOWED_CHAT_IDS` use. Both are independent: set either, both, or neither per
   platform. Each bot also has its own `ALERTS_POLL_INTERVAL_SECONDS` / `ALERTS_POLL_INTERVAL_MS` (default
   ~30 s) controlling how quickly it notices a queued alert — unrelated to how often the API itself checks.
+
+## Local network: `ipmaster` / `ipm` (admin only)
+
+```
+!ipmaster
+🌐 Red local 192.168.1.0/24 (wlo1)
+🖥️ Esta PC: 192.168.1.21
+
+📡 Otros dispositivos (5):
+• 192.168.1.1 — 00:11:22:33:44:55 · Acme Networks · router
+• 192.168.1.6 — Celular de Ana · 5a:11:22:33:44:66 · MAC privada (celular o PC con privacidad)
+• 192.168.1.13 — PCDEANA · ea:11:22:33:44:88 · MAC privada (celular o PC con privacidad)
+• 192.168.1.16 — Android / Smart TV(1234) · bc:11:22:33:44:99
+```
+
+It takes no arguments. This PC's address comes from `ip addr` (private addresses only; container/VM bridges and loopback are skipped). To
+find the others, every host of that subnet gets **one ping** so the kernel learns who answers, and its neighbour table (`ip neigh`) is
+read back: no extra program, no root, about 4 s. The manufacturer comes from the IEEE list the system already ships
+(`/usr/share/ieee-data/oui.txt`, package `ieee-data`); a phone using a private (randomised) MAC has no manufacturer to look up, so it's
+labelled as such. The router is the default gateway.
+
+**Names.** A device only has one if it announces itself over mDNS/Bonjour (read with `avahi-browse`, in parallel with the pings, so it adds
+no time; smart TVs, PCs, printers and Apple devices usually do, most phones and the router don't) or if you list its MAC in `devices.json`
+(`DEVICES_FILE`, git-ignored; copy `devices.example.json`): `{"5a:11:22:33:44:66": "Celular de Ana"}`. Your name wins over the announced
+one, and a phone's private MAC stays the same on the same Wi-Fi, so it keeps its name. The router's DNS and NetBIOS were tried and give
+nothing. What a device announces can be any text, so it's cleaned (printable characters only, 40 max).
+
+Only devices that answer show up: one in deep sleep or behind a firewall can be missing. The subnet is always the one of this PC's own interface (never something typed in a chat), a subnet wider
+than a /24 is cut down to the /24 around this PC, and the programs run as fixed argv lists with no shell and a timeout.
+
+### `fred`
+
+`!fred` answers with the URLs to open the Fred apps from any device on the local network, built from this PC's own LAN address and the
+fixed ports (`FRED_APPS` in `app/commands/fred.py`: frontend 5200, admin module 5201):
+
+```
+🌐 Fred, para abrir desde cualquier dispositivo de la red local:
+
+🟢 Frontend: http://192.168.1.21:5200
+
+🔴 Admin module: http://192.168.1.21:5201
+```
+
+WhatsApp only makes a URL tappable when the message carries it as link data; the bot attaches that for URLs on private addresses
+(`src/links.ts` in tox-whatsapp-bot), since its plain-text messages never do. WhatsApp attaches one link per message, so only the first URL
+of a message gets it (here, the frontend). Each app says whether something
+answers at that address, checked the way another device would reach it (a TCP connection to the LAN IP): 🟢 answers there; 🟡 is up but
+only reachable from this PC (it listens on `127.0.0.1`: a Vite dev server needs `--host`, as `fred-frontend.service` has, to be reachable
+from other devices), shown with `(solo desde esta PC)`; 🔴 is down. The four Fred user services (`fred-frontend`, `fred-admin-module`, `fred-backend`, `fred-db`) are
+in `services.json` (`!service -L <name> [-up | -down]`) and in `ALERT_SERVICES`. Admin only, like the other local-infrastructure commands.
+
+## Remote browser: `web` / `w` (admin only)
+
+The bot can't show a web app by itself, so `!web` opens it in an invisible Chromium **on this PC**, draws a number on every button, link and
+field it can see, and sends a screenshot; you say what to tap or type by number. Only those screenshots leave the PC (through the chat): nothing is
+exposed to the internet, which is the point (no tunnel, no VPN, no cost).
+
+```
+!web                    help and the list of apps
+!web trip-trace         opens that app and sends the numbered screenshot
+!web 3                  taps element 3
+!web t 1 hola mundo     types "hola mundo" into field 1
+!web login              fills the login with the credentials kept in webapps.json
+!web enter | esc | tab  keys          !web bajar | subir   scrolls
+!web atras | ver | cerrar             (ver = a fresh screenshot, cerrar = closes the browser)
+```
+
+**Setup.** Copy `webapps.example.json` to `webapps.json` (`WEB_APPS_FILE`, git-ignored) and list the apps: `{"name": {"url": ..., "description": ...,
+"login": {"user": ..., "password": ...}}}`. Playwright is in `requirements.txt` but Chromium has to be downloaded once (about 270 MB, into
+`~/.cache/ms-playwright`, not the system): `.venv/bin/playwright install --only-shell chromium`.
+
+**What keeps it safe.** The chat only picks an app *name* from that file, never a URL; the page can't navigate to another site (a top-level navigation
+outside the app's own origin is refused and you're taken back); downloads, pop-ups, dialogs and service workers are refused. Passwords never go through
+the chat: `login` types the ones in `webapps.json`, and what you type or the credentials are never logged. It's admin only, and in a group the
+screenshots are visible to **everyone in that group**, so use a group that has only you and the bot.
+
+**Cost on this PC** (HP Stream, 3.8 GB of RAM): the browser takes ~450 MB while open, so there is one session at a time, it's opened on demand
+and closes itself after `WEB_IDLE_SECONDS` (180) without use. The first `!web <app>` takes ~7-15 s (browser start plus a cold dev server), after
+that each action takes a second or two. Set the WhatsApp bot's `TOX_API_TIMEOUT_MS` to 45000 or the first one would time out.
 
 ## Adding a command
 

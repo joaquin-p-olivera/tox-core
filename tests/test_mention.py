@@ -2,11 +2,15 @@ import pytest
 
 
 def raw(client, text, *, user="u1", name="Alice", chat="g1", platform="whatsapp", is_group=True,
-        participants=None):
+        participants=None, mentioned=None, sender_is_group_admin=None):
     payload = {"platform": platform, "chat_id": chat, "user_id": user, "user_name": name,
                "text": text, "is_group": is_group}
     if participants is not None:
         payload["participants"] = participants
+    if mentioned is not None:
+        payload["mentioned"] = mentioned
+    if sender_is_group_admin is not None:
+        payload["sender_is_group_admin"] = sender_is_group_admin
     response = client.post("/api/v1/messages", headers={"X-API-Key": "test-key"}, json=payload)
     assert response.status_code == 200, response.text
     return response.json()["replies"]

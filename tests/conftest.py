@@ -17,6 +17,7 @@ from app.database import Base, get_db
 from app.main import app
 
 API_KEY = "test-key"
+REFUSED = ["🚫"]  # what `send` shows for an admin-only command used by a non-admin (the bot reacts, no text)
 
 
 @pytest.fixture
@@ -42,7 +43,9 @@ def settings(audios_dir, risa_audios_dir, tmp_path) -> Settings:
     return Settings(_env_file=None, API_KEY=API_KEY, TRIVIA_TIMEOUT_SECONDS=60,
                     ADMIN_USER_IDS="whatsapp:admin1@lid, telegram:99", AUDIOS_DIR=str(audios_dir),
                     RISA_AUDIOS_DIR=str(risa_audios_dir),
-                    SERVICES_FILE=str(tmp_path / "services.json"), SERVICE_COMMAND_TIMEOUT_SECONDS=2)
+                    SERVICES_FILE=str(tmp_path / "services.json"), USERS_FILE=str(tmp_path / "users.json"),
+                    DEVICES_FILE=str(tmp_path / "devices.json"),
+                    WEB_APPS_FILE=str(tmp_path / "webapps.json"), SERVICE_COMMAND_TIMEOUT_SECONDS=2)
 
 
 @pytest.fixture
@@ -87,6 +90,7 @@ def send(client):
             },
         )
         assert response.status_code == 200, response.text
-        return [r["text"] for r in response.json()["replies"]]
+        # a reaction-only reply (no text) is shown as its emoji
+        return [r["text"] or r.get("reaction") or "" for r in response.json()["replies"]]
 
     return _send

@@ -6,6 +6,7 @@ import pytest
 
 from app.services import github_client as gc
 
+from tests.conftest import REFUSED
 ADMIN = "admin1@lid"
 REPOS = "https://github.com/acme/proj-api, acme/proj-web ,https://github.com/other/proj-api.git, acme/proj-empty"
 
@@ -76,7 +77,7 @@ def ask(send, text="!github proj", user=ADMIN):
 
 def test_only_admins_and_a_non_admin_causes_no_request(send, hub):
     for text in ("!github", "!gh -issue", "!github proj-api -pr"):
-        assert send(text, user="someone@lid") == ["Este comando es solo para administradores."]
+        assert send(text, user="someone@lid") == REFUSED
     assert hub.requests == []
 
 
@@ -88,8 +89,8 @@ def test_it_is_hidden_from_help_for_non_admins(send):
 
 def test_a_second_admin_can_be_added_in_the_settings(send, settings, hub):
     object.__setattr__(settings, "ADMIN_USER_IDS", "whatsapp:admin1@lid, whatsapp:91700000000001@lid")
-    assert not ask(send, "!github", user="91700000000001@lid").startswith("Este comando")
-    assert send("!github", user="99999@lid") == ["Este comando es solo para administradores."]
+    assert ask(send, "!github", user="91700000000001@lid") != REFUSED[0]
+    assert send("!github", user="99999@lid") == REFUSED
 
 
 # ---- parsing the repo list ----------------------------------------------------------------------

@@ -11,6 +11,7 @@ from . import chat_members
 logger = logging.getLogger("tox.router")
 
 _COMMAND_TOKEN = re.compile(r"^[a-z0-9_]+$")
+REFUSED_REACTION = "🚫"  # what the bot reacts with to an admin-only command used by someone who isn't an admin
 
 
 def parse_command(text: str, prefixes: list[str]) -> tuple[str, str, str] | None:
@@ -56,7 +57,7 @@ def handle_message(message: IncomingMessage, db: Session, settings: Settings) ->
         settings=settings,
     )
     if cmd.admin_only and not ctx.is_admin:
-        return [Reply(text="Este comando es solo para administradores.")]
+        return [Reply(reaction=REFUSED_REACTION)]  # no text: the bot just reacts to the command
 
     try:
         result = cmd.handler(ctx)

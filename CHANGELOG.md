@@ -43,6 +43,39 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `risa`: sends a random laugh audio from `media/risa` (`RISA_AUDIOS_DIR`), reusing `!m`'s audio machinery
   (`audio_library`, `audio_picker`, `GET /api/v1/audios/{name}`) but with its own folder and its own
   per-chat "last sent" history, independent of `!m`'s.
+- `uid` (admin only, hidden): prints the id and name of every user of the chat (plus the sender) in the API's log, as
+  `platform:user_id — name | other ids` (phone number when WhatsApp shares it; a missing name is completed from the users
+  the API has seen), ready to copy into lists like `ADMIN_USER_IDS`. It sends no message: the bot only reacts to
+  the command with 👍. Needed a `hidden` flag on `@command` (not listed by `!ayuda`; non-admins get no reply at all) and a
+  `reaction` field on replies, which both bots now understand.
+- A non-admin using an admin-only command (`service`, `github`, `uid`) no longer gets the "solo para administradores" text:
+  the bot reacts to the command with 🚫 instead (`Reply.reaction`). Telegram only accepts a fixed set of reaction emojis, so
+  there a refused reaction is just logged.
+- Admin-only commands in a WhatsApp group now require being on `ADMIN_USER_IDS` **and** an administrator of that group: the
+  bot reports `sender_is_group_admin` (refused when the roster can't be read) and `CommandContext.is_admin` checks it. Private
+  chats and platforms that don't report it still use the list only. `!id` explains when you're listed but not a group admin.
+- `web` / `w` (admin only, "Administración"): a remote browser driven from the chat. Opens an app of `webapps.json` (`WEB_APPS_FILE`,
+  git-ignored) in an invisible Chromium on this PC (Playwright), numbers every visible button/link/field on a screenshot and lets you
+  tap/type/scroll/log in by number (`app/services/remote_browser.py`). Same-origin navigation only, no downloads or pop-ups, `login` types the
+  credentials kept in the file (never through the chat or the log), one session at a time that closes itself after `WEB_IDLE_SECONDS`. Tested
+  against a real Chromium.
+- `fred` (admin only, "Administración"): the URLs of the Fred frontend (`:5200`) and admin module (`:5201`) on this PC's LAN address,
+  in one message with a blank line between the title and each app, each marked by a real TCP connection: 🟢 answers on the LAN address, 🟡 up but
+  only reachable from this PC (listening on localhost, `(solo desde esta PC)`), 🔴 down. The four Fred user
+  services (`fred-frontend`, `fred-admin-module`, `fred-backend`, `fred-db`) were added to `services.json` (start/stop/status, `fred-db`
+  with `pg_isready`) and to `ALERT_SERVICES`.
+- `ipmaster` / `ipm` (admin only, "Administración"): this PC's IP on the local network and the other devices connected to it, with MAC and
+  manufacturer (IEEE list) and the router marked. One ping per host of the PC's own /24, then the kernel's neighbour table is
+  read (`app/services/network_scan.py`): no extra tools, no root, ~4 s. Devices get a name when they announce one over mDNS
+  (`avahi-browse`, in parallel with the pings) or when listed by MAC in `devices.json` (`DEVICES_FILE`, git-ignored; yours wins).
+- `users.json` (`USERS_FILE`, git-ignored; `users.example.json` is tracked): a local directory of name -> platform ids
+  (several per person on purpose: WhatsApp uses LID in some places and phone number in others), built from `!uid`'s
+  output and read on every call (`app/services/user_directory.py`). Lets a command treat certain people specially.
+- `gay`: "Leandro 1899" always gets 1899 % (matched through the directory, not the display name). Tagging the bot itself
+  answers `Yo no soy gay como vos <emoji picaro>` instead; for that the bots flag a tag of themselves (`is_bot` on a
+  `mentioned` user).
+- `gay @usuario`: replies with a random 0-100 % "gay" rating for the tagged user (and tags them back). Needed a new
+  optional `mentioned` field on `POST /api/v1/messages` (the users the sender tagged), which the bots now fill in.
 - `futbol` / `fut <país>`: this week's fixtures for Uruguay/Ecuador/Argentina/España's top league, via
   ESPN's public API (no key needed). API-Football was tried first but its free plan doesn't cover the
   current season, only 2022-2024, so it was dropped.

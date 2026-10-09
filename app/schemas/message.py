@@ -8,6 +8,9 @@ class Participant(BaseModel):
 
     user_id: str = Field(min_length=1)
     user_name: str | None = None
+    is_bot: bool = Field(
+        default=False, description="True when this user is the bot itself (e.g. someone tagged the bot)."
+    )
     aliases: list[str] = Field(
         default_factory=list,
         max_length=8,
@@ -29,6 +32,17 @@ class IncomingMessage(BaseModel):
         max_length=2048,
         description="Full member list when the platform can provide it (WhatsApp). "
         "user_id must use the same form as the sender's.",
+    )
+
+    sender_is_group_admin: bool | None = Field(
+        default=None,
+        description="In a group, whether the sender administers THAT group (WhatsApp reports it). Admin-only commands "
+        "need it to be true on top of the sender being in ADMIN_USER_IDS. Null = the platform doesn't report it.",
+    )
+    mentioned: list[Participant] | None = Field(
+        default=None,
+        max_length=64,
+        description="Users the sender tagged with @ in this message, as the platform reports them (e.g. for !gay).",
     )
 
     @property
@@ -63,6 +77,10 @@ class Reply(BaseModel):
         default=None,
         description="Id of a generated sticker to send instead of text; the bot downloads it from "
         "GET /api/v1/stickers/{id}. Short-lived: fetch it right away.",
+    )
+    reaction: str | None = Field(
+        default=None,
+        description="An emoji the bot reacts with to the message that triggered the command (no text is sent).",
     )
     image: str | None = Field(
         default=None,

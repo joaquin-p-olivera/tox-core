@@ -22,3 +22,12 @@ media/
 # Which commands the bot may run on this machine is local configuration (only the example is tracked)
 services.json
 
+
+# Who is who (platform ids, phone numbers) is local data about real people (only the example is tracked)
+users.json
+
+# MAC -> name of the devices on the home network (only the example is tracked)
+devices.json
+
+# Apps the remote browser may open, with their login (only the example is tracked)
+webapps.json

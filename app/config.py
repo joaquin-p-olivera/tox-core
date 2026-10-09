@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     RENDER_API_KEY: str = ""
     # Local services the admin-only `!service -L` may start/stop/query: an allowlist in a JSON file
     SERVICES_FILE: str = "services.json"
+    # Local directory of who is who (name -> platform ids), for commands that treat certain people specially (!gay)
+    USERS_FILE: str = "users.json"
+    # Names for the devices !ipmaster finds, by MAC (the router and phones don't announce one): {"mac": "name"}
+    DEVICES_FILE: str = "devices.json"
+    # `!web` (admin only): the apps it may open in a remote browser, by name (see webapps.example.json), and how long the
+    # browser stays open without use (it takes ~450 MB of RAM while open)
+    WEB_APPS_FILE: str = "webapps.json"
+    WEB_IDLE_SECONDS: int = Field(default=180, ge=30, le=1800)
     # Keep this below the bots' API timeout (10 s by default) so the chat gets an answer
     SERVICE_COMMAND_TIMEOUT_SECONDS: int = Field(default=8, ge=1, le=60)
     # Failed systemd units that `!service -L pc` should not count as a problem (comma-separated), e.g. harmless leftovers

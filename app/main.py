@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from .config import get_settings
 from .database import SessionLocal, init_db
+from .services import remote_browser
 from .services.alert_monitor import AlertMonitor
 from .services.host_sampler import HostSampler
 from .routers import alerts, audios, images, messages, stickers
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
     yield
     sampler.stop()
     monitor.stop()
+    remote_browser.shutdown()  # closes the browser of !web if one is open
 
 
 app = FastAPI(title="Tox API", lifespan=lifespan)

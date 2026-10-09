@@ -25,8 +25,16 @@ class CommandContext:
     settings: Settings
 
     @property
-    def is_admin(self) -> bool:
+    def is_listed_admin(self) -> bool:
         return self.message.user_key in self.settings.admin_user_keys
+
+    @property
+    def is_admin(self) -> bool:
+        """Listed in ADMIN_USER_IDS and, in a group where the platform reports it (WhatsApp), also an administrator of
+        THAT group: being on the list isn't enough to use admin commands in a group where you aren't an admin."""
+        if not self.is_listed_admin:
+            return False
+        return not (self.message.is_group and self.message.sender_is_group_admin is False)
 
 
 HandlerResult = str | Reply | list[str | Reply] | None
@@ -42,6 +50,7 @@ class Command:
     aliases: tuple[str, ...]
     category: str
     admin_only: bool = False
+    hidden: bool = False  # not listed by !ayuda, not even for admins
 
 
 _COMMANDS: dict[str, Command] = {}  # keyed by name and by every alias
@@ -55,6 +64,7 @@ def command(
     aliases: Sequence[str] = (),
     category: str = "General",
     admin_only: bool = False,
+    hidden: bool = False,
 ) -> Callable[[Handler], Handler]:
     def decorator(handler: Handler) -> Handler:
         cmd = Command(
@@ -65,6 +75,7 @@ def command(
             aliases=tuple(aliases),
             category=category,
             admin_only=admin_only,
+            hidden=hidden,
         )
         for token in (name, *aliases):
             if token in _COMMANDS:

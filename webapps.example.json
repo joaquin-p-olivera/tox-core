@@ -1,0 +1,7 @@
+{
+  "mi-app": {
+    "url": "http://localhost:5173",
+    "description": "Texto que se muestra en la ayuda de !web",
+    "login": { "user": "correo@ejemplo.com", "password": "contraseña" }
+  }
+}

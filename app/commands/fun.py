@@ -2,7 +2,7 @@ import random
 import re
 
 from ..schemas import Mention, Reply
-from ..services import audio_library, audio_picker, chat_members, media_cache, sticker_generator, tts_generator
+from ..services import audio_library, audio_picker, chat_members, media_cache, sticker_generator, tts_generator, user_directory
 from ..services.content import load_json
 from .flags import normalize_flag
 from .registry import CommandContext, command
@@ -11,6 +11,10 @@ _DICE = re.compile(r"^(\d{1,2})?d(\d{1,4})$")
 MAX_DICE = 20
 MAX_SIDES = 1000
 CATEGORY = "Diversión"
+# People (by their name in USERS_FILE) whose !gay result is always the same instead of a random one
+FIXED_GAY_PERCENT = {"Leandro 1899": 1899}
+# What the bot answers when it is the one tagged
+NAUGHTY_EMOJIS = ("😏", "😈", "😉", "🔥", "🍑")
 
 
 @command("chiste", description="Cuenta un chiste al azar", category=CATEGORY)
@@ -123,6 +127,30 @@ def laugh(ctx: CommandContext) -> str | Reply:
     # A distinct chat_key (":risa") so this doesn't share !m's own "last audio" memory per chat.
     choice = audio_picker.pick_audio(ctx.db, f"{ctx.message.chat_key}:risa", audios)
     return Reply(audio=choice.name)
+
+
+@command(
+    "gay",
+    description="Dice qué tan gay es la persona que etiquetes (0-100 %, al azar)",
+    usage="gay @usuario",
+    category=CATEGORY,
+)
+def gay(ctx: CommandContext) -> str | Reply:
+    tagged = ctx.message.mentioned
+    if not tagged:
+        return f"Etiquetá a alguien: {ctx.prefix}gay @usuario"
+    if any(person.is_bot for person in tagged):  # the bot itself was tagged
+        return f"Yo no soy gay como vos {random.choice(NAUGHTY_EMOJIS)}"
+    target = tagged[0]
+    users = user_directory.load_users(ctx.settings.USERS_FILE)
+    name = user_directory.name_of(users, ctx.message.platform, target.user_id, *target.aliases)
+    percent = FIXED_GAY_PERCENT.get(name) if name else None
+    if percent is None:
+        percent = random.randint(0, 100)
+    return Reply(
+        text=f"{{@0}} es {percent}% gay 🏳️‍🌈",
+        mentions=[Mention(user_id=target.user_id, user_name=target.user_name)],
+    )
 
 
 @command(
