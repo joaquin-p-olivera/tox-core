@@ -599,9 +599,9 @@ exposed to the internet, which is the point (no tunnel, no VPN, no cost).
 !web trip-trace         opens that app and sends the numbered screenshot
 !web 3                  taps element 3
 !web t 1 hola mundo     types "hola mundo" into field 1
-!web login              fills the login with the credentials kept in webapps.json
+!web login              fills the login again (opening an app with credentials already logs in by itself)
 !web enter | esc | tab  keys          !web bajar | subir   scrolls
-!web atras | ver | cerrar             (ver = a fresh screenshot, cerrar = closes the browser)
+!web atras | ver | close             (ver = a fresh screenshot, close = closes the browser)
 ```
 
 **Setup.** Copy `webapps.example.json` to `webapps.json` (`WEB_APPS_FILE`, git-ignored) and list the apps: `{"name": {"url": ..., "description": ...,
@@ -610,12 +610,20 @@ exposed to the internet, which is the point (no tunnel, no VPN, no cost).
 
 **What keeps it safe.** The chat only picks an app *name* from that file, never a URL; the page can't navigate to another site (a top-level navigation
 outside the app's own origin is refused and you're taken back); downloads, pop-ups, dialogs and service workers are refused. Passwords never go through
-the chat: `login` types the ones in `webapps.json`, and what you type or the credentials are never logged. It's admin only, and in a group the
+the chat: opening an app whose entry in `webapps.json` has credentials logs in by itself when the page shows a login form (`!web login` repeats
+it), and what you type or the credentials are never logged. It's admin only, and in a group the
 screenshots are visible to **everyone in that group**, so use a group that has only you and the bot.
 
 **Cost on this PC** (HP Stream, 3.8 GB of RAM): the browser takes ~450 MB while open, so there is one session at a time, it's opened on demand
-and closes itself after `WEB_IDLE_SECONDS` (180) without use. The first `!web <app>` takes ~7-15 s (browser start plus a cold dev server), after
-that each action takes a second or two. Set the WhatsApp bot's `TOX_API_TIMEOUT_MS` to 45000 or the first one would time out.
+and closes itself after `WEB_IDLE_SECONDS` (180) without use. Before each screenshot it also waits `WEB_SCREENSHOT_DELAY_SECONDS` (3) so the page
+can finish loading its data. The first `!web <app>` takes ~7-15 s (browser start plus a cold dev server), after
+that each action takes a second or two. A login waits for the app's own API (a sleeping free-tier one can take ~30 s), so set the WhatsApp bot's `TOX_API_TIMEOUT_MS` to 100000 or the first
+`!web <app>` would time out.
+
+**Restarts.** The browser belongs to the API process (the bot only forwards messages), so restarting the *bot* changes nothing: the session
+carries on. Restarting the *API* ends the session: a normal stop closes the browser (it's closed in the API's shutdown), and even a forced kill
+(`kill -9`, a crash) leaves no browser behind, because Playwright's driver notices its parent died and closes it (checked). What is lost is the
+page you were on: the next `!web <app>` opens it again (and logs in again), and `!web 3` says there's nothing open.
 
 ## Adding a command
 

@@ -21,6 +21,7 @@ import json
 import logging
 import re
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass, field
@@ -30,7 +31,11 @@ from urllib.parse import urlsplit
 logger = logging.getLogger("tox.web")
 
 VIEWPORT = {"width": 412, "height": 915}  # a phone-sized page: small screenshots, mobile layouts
-ACTION_TIMEOUT_SECONDS = 45  # the first open on this machine takes ~15 s (browser start + a cold dev server)
+# The first open takes ~15 s on this machine (browser start + a cold dev server), plus a login that can wait for a sleeping
+# free-tier API to wake up (~30 s)
+ACTION_TIMEOUT_SECONDS = 90
+LOGIN_WAIT_SECONDS = 40
+LOGIN_QUIET_SECONDS = 2.5  # the server answered and the form is still there: the login didn't work, stop waiting
 PAGE_LOAD_TIMEOUT_MS = 30_000
 CLICK_TIMEOUT_MS = 8_000
 SCROLL_PIXELS = 700
@@ -38,7 +43,7 @@ MAX_MARKS = 40
 BROWSER_ARGS = ["--disable-gpu", "--disable-dev-shm-usage"]
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 # Words the !web command already uses: an app can't take them as a name
-RESERVED_NAMES = {"t", "escribir", "login", "ver", "cerrar", "bajar", "subir", "atras", "enter", "esc", "tab", "ayuda"}
+RESERVED_NAMES = {"t", "escribir", "login", "ver", "close", "bajar", "subir", "atras", "enter", "esc", "tab", "ayuda"}
 KEYS = {"enter": "Enter", "esc": "Escape", "tab": "Tab"}
 
 
@@ -159,8 +164,9 @@ UNMARK_JS = "() => document.getElementById('tt-marks')?.remove()"
 
 
 class RemoteBrowser:
-    def __init__(self, idle_seconds: int = 180) -> None:
+    def __init__(self, idle_seconds: int = 180, pause_seconds: float = 3.0) -> None:
         self._idle_seconds = idle_seconds
+        self._pause_seconds = pause_seconds  # extra wait before a screenshot, for the page to finish loading its data
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="remote-browser")
         self._timer: threading.Timer | None = None
         self._timer_lock = threading.Lock()
@@ -169,6 +175,7 @@ class RemoteBrowser:
         self._playwright = self._browser = self._context = self._page = None
         self._origin = ""
         self._blocked = False
+        self._inflight = 0  # requests the page has sent and not yet got an answer for
         self._creating = False  # True while we open a page ourselves (so the pop-up rule doesn't close it)
         self._last_url = ""  # the last page of the app that was shown (to come back to after a blocked navigation)
 
@@ -271,6 +278,10 @@ class RemoteBrowser:
         finally:
             self._creating = False
         self._page.on("dialog", lambda dialog: dialog.dismiss())
+        self._inflight = 0
+        self._page.on("request", lambda request: self._count(+1))
+        self._page.on("requestfinished", lambda request: self._count(-1))
+        self._page.on("requestfailed", lambda request: self._count(-1))
         if old is not None and not old.is_closed():
             try:
                 old.close()
@@ -318,6 +329,11 @@ class RemoteBrowser:
             except Exception:
                 pass
             raise WebError("Ese enlace sale de la app y por seguridad no lo sigo.")
+        return self._snapshot_after_pause()
+
+    def _snapshot_after_pause(self) -> Snapshot:
+        """The data of a page often arrives after the load event and the network going quiet: give it a fixed moment."""
+        self._page.wait_for_timeout(int(self._pause_seconds * 1000))
         return self._snapshot()
 
     def _need_page(self) -> None:
@@ -333,6 +349,15 @@ class RemoteBrowser:
             logger.warning("Could not open %s: %s", app.name, error)
             self._new_page()  # Chromium is on its own error page, which would collide with the next attempt
             raise WebError(f"No pude abrir {app.name}: ¿está prendida? ({app.url})") from None
+        self._settle()
+        if app.user and app.password and self._login_form_visible():
+            try:  # with credentials configured, opening the app logs in: no extra step to ask for
+                self._fill_login(app)
+            except WebError as error:  # the person still gets the screenshot (and can retry with `login`)
+                logger.warning("Automatic login of %s failed: %s", app.name, error)
+            else:
+                self._wait_for_login()
+            return self._after_action()
         return self._after_action()
 
     def _element(self, number: int):
@@ -381,13 +406,40 @@ class RemoteBrowser:
 
     def _refresh(self) -> Snapshot:
         self._need_page()
-        return self._snapshot()
+        return self._snapshot_after_pause()
+
+    def _count(self, change: int) -> None:
+        self._inflight = max(0, self._inflight + change)
+
+    def _wait_for_login(self) -> None:
+        """After submitting a login: waits until the form is gone (logged in), however long a sleeping API takes up to
+        LOGIN_WAIT_SECONDS, but stops early if the server already answered and the form is still there (wrong credentials)."""
+        deadline = time.monotonic() + LOGIN_WAIT_SECONDS
+        quiet_since = None
+        while time.monotonic() < deadline:
+            if not self._login_form_visible():
+                return
+            if self._inflight > 0:
+                quiet_since = None
+            else:
+                quiet_since = quiet_since or time.monotonic()
+                if time.monotonic() - quiet_since > LOGIN_QUIET_SECONDS:
+                    return
+            self._page.wait_for_timeout(300)
+
+    def _login_form_visible(self) -> bool:
+        return self._page.locator("input[type=password]:visible").count() > 0
 
     def _login(self) -> Snapshot:
         self._need_page()
         app = self.app
         if app is None or not app.user or not app.password:
             raise WebError("No hay usuario y contraseña configurados para esa app en el archivo de apps (WEB_APPS_FILE).")
+        self._fill_login(app)
+        self._wait_for_login()
+        return self._after_action()
+
+    def _fill_login(self, app: WebApp) -> None:
         page = self._page
         password = page.locator("input[type=password]:visible").first
         if password.count() == 0:
@@ -405,7 +457,6 @@ class RemoteBrowser:
         except Exception as error:
             logger.warning("Could not fill the login form of %s: %s", app.name, type(error).__name__)  # no details: may hold a value
             raise WebError("No pude completar el formulario de login.") from None
-        return self._after_action(8.0)  # the app's own API may need a few seconds to answer
 
     def _close(self) -> None:
         for thing in (self._context, self._browser):
@@ -427,12 +478,12 @@ _instance: RemoteBrowser | None = None
 _instance_lock = threading.Lock()
 
 
-def get_browser(idle_seconds: int) -> RemoteBrowser:
+def get_browser(idle_seconds: int, pause_seconds: float = 3.0) -> RemoteBrowser:
     """The one shared browser (created on first use)."""
     global _instance
     with _instance_lock:
         if _instance is None:
-            _instance = RemoteBrowser(idle_seconds)
+            _instance = RemoteBrowser(idle_seconds, pause_seconds)
         return _instance
 
 

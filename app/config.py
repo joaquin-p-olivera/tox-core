@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     # browser stays open without use (it takes ~450 MB of RAM while open)
     WEB_APPS_FILE: str = "webapps.json"
     WEB_IDLE_SECONDS: int = Field(default=180, ge=30, le=1800)
+    # Extra wait before every screenshot so the page can finish loading its data (it arrives after the load event)
+    WEB_SCREENSHOT_DELAY_SECONDS: float = Field(default=3.0, ge=0, le=15)
     # Keep this below the bots' API timeout (10 s by default) so the chat gets an answer
     SERVICE_COMMAND_TIMEOUT_SECONDS: int = Field(default=8, ge=1, le=60)
     # Failed systemd units that `!service -L pc` should not count as a problem (comma-separated), e.g. harmless leftovers

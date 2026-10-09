@@ -27,10 +27,10 @@ def _help(prefix: str, apps: dict, problems: list[str]) -> str:
         f"{prefix}web <app> — la abre",
         f"{prefix}web <número> — toca ese elemento",
         f"{prefix}web t <número> <texto> — escribe en ese campo",
-        f"{prefix}web login — completa el login (si está configurado)",
+        f"{prefix}web login — repite el login (al abrir una app con credenciales, entra solo)",
         f"{prefix}web enter | esc | tab — teclas",
         f"{prefix}web bajar | subir — desplaza la página",
-        f"{prefix}web atras | ver | cerrar",
+        f"{prefix}web atras | ver | close",
     ]
     if problems:
         lines += ["", "⚠️ Problemas en la configuración:", *(f"- {problem}" for problem in problems)]
@@ -50,7 +50,7 @@ def _caption(snapshot: remote_browser.Snapshot, app_name: str) -> str:
 @command(
     "web",
     description="(Admin) Abre una app de la PC en un navegador remoto y la manejás por chat con capturas numeradas",
-    usage="web <app> | web <número> | web t <número> <texto> | web login | web cerrar",
+    usage="web <app> | web <número> | web t <número> <texto> | web login | web close",
     aliases=("w",),
     category="Administración",
     admin_only=True,
@@ -62,7 +62,7 @@ def web(ctx: CommandContext) -> str | Reply:
         return _help(ctx.prefix, apps, problems)
 
     word = _plain(ctx.args[0])
-    browser = remote_browser.get_browser(settings.WEB_IDLE_SECONDS)
+    browser = remote_browser.get_browser(settings.WEB_IDLE_SECONDS, settings.WEB_SCREENSHOT_DELAY_SECONDS)
     who = ctx.message.user_key
     try:
         if word.isdigit():
@@ -86,7 +86,7 @@ def web(ctx: CommandContext) -> str | Reply:
             snapshot = browser.back()
         elif word == "ver":
             snapshot = browser.refresh()
-        elif word == "cerrar":
+        elif word == "close":
             was_open = browser.app is not None
             browser.close()
             return "🔒 Navegador cerrado." if was_open else "No había nada abierto."

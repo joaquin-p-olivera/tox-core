@@ -56,8 +56,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   chats and platforms that don't report it still use the list only. `!id` explains when you're listed but not a group admin.
 - `web` / `w` (admin only, "Administración"): a remote browser driven from the chat. Opens an app of `webapps.json` (`WEB_APPS_FILE`,
   git-ignored) in an invisible Chromium on this PC (Playwright), numbers every visible button/link/field on a screenshot and lets you
-  tap/type/scroll/log in by number (`app/services/remote_browser.py`). Same-origin navigation only, no downloads or pop-ups, `login` types the
-  credentials kept in the file (never through the chat or the log), one session at a time that closes itself after `WEB_IDLE_SECONDS`. Tested
+  tap/type/scroll by number (`app/services/remote_browser.py`). Opening an app with credentials in the file logs in by itself (`login` repeats
+  it). Same-origin navigation only, no downloads or pop-ups, the credentials are typed from the file (never through the chat or the log), one session at a time that closes itself after `WEB_IDLE_SECONDS`, and a pause before each screenshot (`WEB_SCREENSHOT_DELAY_SECONDS`, 3 s) for the
+  page to finish loading its data. Tested
   against a real Chromium.
 - `fred` (admin only, "Administración"): the URLs of the Fred frontend (`:5200`) and admin module (`:5201`) on this PC's LAN address,
   in one message with a blank line between the title and each app, each marked by a real TCP connection: 🟢 answers on the LAN address, 🟡 up but

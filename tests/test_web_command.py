@@ -60,7 +60,7 @@ def fake(monkeypatch, settings):
     Path(settings.WEB_APPS_FILE).write_text(json.dumps(
         {"trip-trace": {"url": "http://localhost:5173", "description": "Dashboard", "login": {"user": "a@b.c", "password": "pw"}}}))
     browser = FakeBrowser()
-    monkeypatch.setattr(rb, "get_browser", lambda idle: browser)
+    monkeypatch.setattr(rb, "get_browser", lambda *args: browser)
     return browser
 
 
@@ -94,9 +94,9 @@ def test_every_action_reaches_the_browser(client, fake):
 
 
 def test_closing_says_so_and_unknown_words_show_the_help(client, fake):
-    assert ask(client, "!web cerrar")["text"] == "No había nada abierto."
+    assert ask(client, "!web close")["text"] == "No había nada abierto."
     ask(client, "!web trip-trace")
-    assert ask(client, "!web cerrar")["text"] == "🔒 Navegador cerrado."
+    assert ask(client, "!web close")["text"] == "🔒 Navegador cerrado."
     assert ask(client, "!web algo-raro")["text"].startswith('No conozco "algo-raro".')
 
 
@@ -119,7 +119,7 @@ def test_what_is_typed_is_never_logged(client, fake, caplog):
 
 
 def test_non_admins_are_refused_and_the_browser_is_never_touched(client, monkeypatch):
-    monkeypatch.setattr(rb, "get_browser", lambda idle: pytest.fail("a non-admin must not reach the browser"))
+    monkeypatch.setattr(rb, "get_browser", lambda *args: pytest.fail("a non-admin must not reach the browser"))
     assert raw(client, "!web trip-trace", user="someone@lid")[0]["reaction"] == "🚫"
 
 
