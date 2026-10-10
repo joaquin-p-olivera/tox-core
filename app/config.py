@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     USERS_FILE: str = "users.json"
     # Names for the devices !ipmaster finds, by MAC (the router and phones don't announce one): {"mac": "name"}
     DEVICES_FILE: str = "devices.json"
+    # Time zone of the clock times people type (`!recordar 18:30 ...`): an IANA name
+    TIMEZONE: str = "America/Montevideo"
     # `!web` (admin only): the apps it may open in a remote browser, by name (see webapps.example.json), and how long the
     # browser stays open without use (it takes ~450 MB of RAM while open)
     WEB_APPS_FILE: str = "webapps.json"

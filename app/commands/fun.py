@@ -1,3 +1,5 @@
+import base64
+import binascii
 import random
 import re
 
@@ -65,17 +67,24 @@ def choose(ctx: CommandContext) -> str:
 
 @command(
     "sticker",
-    description="Genera un sticker (imagen) con el texto que le pases",
+    description="Genera un sticker con el texto que le pases, o con una imagen (mandala con !sticker de epígrafe, o respondela)",
     usage="sticker <texto>",
     category=CATEGORY,
 )
 def sticker(ctx: CommandContext) -> str | Reply:
-    if not ctx.raw_args.strip():
-        return f"Uso: {ctx.prefix}sticker <texto> — por ejemplo {ctx.prefix}sticker hola mundo"
-    try:
-        image = sticker_generator.render_sticker(ctx.raw_args)
-    except sticker_generator.TextTooLong as error:
-        return str(error)
+    if ctx.message.image:
+        try:
+            image = sticker_generator.image_to_sticker(base64.b64decode(ctx.message.image, validate=True))
+        except (binascii.Error, sticker_generator.UnreadableImage):
+            return "No pude leer esa imagen."
+    elif not ctx.raw_args.strip():
+        return (f"Uso: {ctx.prefix}sticker <texto> — por ejemplo {ctx.prefix}sticker hola mundo. "
+                f"Con una imagen: mandala con {ctx.prefix}sticker de epígrafe, o respondela con {ctx.prefix}sticker.")
+    else:
+        try:
+            image = sticker_generator.render_sticker(ctx.raw_args)
+        except sticker_generator.TextTooLong as error:
+            return str(error)
     sticker_id = media_cache.store(image, "image/webp", ctx.settings.MEDIA_CACHE_SECONDS)
     return Reply(sticker=sticker_id)
 

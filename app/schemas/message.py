@@ -11,6 +11,11 @@ class Participant(BaseModel):
     is_bot: bool = Field(
         default=False, description="True when this user is the bot itself (e.g. someone tagged the bot)."
     )
+    is_group_admin: bool | None = Field(
+        default=None,
+        description="Whether this member administers the group, as the bot read it from the roster (WhatsApp). "
+        "Null = unknown: moderation commands then refuse to act on them.",
+    )
     aliases: list[str] = Field(
         default_factory=list,
         max_length=8,
@@ -43,6 +48,13 @@ class IncomingMessage(BaseModel):
         default=None,
         max_length=64,
         description="Users the sender tagged with @ in this message, as the platform reports them (e.g. for !gay).",
+    )
+
+    image: str | None = Field(
+        default=None,
+        max_length=8_000_000,
+        description="Base64 of the picture the message carries or replies to, when there is one (WhatsApp). "
+        "Only commands that work on a picture (!sticker) read it.",
     )
 
     @property
@@ -86,6 +98,15 @@ class Reply(BaseModel):
         default=None,
         description="Id of a generated image (e.g. !futbol -t's table) to send instead of text; the bot "
         "downloads it from GET /api/v1/images/{id}. Short-lived: fetch it right away.",
+    )
+    remove: list[str] = Field(
+        default_factory=list,
+        description="User ids (as in `mentioned`/`participants`) the bot must remove from the chat where the command "
+        "ran. It needs to be a group admin there; if it can't, it says so instead of sending `text`.",
+    )
+    sweep_blacklist: bool = Field(
+        default=False,
+        description="Asks the bot to remove everyone on GET /api/v1/blacklist from every group it is in (sent by !permaban).",
     )
 
 

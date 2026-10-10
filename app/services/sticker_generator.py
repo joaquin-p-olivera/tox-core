@@ -1,10 +1,10 @@
-"""Renders a WhatsApp/Telegram sticker (512x512 WEBP) with the classic meme look: white background,
-bold black text, centered, auto-wrapped and shrunk to fit. Pure image work — no I/O beyond loading the font.
+"""Renders a WhatsApp/Telegram sticker (512x512 WEBP): either the classic meme look (white background, bold black
+text, centered, auto-wrapped and shrunk to fit) or a picture made to fit. Pure image work — no I/O beyond loading the font.
 """
 
 import io
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps, UnidentifiedImageError
 
 SIZE = 512
 MARGIN = 32
@@ -95,4 +95,23 @@ def render_sticker(text: str) -> bytes:
 
     buffer = io.BytesIO()
     image.save(buffer, format="WEBP", lossless=True)
+    return buffer.getvalue()
+
+
+class UnreadableImage(ValueError):
+    """The bytes are not a picture Pillow can open."""
+
+
+def image_to_sticker(data: bytes) -> bytes:
+    """A picture as a 512x512 WEBP sticker: scaled to fit (never cropped or stretched) on a transparent square."""
+    try:
+        with Image.open(io.BytesIO(data)) as source:
+            picture = ImageOps.exif_transpose(source).convert("RGBA")  # phones store rotation as metadata
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+        raise UnreadableImage("No pude leer esa imagen.") from error
+    picture.thumbnail((SIZE, SIZE), Image.LANCZOS)
+    sticker = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    sticker.paste(picture, ((SIZE - picture.width) // 2, (SIZE - picture.height) // 2))
+    buffer = io.BytesIO()
+    sticker.save(buffer, format="WEBP", quality=80)  # lossy: WhatsApp stickers are limited to ~100 KB
     return buffer.getvalue()

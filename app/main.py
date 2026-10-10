@@ -8,7 +8,7 @@ from .database import SessionLocal, init_db
 from .services import remote_browser
 from .services.alert_monitor import AlertMonitor
 from .services.host_sampler import HostSampler
-from .routers import alerts, audios, images, messages, stickers
+from .routers import alerts, audios, blacklist, images, messages, stickers
 
 settings = get_settings()
 
@@ -51,3 +51,4 @@ app.include_router(audios.router)
 app.include_router(stickers.router)
 app.include_router(alerts.router)
 app.include_router(images.router)
+app.include_router(blacklist.router)

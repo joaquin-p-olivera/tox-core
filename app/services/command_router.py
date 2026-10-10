@@ -10,7 +10,7 @@ from . import chat_members
 
 logger = logging.getLogger("tox.router")
 
-_COMMAND_TOKEN = re.compile(r"^[a-z0-9_]+$")
+_COMMAND_TOKEN = re.compile(r"^[a-z0-9_]+(-[a-z0-9_]+)*$")  # "ruleta-ban": hyphens only between words
 REFUSED_REACTION = "🚫"  # what the bot reacts with to an admin-only command used by someone who isn't an admin
 
 

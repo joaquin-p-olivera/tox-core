@@ -31,3 +31,6 @@ devices.json
 
 # Apps the remote browser may open, with their login (only the example is tracked)
 webapps.json
+
+# Local joke list (!chiste): kept out of the repo on purpose
+app/data/jokes.json

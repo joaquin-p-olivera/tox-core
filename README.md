@@ -107,7 +107,16 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `base64 codificar\|decodificar <texto>` | `b64`                      | Base64 helper                                             |
 | `url codificar\|decodificar <texto>`   |                            | URL-encode / decode                                       |
 | `hash <md5\|sha1\|sha256\|sha512> <texto>` |                        | Hash of a text                                            |
-| `sticker <texto>`                      |                            | Generates a meme-style sticker with the given text        |
+| `sticker <texto>`                      |                            | Generates a meme-style sticker with the given text, or from a picture (sent with `!sticker` as caption, or replied to) |
+| `qr <texto o link>`                    |                            | A QR code image of the text or link                       |
+| `recordar <HH:MM> <qué>`               |                            | Reminds you (tagging you, in the same chat) at that time: today if still ahead, else tomorrow (see below) |
+| `ban @usuario`                         |                            | **Admin only.** Removes the tagged member from the group (see below) |
+| `permaban @usuario`                    |                            | **Admin only.** Bans and blacklists: removed from every group the bot is in, and again if they come back |
+| `unpermaban [número o nombre]`         | `despermaban`              | **Admin only.** Lists the blacklist, or takes someone off it |
+| `ruleta-ban`                           | `ruletaban`                | **Admin only.** Picks a random non-admin member to ban; an admin confirms with `!si` or cancels with `!no` |
+| `cumple <dd/mm/aaaa \| dd/mm>`         |                            | Registers your birthday (the year is optional); admins can tag someone to set theirs (overwrites) |
+| `wol [número o nombre]`                |                            | **Admin only.** Wakes a device with Wake-on-LAN; with no argument, lists the ones in `devices.json` |
+| `speedtest`                            |                            | **Admin only.** Internet speed of this PC: download, upload and latency (~15 s) |
 | `voz [-h \| -m] <texto>`               |                            | Says the text out loud: `-h` a man's voice (default), `-m` a woman's       |
 
 ### `!m`: text or audio
@@ -152,6 +161,14 @@ the reply), and they're gone. If the API restarts before a bot fetches one, it's
 **`!sticker <texto>`** renders a classic meme-style sticker (`app/services/sticker_generator.py`, via Pillow): a
 512×512 WEBP, white background, bold black text, centered and auto-wrapped to fit (up to 200 characters). The reply
 carries `"sticker": "<id>"`, fetched from `GET /api/v1/stickers/{id}`.
+
+`!sticker` also turns a **picture** into a sticker: send the image with `!sticker` as its caption, or reply to an image
+with `!sticker`. The picture is scaled to fit a 512×512 transparent square (never cropped or stretched). For that, the
+WhatsApp bot downloads the picture of any command message that carries or quotes one (up to 5 MB) and forwards it
+base64-encoded in the message's optional `image` field; only `!sticker` reads it.
+
+**`!qr <texto o link>`** replies with a QR code PNG (`app/services/qr_code.py`, `qrcode` + Pillow; up to 500
+characters), through the same `"image"` field and `GET /api/v1/images/{id}` as `!tabla`.
 
 **`!voz [-h | -m] <texto>`** (up to 300 characters) says the text out loud using Microsoft Edge's free, unofficial
 neural voices (`app/services/tts_generator.py`) — the same engine behind Edge's "Read aloud" feature, no API key.
@@ -537,6 +554,67 @@ same as every command.
   or `ALLOWED_GROUP_JIDS`/`ALLOWED_CHAT_IDS` use. Both are independent: set either, both, or neither per
   platform. Each bot also has its own `ALERTS_POLL_INTERVAL_SECONDS` / `ALERTS_POLL_INTERVAL_MS` (default
   ~30 s) controlling how quickly it notices a queued alert — unrelated to how often the API itself checks.
+
+## Reminders: `recordar`
+
+```
+!recordar 18:30 sacar la basura        (the time may also come last: !recordar sacar la basura 18:30)
+⏰ Listo, te lo recuerdo hoy a las 18:30: sacar la basura
+```
+
+Anyone can use it. The time is the wall clock of `TIMEZONE` (default `America/Montevideo`); if it already passed today, it
+is for tomorrow (the reply says which). When it comes due, the bot writes in the **same chat**, tagging who asked:
+`⏰ Recordatorio para @Ana: sacar la basura`. Up to 10 pending per person, 200 characters each.
+
+Reminders live in the `reminders` table and survive restarts. Nothing runs in the background for them: each bot poll of
+`GET /api/v1/alerts/pending` first moves the due ones into the alert queue, so a reminder goes out on the first poll after
+its time — **the delay is at most the bot's `ALERTS_POLL_INTERVAL`** (set it to 30–60 s if a few minutes of lag is too
+much; it is a call to localhost). One that came due while the API was down is delivered on the first poll after it starts
+(with `(era para las HH:MM)` when it is more than 5 minutes late).
+
+## Birthdays: `cumple`
+
+`!cumple 15/03/1995` registers (or overwrites) the sender's birthday. An admin can tag someone: `!cumple @Ana 15/03/1995`;
+anyone else tagging gets told only admins can. An admin who tags nobody sets their own. The date is `dd/mm/aaaa`, or just `dd/mm` when the year isn't wanted; it must be real and, with a year, already past. One date per person across all groups (table `birthdays`); `!cumple` alone shows yours.
+
+## Moderation: `ban`, `permaban`, `unpermaban`, `ruleta-ban` (admin only)
+
+The API decides, the WhatsApp bot executes. A reply can carry `remove` (user ids to take out of the chat where the command ran)
+and `sweep_blacklist`; the bot needs to be **an admin of the group** to remove anyone (if it isn't, it says so instead of
+announcing a ban that didn't happen).
+
+- `!ban @usuario` (up to 5 people): removes them from this group.
+- `!permaban @usuario`: the same, and adds them to the blacklist (`blacklisted_users`, with every id the roster knows them
+  under: LID and phone number). The bot then removes them from **every group it is in** (it also does that when it connects,
+  for anyone who joined while it was off) and, whenever someone is added to a group (`group` event, action `add`), it checks the
+  blacklist again and removes them (announcing it in allowed groups). The bot reads the list from `GET /api/v1/blacklist`.
+- `!unpermaban`: lists the blacklist; `!unpermaban 2` or `!unpermaban ana` takes them off (they can join again).
+- `!ruleta-ban`: draws one regular member (never a group admin, a listed admin, the sender or the bot), tags them and waits for
+  `!si` (ban) or `!no` (save them) from an admin. One draw per chat; it expires after 2 minutes.
+
+Safety: nobody can ban the bot, themselves, a group admin or anyone in `ADMIN_USER_IDS`; a person whose group-admin status the
+bot could not read is refused (fails closed). It all works only in groups.
+
+## Wake-on-LAN and speed test: `wol`, `speedtest` (admin only)
+
+`!wol` with no argument lists the devices of `devices.json` (the same file `!ipmaster` takes names from, MAC → name):
+
+```
+!wol
+💡 Dispositivos que puedo despertar (Wake-on-LAN):
+
+1. Mac de Ana — 00:11:22:33:44:55
+2. Desktop — 5a:11:22:33:44:66
+```
+
+`!wol 2` (or part of the name: `!wol desktop`) broadcasts a magic packet (UDP, port 9, to the subnet's broadcast address and
+255.255.255.255). Only devices listed in the file can be targeted, never a MAC typed in the chat. There is no reply from the
+device, so "sent" is all it can confirm: it only turns on if it supports Wake-on-LAN and has it enabled (BIOS/NIC; phones and
+most TVs don't).
+
+`!speedtest` measures this PC's connection against Cloudflare's public speed-test endpoints (no key, nothing installed):
+latency, then download and upload for 6 s each, so it takes ~15 s and moves roughly 20–80 MB depending on the line. One test at
+a time; a second request while one runs is told so.
 
 ## Local network: `ipmaster` / `ipm` (admin only)
 

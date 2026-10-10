@@ -91,3 +91,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `FOOTBALL_CACHE_TTL_SECONDS` = 24 h by default (raised from 30 min: no quota to protect here, just
   being kind to an undocumented API). The rendered table image itself isn't cached separately —
   building it from the already-cached data takes well under a second even for the largest table.
+- `qr <texto o link>`: a QR code PNG (`qrcode`), sent as an image.
+- `sticker` also accepts a picture (sent with `!sticker` as caption or replied to): scaled to a 512×512 transparent WEBP. New optional `image` (base64) field on `POST /api/v1/messages`, filled by the WhatsApp bot.
+- `recordar <HH:MM> <qué>`: reminders delivered in the same chat, tagging who asked, through the existing pending-alerts queue (`reminders` table; due ones are queued on each bot poll). `TIMEZONE` setting.
+- `wol [número o nombre]` (admin only): Wake-on-LAN for the devices listed in `devices.json`; with no argument it lists them.
+- `speedtest` (admin only): latency, download and upload against Cloudflare's public speed-test endpoints.
+- Moderation (admin only, groups only): `ban`, `permaban` (blacklist: removed from every group the bot is in and again if they return), `unpermaban` (lists / removes from the blacklist), `ruleta-ban` (random non-admin member, confirmed by an admin with `si` / `no`). New reply fields `remove` and `sweep_blacklist`, `is_group_admin` on participants, `GET /api/v1/blacklist`. Command names may contain hyphens.
+- `cumple <dd/mm/aaaa | dd/mm>`: registers a birthday (the year is optional); admins can set someone else's by tagging them (overwrites).

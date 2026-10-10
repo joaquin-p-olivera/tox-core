@@ -10,3 +10,10 @@ class PendingAlertOut(BaseModel):
     chat_id: str
     text: str
     mentions: list[Mention] = Field(default_factory=list)
+
+
+class BlacklistedOut(BaseModel):
+    """One person on the permanent-ban list, with every id they may appear under (LID, phone number...)."""
+
+    user_ids: list[str]
+    name: str | None = None
