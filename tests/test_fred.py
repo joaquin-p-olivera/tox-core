@@ -31,29 +31,35 @@ def test_reachable_tells_an_open_port_from_a_closed_one():
     assert fred_command._reachable("127.0.0.1", port) is False  # closed again
 
 
-TITLE = "🌐 Fred, para abrir desde cualquier dispositivo de la red local:"
+def up(*ports, localhost_only=()):
+    """A fake `_reachable`: these ports answer on the LAN address; localhost_only ones only on 127.0.0.1."""
+    return lambda host, port: port in ports or (port in localhost_only and host == "127.0.0.1")
 
 
-def test_fred_is_one_message_with_a_blank_line_between_the_title_and_each_app(client, lan, monkeypatch):
-    monkeypatch.setattr(fred_command, "_reachable", lambda host, port: port == 5200)  # 5201: nothing anywhere
-    (reply,) = raw(client, "!fred", user="admin1@lid")
-    assert reply["text"] == f"{TITLE}\n\n🟢 Frontend: http://192.168.1.21:5200\n\n🔴 Admin module: http://192.168.1.21:5201"
+def test_fred_sends_the_states_in_one_message_and_then_one_url_per_message(client, lan, monkeypatch):
+    monkeypatch.setattr(fred_command, "_reachable", up(5200, localhost_only=(5203,)))  # 5201: nothing anywhere
+    replies = raw(client, "!fred", user="admin1@lid")
+    assert [r["text"] for r in replies] == [
+        "🟢 Frontend\n🔴 Admin module\n🟢 Studio (solo desde esta PC)",
+        "http://192.168.1.21:5200",
+        "http://192.168.1.21:5201",
+        "http://localhost:5203",  # local-only by design: the LAN address would not work, not even from this PC
+    ]
 
 
 def test_an_app_that_only_listens_on_localhost_is_not_reported_as_down(client, lan, monkeypatch):
     # what a Vite dev server without --host does: it answers on 127.0.0.1 but the LAN address refuses
-    monkeypatch.setattr(fred_command, "_reachable", lambda host, port: port == 5200 or host == "127.0.0.1")
-    (reply,) = raw(client, "!fred", user="admin1@lid")
-    assert "🟢 Frontend: http://192.168.1.21:5200\n" in reply["text"] + "\n"
-    assert reply["text"].endswith("🟡 Admin module: http://192.168.1.21:5201 (solo desde esta PC)")
-    assert "🔴" not in reply["text"]
+    monkeypatch.setattr(fred_command, "_reachable", up(5200, localhost_only=(5201, 5203)))
+    status, *urls = [r["text"] for r in raw(client, "!fred", user="admin1@lid")]
+    assert status == "🟢 Frontend\n🟡 Admin module (solo desde esta PC)\n🟢 Studio (solo desde esta PC)"
+    assert urls == ["http://192.168.1.21:5200", "http://localhost:5201", "http://localhost:5203"]
 
 
-def test_fred_with_everything_up_marks_both_as_up(client, lan, monkeypatch):
-    monkeypatch.setattr(fred_command, "_reachable", lambda host, port: True)
-    (reply,) = raw(client, "!fred", user="admin1@lid")
-    assert "🟢 Frontend: http://192.168.1.21:5200" in reply["text"] and "🟢 Admin module: http://192.168.1.21:5201" in reply["text"]
-    assert "🔴" not in reply["text"]
+def test_fred_with_everything_down_marks_all_red_and_still_gives_the_urls(client, lan, monkeypatch):
+    monkeypatch.setattr(fred_command, "_reachable", lambda host, port: False)
+    status, *urls = [r["text"] for r in raw(client, "!fred", user="admin1@lid")]
+    assert status == "🔴 Frontend\n🔴 Admin module\n🔴 Studio"
+    assert urls == ["http://192.168.1.21:5200", "http://192.168.1.21:5201", "http://localhost:5203"]
 
 
 def test_fred_is_admin_only(send, monkeypatch):

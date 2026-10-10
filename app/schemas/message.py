@@ -99,6 +99,11 @@ class Reply(BaseModel):
         description="Id of a generated image (e.g. !futbol -t's table) to send instead of text; the bot "
         "downloads it from GET /api/v1/images/{id}. Short-lived: fetch it right away.",
     )
+    job: str | None = Field(
+        default=None,
+        description="Id of a long-running job (e.g. !claude). The bot sends `text` now, then polls "
+        "GET /api/v1/jobs/{id} until it is done and sends the replies it returns.",
+    )
     remove: list[str] = Field(
         default_factory=list,
         description="User ids (as in `mentioned`/`participants`) the bot must remove from the chat where the command "
@@ -113,4 +118,11 @@ class Reply(BaseModel):
 class MessageResponse(BaseModel):
     """What the bot must send back. Empty when the message isn't a command."""
 
+    replies: list[Reply] = Field(default_factory=list)
+
+
+class JobOut(BaseModel):
+    """State of a long-running command: still running, or finished with the replies to send."""
+
+    status: Literal["running", "done"]
     replies: list[Reply] = Field(default_factory=list)

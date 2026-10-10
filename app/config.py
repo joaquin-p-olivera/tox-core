@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     USERS_FILE: str = "users.json"
     # Names for the devices !ipmaster finds, by MAC (the router and phones don't announce one): {"mac": "name"}
     DEVICES_FILE: str = "devices.json"
+    # `!claude` (admin only): runs the Claude Code CLI (`claude -p`) with FULL access (it can edit files and run commands)
+    # in CLAUDE_WORKDIR, and answers with a short text. Limits: a money cap per question, questions per hour (counted over
+    # all admins), a wall-clock timeout, and the length of the answer sent to the chat. CLAUDE_BIN empty = look it up in PATH.
+    CLAUDE_WORKDIR: str = "~/dev"
+    CLAUDE_BIN: str = ""
+    CLAUDE_MAX_BUDGET_USD: float = Field(default=5.0, gt=0, le=100)
+    CLAUDE_QUESTIONS_PER_HOUR: int = Field(default=30, ge=1, le=1000)
+    CLAUDE_TIMEOUT_SECONDS: int = Field(default=600, ge=30, le=3600)
+    CLAUDE_MAX_ANSWER_CHARS: int = Field(default=400, ge=100, le=3000)
     # Time zone of the clock times people type (`!recordar 18:30 ...`): an IANA name
     TIMEZONE: str = "America/Montevideo"
     # `!web` (admin only): the apps it may open in a remote browser, by name (see webapps.example.json), and how long the

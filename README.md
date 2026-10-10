@@ -91,7 +91,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `service [nombre]`                     |                            | **Admin only.** Whether your hosted services and databases are up; with a name, the detail of one |
 | `service -L [nombre] [-up \| -down]`    |                            | **Admin only.** Query (default), start (`-up`) or stop (`-down`) the *local* services of this PC (see below) |
 | `ipmaster`                             | `ipm`                      | **Admin only.** This PC's IP on the local network and the other devices connected to it (see below) |
-| `fred`                                 |                            | **Admin only.** URLs of the Fred frontend (`:5200`) and admin module (`:5201`) on this PC's LAN address (see below) |
+| `fred`                                 |                            | **Admin only.** State and URLs of the Fred frontend (`:5200`), admin module (`:5201`) and studio (`:5203`), one URL per message (see below) |
 | `chiste`                               |                            | Random joke (general, dark and spicy; no tech jokes)      |
 | `dado [NdM \| M]`                      | `dados`                    | Dice, default `1d6` (e.g. `2d6`, `d20`, `20`)             |
 | `elegir a \| b \| c`                   |                            | Picks one option (separate with `\|` or `,`)              |
@@ -110,6 +110,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `sticker <texto>`                      |                            | Generates a meme-style sticker with the given text, or from a picture (sent with `!sticker` as caption, or replied to) |
 | `qr <texto o link>`                    |                            | A QR code image of the text or link                       |
 | `recordar <HH:MM> <qué>`               |                            | Reminds you (tagging you, in the same chat) at that time: today if still ahead, else tomorrow (see below) |
+| `claude [-n] <pregunta>`               |                            | **Admin only.** Asks Claude (Claude Code CLI, full access, in `~/dev`); "Generando respuesta..." first, then the answer (see below) |
 | `ban @usuario`                         |                            | **Admin only.** Removes the tagged member from the group (see below) |
 | `permaban @usuario`                    |                            | **Admin only.** Bans and blacklists: removed from every group the bot is in, and again if they come back |
 | `unpermaban [número o nombre]`         | `despermaban`              | **Admin only.** Lists the blacklist, or takes someone off it |
@@ -577,6 +578,30 @@ much; it is a call to localhost). One that came due while the API was down is de
 `!cumple 15/03/1995` registers (or overwrites) the sender's birthday. An admin can tag someone: `!cumple @Ana 15/03/1995`;
 anyone else tagging gets told only admins can. An admin who tags nobody sets their own. The date is `dd/mm/aaaa`, or just `dd/mm` when the year isn't wanted; it must be real and, with a year, already past. One date per person across all groups (table `birthdays`); `!cumple` alone shows yours.
 
+## Claude: `claude` (admin only)
+
+`!claude <pregunta o pedido>` runs the Claude Code CLI (`claude -p`) in `CLAUDE_WORKDIR` (default `~/dev`) with **full access**
+(`--permission-mode bypassPermissions`: it can read and edit files and run commands), so it can answer about the projects and services
+or do what it is asked. That is acceptable only because the command is admin-only (listed admin *and* admin of the group).
+
+- **Two messages.** The reply is `⏳ Generando respuesta...` with a `job` id; the bot polls `GET /api/v1/jobs/{id}` (every 2 s, up to 15 min)
+  and sends the answer, quoting the command, when it is ready. A question can take minutes; the chat request doesn't wait for it.
+  Jobs live in memory: if the API restarts meanwhile, the bot says the query was lost.
+- **Limits.** One question at a time (a second one is refused, not queued); `CLAUDE_QUESTIONS_PER_HOUR` (30, all admins together,
+  counted in `claude_queries`); `CLAUDE_MAX_BUDGET_USD` (5) per question, passed as `--max-budget-usd`; `CLAUDE_TIMEOUT_SECONDS` (600),
+  after which the whole process group is killed. A cold question costs roughly US$0.30 in tokens (the CLI loads its context first).
+- **Short answers.** The system prompt asks for a summary of at most `CLAUDE_MAX_ANSWER_CHARS` (400) characters, and the API cuts
+  the text to that length anyway (the model can ignore the prompt).
+- **No secrets.** The system prompt forbids printing `.env` contents or sensitive data (only the *structure* of a `.env` is allowed), and
+  the API scrubs the answer before sending it: the values of every secret-looking variable (`*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASS*`...) of
+  the `.env*` files one level under the work directory, `webapps.json` passwords, provider tokens and WhatsApp ids become `***`. The
+  prompt is the main control; this is a safety net, not a guarantee (the model could still rephrase a value).
+- **Conversation.** Each chat keeps its CLI session (in memory) and the next question resumes it; `!claude -n <pregunta>` starts a new one.
+  The question is passed through stdin, and it is not stored or logged (only its length).
+
+Note that the CLI runs in the same folder as an interactive Claude Code session would, so it also reads that folder's `CLAUDE.md`
+and memory.
+
 ## Moderation: `ban`, `permaban`, `unpermaban`, `ruleta-ban` (admin only)
 
 The API decides, the WhatsApp bot executes. A reply can carry `remove` (user ids to take out of the chat where the command ran)
@@ -647,23 +672,26 @@ than a /24 is cut down to the /24 around this PC, and the programs run as fixed 
 
 ### `fred`
 
-`!fred` answers with the URLs to open the Fred apps from any device on the local network, built from this PC's own LAN address and the
-fixed ports (`FRED_APPS` in `app/commands/fred.py`: frontend 5200, admin module 5201):
+`!fred` answers with the state of the Fred apps and the URLs to open them, built from this PC's own LAN address and the fixed ports
+(`APPS` in `app/commands/fred.py`: frontend 5200, admin module 5201, studio 5203). It sends several messages: the first one has each app's
+state, then there is **one message per app with nothing but its URL**, so each one can be tapped or copied on its own:
 
 ```
-🌐 Fred, para abrir desde cualquier dispositivo de la red local:
+🟢 Frontend
+🟡 Admin module (solo desde esta PC)
+🟢 Studio (solo desde esta PC)
 
-🟢 Frontend: http://192.168.1.21:5200
-
-🔴 Admin module: http://192.168.1.21:5201
+http://192.168.1.21:5200
+http://localhost:5201
+http://localhost:5203
 ```
 
-WhatsApp only makes a URL tappable when the message carries it as link data; the bot attaches that for URLs on private addresses
-(`src/links.ts` in tox-whatsapp-bot), since its plain-text messages never do. WhatsApp attaches one link per message, so only the first URL
-of a message gets it (here, the frontend). Each app says whether something
-answers at that address, checked the way another device would reach it (a TCP connection to the LAN IP): 🟢 answers there; 🟡 is up but
-only reachable from this PC (it listens on `127.0.0.1`: a Vite dev server needs `--host`, as `fred-frontend.service` has, to be reachable
-from other devices), shown with `(solo desde esta PC)`; 🔴 is down. The four Fred user services (`fred-frontend`, `fred-admin-module`, `fred-backend`, `fred-db`) are
+(the last three lines are three separate messages). Each app's state is checked the way another device would reach it (a TCP connection
+to the LAN IP): 🟢 answers there; 🟡 is up but only reachable from this PC (it listens on `127.0.0.1`: a Vite dev server needs `--host`, as
+`fred-frontend.service` has, to be reachable from other devices) and its URL then uses `localhost`, the only address that works; 🔴 is down.
+Studio is local-only **by design** (`fred-studio.service` binds to `127.0.0.1`), so it is 🟢 when it answers on this PC, always with the
+`localhost` URL. WhatsApp only makes a URL tappable when the message carries it as link data; the bot attaches that for URLs on private
+addresses (`src/links.ts` in tox-whatsapp-bot), which works here because each message holds a single URL (a `localhost` one is covered too). The Fred user services (`fred-frontend`, `fred-admin-module`, `fred-backend`, `fred-db`, `fred-studio`) are
 in `services.json` (`!service -L <name> [-up | -down]`) and in `ALERT_SERVICES`. Admin only, like the other local-infrastructure commands.
 
 ## Remote browser: `web` / `w` (admin only)
