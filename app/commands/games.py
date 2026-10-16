@@ -1,4 +1,6 @@
+from ..schemas import Reply
 from ..services import trivia_service
+from .claude import ask_claude
 from .registry import CommandContext, command
 
 CATEGORY = "Juegos"
@@ -24,7 +26,10 @@ def trivia(ctx: CommandContext) -> list[str]:
     aliases=("a", "b", "c", "d"),
     category=CATEGORY,
 )
-def answer(ctx: CommandContext) -> list[str]:
+def answer(ctx: CommandContext) -> list[str] | str | Reply:
+    if ctx.invoked_as == "c" and ctx.args:
+        # "!c" alone is the answer C; "!c <question>" is the short way of asking Claude (!claude)
+        return ask_claude(ctx)
     if ctx.invoked_as in ("a", "b", "c", "d") and not ctx.args:
         letter = ctx.invoked_as
     elif ctx.args:

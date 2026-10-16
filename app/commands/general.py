@@ -10,9 +10,15 @@ from .registry import CommandContext, all_commands, command, get_command
 )
 def help_command(ctx: CommandContext) -> str:
     p = ctx.prefix
+
+    def listed(cmd) -> bool:
+        """Don't advertise what the caller can't use."""
+        return not (cmd.hidden or (cmd.admin_only and not ctx.is_admin)
+                    or (cmd.owner_only and not (ctx.message.personal or ctx.is_admin)))
+
     if ctx.args:
         cmd = get_command(ctx.args[0].lower().lstrip("!/"))
-        if cmd is None or cmd.hidden or (cmd.admin_only and not ctx.is_admin):
+        if cmd is None or not listed(cmd):
             return f"No conozco ese comando. Probá {p}ayuda"
         text = f"{p}{cmd.usage}\n{cmd.description}"
         if cmd.aliases:
@@ -21,8 +27,8 @@ def help_command(ctx: CommandContext) -> str:
 
     by_category: dict[str, list[str]] = {}
     for cmd in all_commands():
-        if cmd.hidden or (cmd.admin_only and not ctx.is_admin):
-            continue  # don't advertise what the caller can't use
+        if not listed(cmd):
+            continue
         by_category.setdefault(cmd.category, []).append(f"{p}{cmd.name} — {cmd.description}")
     sections = [f"{category}\n" + "\n".join(lines) for category, lines in by_category.items()]
     return "Comandos disponibles\n\n" + "\n\n".join(sections) + f"\n\nUsá {p}ayuda <comando> para más detalles."

@@ -1,5 +1,6 @@
 """Renders a WhatsApp/Telegram sticker (512x512 WEBP): either the classic meme look (white background, bold black
-text, centered, auto-wrapped and shrunk to fit) or a picture made to fit. Pure image work — no I/O beyond loading the font.
+text, centered, auto-wrapped and shrunk to fit) or a picture made to fit — and the way back, a sticker as a plain
+picture. Pure image work — no I/O beyond loading the font.
 """
 
 import io
@@ -114,4 +115,20 @@ def image_to_sticker(data: bytes) -> bytes:
     sticker.paste(picture, ((SIZE - picture.width) // 2, (SIZE - picture.height) // 2))
     buffer = io.BytesIO()
     sticker.save(buffer, format="WEBP", quality=80)  # lossy: WhatsApp stickers are limited to ~100 KB
+    return buffer.getvalue()
+
+
+def sticker_to_image(data: bytes) -> bytes:
+    """A sticker (or any picture) as a PNG at its own size. Transparent areas go white: an image message has no
+    transparency to show, and white is what a sticker's background looks like in the chat anyway. Animated stickers
+    keep only their first frame."""
+    try:
+        with Image.open(io.BytesIO(data)) as source:
+            picture = ImageOps.exif_transpose(source).convert("RGBA")
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+        raise UnreadableImage("No pude leer esa imagen.") from error
+    flat = Image.new("RGB", picture.size, (255, 255, 255))
+    flat.paste(picture, mask=picture.getchannel("A"))
+    buffer = io.BytesIO()
+    flat.save(buffer, format="PNG")
     return buffer.getvalue()

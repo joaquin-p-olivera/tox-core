@@ -20,6 +20,14 @@ _SHAPES = (
 )
 
 
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+
+
+def mask_emails(text: str) -> str:
+    """For answers to people without access to the PC: the CLI puts the account's e-mail in the model's context."""
+    return _EMAIL.sub(MASK, text)
+
+
 def secret_values(work_dir: Path) -> set[str]:
     values: set[str] = set()
     try:

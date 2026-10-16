@@ -66,3 +66,21 @@ def test_expires_after_media_cache_seconds(client, settings):
     entry = media_cache._store[reply["sticker"]]
     media_cache._store[reply["sticker"]] = entry.__class__(entry.data, entry.mimetype, expires_at=0)
     assert get(client, reply["sticker"]).status_code == 404
+
+
+def test_foto_turns_a_replied_sticker_into_a_png(client):
+    import base64
+    buffer = io.BytesIO()
+    Image.new("RGBA", (512, 512), (0, 0, 0, 0)).save(buffer, format="WEBP")
+    payload = {"platform": "whatsapp", "chat_id": "g1", "user_id": "u1", "user_name": "Alice", "is_group": True,
+               "text": "!foto", "image": base64.b64encode(buffer.getvalue()).decode()}
+    response = client.post("/api/v1/messages", headers={"X-API-Key": API_KEY}, json=payload)
+    (reply,) = response.json()["replies"]
+    assert reply["text"] == "" and reply["image"]
+
+    served = client.get(f"/api/v1/images/{reply['image']}", headers={"X-API-Key": API_KEY})
+    assert served.headers["content-type"] == "image/png"
+    assert Image.open(io.BytesIO(served.content)).format == "PNG"
+
+    (usage,) = raw(client, "!foto")
+    assert usage["image"] is None and "Respondé a un sticker" in usage["text"]

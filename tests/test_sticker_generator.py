@@ -81,3 +81,20 @@ class _DummyFont:
 class _DummyDraw:
     def textlength(self, text: str, font: _DummyFont) -> float:
         return len(text) * font.char_width
+
+
+def test_sticker_to_image_is_a_png_with_transparency_turned_white():
+    transparent = Image.new("RGBA", (64, 32), (0, 0, 0, 0))
+    transparent.putpixel((0, 0), (255, 0, 0, 255))
+    buffer = io.BytesIO()
+    transparent.save(buffer, format="WEBP", lossless=True)
+
+    picture = Image.open(io.BytesIO(sg.sticker_to_image(buffer.getvalue())))
+    assert picture.format == "PNG" and picture.size == (64, 32)
+    assert picture.convert("RGB").getpixel((10, 10)) == (255, 255, 255)
+    assert picture.convert("RGB").getpixel((0, 0)) == (255, 0, 0)
+
+
+def test_sticker_to_image_rejects_what_is_not_a_picture():
+    with pytest.raises(sg.UnreadableImage):
+        sg.sticker_to_image(b"not an image")

@@ -78,6 +78,12 @@ Commands start with `!` or `/` (configurable via `COMMAND_PREFIXES`). Unknown co
 on purpose, so the bot stays quiet when other bots share the prefix. A Telegram-style `/ping@botname`
 suffix is accepted.
 
+**Personal mode.** A message with `"personal": true` comes from the owner's own number (the WhatsApp bot's personal
+mode, see its README) in a private chat with someone else. There the commands start with `.b ` (`.b sticker hola`;
+`!` and `/` are not commands, and the replies and help show the `.b` form), the sender is never treated as an admin
+(the reply is visible to the other person), and `recordar` is refused: the reminder would be delivered by the groups
+bot, from its own number, into that chat.
+
 ## Commands
 
 Everything the chat sees is in Spanish (command names included). Code, docs and logs are in English.
@@ -91,7 +97,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `service [nombre]`                     |                            | **Admin only.** Whether your hosted services and databases are up; with a name, the detail of one |
 | `service -L [nombre] [-up \| -down]`    |                            | **Admin only.** Query (default), start (`-up`) or stop (`-down`) the *local* services of this PC (see below) |
 | `ipmaster`                             | `ipm`                      | **Admin only.** This PC's IP on the local network and the other devices connected to it (see below) |
-| `fred`                                 |                            | **Admin only.** State and URLs of the Fred frontend (`:5200`), admin module (`:5201`) and studio (`:5203`), one URL per message (see below) |
+| `fred`                                 |                            | **Admin only.** State and URLs of the Fred frontend (`:5200`), admin module (`:5201`), studio (`:5203`), one URL per message (see below) |
 | `chiste`                               |                            | Random joke (general, dark and spicy; no tech jokes)      |
 | `dado [NdM \| M]`                      | `dados`                    | Dice, default `1d6` (e.g. `2d6`, `d20`, `20`)             |
 | `elegir a \| b \| c`                   |                            | Picks one option (separate with `\|` or `,`)              |
@@ -108,9 +114,10 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `url codificar\|decodificar <texto>`   |                            | URL-encode / decode                                       |
 | `hash <md5\|sha1\|sha256\|sha512> <texto>` |                        | Hash of a text                                            |
 | `sticker <texto>`                      |                            | Generates a meme-style sticker with the given text, or from a picture (sent with `!sticker` as caption, or replied to) |
+| `foto`                                 | `imagen`                   | Turns a sticker into a photo (reply to the sticker with `!foto`) |
 | `qr <texto o link>`                    |                            | A QR code image of the text or link                       |
 | `recordar <HH:MM> <qué>`               |                            | Reminds you (tagging you, in the same chat) at that time: today if still ahead, else tomorrow (see below) |
-| `claude [-n] <pregunta>`               |                            | **Admin only.** Asks Claude (Claude Code CLI, full access, in `~/dev`); "Generando respuesta..." first, then the answer (see below) |
+| `claude [-n] <pregunta>`               |                            | Asks Claude: admins get full access in `~/dev`, everybody else a chat with no access to the PC; a ⏳ reaction first, then the answer (see below) |
 | `ban @usuario`                         |                            | **Admin only.** Removes the tagged member from the group (see below) |
 | `permaban @usuario`                    |                            | **Admin only.** Bans and blacklists: removed from every group the bot is in, and again if they come back |
 | `unpermaban [número o nombre]`         | `despermaban`              | **Admin only.** Lists the blacklist, or takes someone off it |
@@ -166,7 +173,12 @@ carries `"sticker": "<id>"`, fetched from `GET /api/v1/stickers/{id}`.
 `!sticker` also turns a **picture** into a sticker: send the image with `!sticker` as its caption, or reply to an image
 with `!sticker`. The picture is scaled to fit a 512×512 transparent square (never cropped or stretched). For that, the
 WhatsApp bot downloads the picture of any command message that carries or quotes one (up to 5 MB) and forwards it
-base64-encoded in the message's optional `image` field; only `!sticker` reads it.
+base64-encoded in the message's optional `image` field; only `!sticker` and `!foto` read it.
+
+**`!foto`** (alias `!imagen`) goes the other way: reply to a **sticker** with `!foto` and it comes back as a PNG
+picture (`sticker_generator.sticker_to_image`), at the sticker's own size, with the transparent areas turned white.
+Animated stickers keep only their first frame. A sticker can't carry a caption, so replying is the only way; the bot
+downloads a quoted sticker the same way as a quoted picture. The result goes out through the `"image"` field.
 
 **`!qr <texto o link>`** replies with a QR code PNG (`app/services/qr_code.py`, `qrcode` + Pillow; up to 500
 characters), through the same `"image"` field and `GET /api/v1/images/{id}` as `!tabla`.
@@ -253,6 +265,11 @@ reacts to your command with 👍. Look for the `UID` lines in the API's console 
 name (anyone can change theirs). List every id of the same person (WhatsApp shows one person as a LID in some places and as
 a phone number in others). It's read on every call, so edits apply without restarting. Today only `!gay` uses it: "Leandro 1899"
 always gets 1899 % (`FIXED_GAY_PERCENT` in `app/commands/fun.py`).
+
+**`chats.json`** (`CHATS_FILE`, git-ignored — copy `chats.example.json`) is the same idea for the chats themselves: one entry per
+chat, keyed by `"platform:chat_id"` (the bare id works too), with `name`, `about` (what the chat is for), `people`
+(`{"Name": "what to know about them"}`, or a list of several things about one person) and `notes`. Only `!claude` uses it, and it is read on every call,
+so edits apply without restarting.
 
 ## Service status (admin only)
 
@@ -578,17 +595,46 @@ much; it is a call to localhost). One that came due while the API was down is de
 `!cumple 15/03/1995` registers (or overwrites) the sender's birthday. An admin can tag someone: `!cumple @Ana 15/03/1995`;
 anyone else tagging gets told only admins can. An admin who tags nobody sets their own. The date is `dd/mm/aaaa`, or just `dd/mm` when the year isn't wanted; it must be real and, with a year, already past. One date per person across all groups (table `birthdays`); `!cumple` alone shows yours.
 
-## Claude: `claude` (admin only)
+## Claude: `claude`
 
-`!claude <pregunta o pedido>` runs the Claude Code CLI (`claude -p`) in `CLAUDE_WORKDIR` (default `~/dev`) with **full access**
-(`--permission-mode bypassPermissions`: it can read and edit files and run commands), so it can answer about the projects and services
-or do what it is asked. That is acceptable only because the command is admin-only (listed admin *and* admin of the group).
+`!claude <pregunta>` is open to everyone, but **what Claude can do depends on who asks**:
 
-- **Two messages.** The reply is `⏳ Generando respuesta...` with a `job` id; the bot polls `GET /api/v1/jobs/{id}` (every 2 s, up to 15 min)
-  and sends the answer, quoting the command, when it is ready. A question can take minutes; the chat request doesn't wait for it.
+| Who | Mode |
+|---|---|
+| Admins (listed in `ADMIN_USER_IDS` *and* admin of the group) | Runs the Claude Code CLI (`claude -p`) in `CLAUDE_WORKDIR` (default `~/dev`) with **full access** (`--permission-mode bypassPermissions`: it can read and edit files and run commands), so it can answer about the projects and services or do what it is asked. Keeps a conversation per chat; `-n` starts a new one. |
+| Everybody else | A plain chat with **no access to this PC**: every built-in tool disabled (`--tools ""`: no files, no shell, no web), no MCP servers, no skills, no user/project settings, run from an empty temporary folder, stateless (`--no-session-persistence`). Limited to `CLAUDE_PUBLIC_QUESTIONS_PER_PERSON_PER_HOUR` (100) per person, `CLAUDE_PUBLIC_QUESTIONS_PER_HOUR` (100) in total and `CLAUDE_PUBLIC_MAX_BUDGET_USD` (0.05, about $U 2; an answer costs ~US$0.01) per question. |
+
+The full-access mode is acceptable only because of who can reach it. The only thing the no-access mode can still see is what the CLI
+puts in the model's context (the account's e-mail), so its prompt forbids revealing it and the API masks any e-mail address in the answer.
+The admins' conversation is never visible to the others (separate modes, the public one keeps nothing), and the two groups have separate
+hourly pools so a busy group can't use up the admins' questions.
+
+- **Context: Claude is one more member of the group.** Along with the question it receives (see `app/services/claude_context.py`):
+  the **names of the members** (the curated `USERS_FILE` name first, then the roster's, then the name each person writes under; two with the same name get
+  the last digits of their id), the **message the command replies to** (`quoted` on `POST /api/v1/messages`, with who wrote it), and, only for the no-access
+  mode and only in chats where the owner turned the history on (`!h -on`), the **latest `CLAUDE_CONTEXT_MESSAGES` messages of the last `CLAUDE_CONTEXT_HOURS`
+  hours** (150 / 12, never more than `CLAUDE_CONTEXT_MAX_CHARS` characters, the oldest go first; `0` messages = none). With the history off nothing saved is read.
+  Everything is handed over as data, and the prompts say so. Claude can address and tag people: `@Name` in the answer becomes a real mention (only members
+  in the chat now, never a muted one, at most 5).
+- **One memory per chat, whoever asks.** While the history of a chat is on, every `!claude` exchange (what was typed and the answer that went to the chat,
+  by an admin or not) is saved in it as a line of the conversation (`Tox` is the answer's author), so the no-access mode sees what was asked and answered
+  before as part of those messages. It is a shared *conversation*, not a shared CLI session: the admins' full-access session (`claude -p --resume`, one per
+  chat) is deliberately separate. Sharing it would hand a non-admin the tool output and files of the admins' turns, and would plant a non-admin's text in
+  the context of an agent that can run commands. So the admins' mode reads nothing written by others except the message it replies to, and what the
+  no-access mode reads is only what the chat has already seen.
+- **`!c <question>`** is the short way of asking (`!c` alone is still the trivia answer C).
+- **What the chat is.** `CHATS_FILE` (`chats.json`, see above) gives the chat a name, what it is about, who its people are and any notes, and all of it goes
+  to **both** modes. It is the one part of the context nobody but the owner can write, so the prompt presents it as the owner's own description of the chat
+  instead of as untrusted data; everything else (members, transcript, quoted message) stays data.
+- **Tone.** `CLAUDE_TONE` sets how the no-access mode talks: `salado` (the default: insults, swearing and heavy teasing, as the friends do among themselves),
+  `picante` (sarcastic and chicanero, milder) or `normal` (just friendly). The two spicy prompts keep a few hard limits, written into them (`TONE_PROMPTS`): no
+  insults for race, origin, religion, gender, orientation, disability or illness, nothing sexually explicit, no threats or pushing anybody to hurt themselves,
+  no serious accusations or private data; and the jokes stop when somebody is really down. It applies to the admins' full-access mode too (only the manner changes: the answers about the PC stay correct, and the secrecy rules stay); the summaries are unchanged.
+- **A reaction, then the answer.** The reply is a `⏳` reaction to the command (no placeholder message) with a `job` id; the bot polls `GET /api/v1/jobs/{id}` (every 2 s, up to 15 min)
+  and sends the answer, quoting the command, when it is ready, followed by a `✅` (or `⚠️` for an error) reaction that replaces the `⏳`. A question can take minutes; the chat request doesn't wait for it.
   Jobs live in memory: if the API restarts meanwhile, the bot says the query was lost.
-- **Limits.** One question at a time (a second one is refused, not queued); `CLAUDE_QUESTIONS_PER_HOUR` (30, all admins together,
-  counted in `claude_queries`); `CLAUDE_MAX_BUDGET_USD` (5) per question, passed as `--max-budget-usd`; `CLAUDE_TIMEOUT_SECONDS` (600),
+- **Limits.** Few at a time, never "busy": the admins' questions go one by one, the no-access ones and the summaries `CLAUDE_PARALLEL` (2) at a time, and the rest wait their turn in a line of `CLAUDE_QUEUE_MAX` (5) places (only a full line is refused); questions per hour, counted in `claude_queries`: `CLAUDE_QUESTIONS_PER_HOUR` (200, admins together)
+  and `CLAUDE_PUBLIC_QUESTIONS_PER_HOUR` (100, everybody else together); `CLAUDE_MAX_BUDGET_USD` (2.5, about $U 100) per question, passed as `--max-budget-usd`; `CLAUDE_TIMEOUT_SECONDS` (600),
   after which the whole process group is killed. A cold question costs roughly US$0.30 in tokens (the CLI loads its context first).
 - **Short answers.** The system prompt asks for a summary of at most `CLAUDE_MAX_ANSWER_CHARS` (400) characters, and the API cuts
   the text to that length anyway (the model can ignore the prompt).
@@ -596,7 +642,7 @@ or do what it is asked. That is acceptable only because the command is admin-onl
   the API scrubs the answer before sending it: the values of every secret-looking variable (`*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASS*`...) of
   the `.env*` files one level under the work directory, `webapps.json` passwords, provider tokens and WhatsApp ids become `***`. The
   prompt is the main control; this is a safety net, not a guarantee (the model could still rephrase a value).
-- **Conversation.** Each chat keeps its CLI session (in memory) and the next question resumes it; `!claude -n <pregunta>` starts a new one.
+- **Conversation (admins).** Each chat keeps its CLI session (in memory) and the next question resumes it; `!claude -n <pregunta>` starts a new one.
   The question is passed through stdin, and it is not stored or logged (only its length).
 
 Note that the CLI runs in the same folder as an interactive Claude Code session would, so it also reads that folder's `CLAUDE.md`
@@ -730,6 +776,33 @@ that each action takes a second or two. A login waits for the app's own API (a s
 carries on. Restarting the *API* ends the session: a normal stop closes the browser (it's closed in the API's shutdown), and even a forced kill
 (`kill -9`, a crash) leaves no browser behind, because Playwright's driver notices its parent died and closes it (checked). What is lost is the
 page you were on: the next `!web <app>` opens it again (and logs in again), and `!web 3` says there's nothing open.
+
+## Chat history and summaries: `h`, `res` (owner only)
+
+`!h -on | -off | -status | -delete` (also `!historial`) turns the saving of a chat's text on or off, and
+`!res [-today | -all | 6h | 2d | 150]` (also `!resumen`) has Claude summarise what was saved: today's messages by default
+(since midnight in `TIMEZONE`), `-all` the whole history, or a span / a count; never more than the latest
+`HISTORY_SUMMARY_MAX_MESSAGES`.
+
+They are `owner_only` in the command registry: allowed from the owner's own number (the WhatsApp bot's personal mode,
+`"personal": true`: `.b h -on`) and, through the groups bot, to admins (`ADMIN_USER_IDS`, and an admin of that group,
+like every admin command: `!h -on`). Anyone else gets a 🚫 reaction and `!ayuda` doesn't list them. Turning it on or off
+is answered with a ✅ reaction only: nothing is written in the chat. A chat is on for every bot that sees it, so a
+group that has both the groups bot and the owner's number forwards each message twice; the API keeps it once.
+
+- **What is saved:** the text of every message of a chat that is on (a picture's caption counts, the picture does not),
+  with who wrote it, when, and WhatsApp's message id (kept once per chat, so two bots seeing the same chat don't
+  duplicate it). The commands themselves (`.b ...`, `!...`) and the bots' own answers are not saved.
+- **Where:** `HISTORY_DB_PATH`, a SQLite file of its own (git-ignored, created mode 600), not `tox.db`. The `history_chats`
+  table of `tox.db` only says which chats are on.
+- **Size limit:** past `HISTORY_MAX_MB` (1024) the oldest messages of every chat are deleted, down to 90% of it. It is
+  checked when something is saved, at most once a minute, inside the API: no background thread or second process.
+- **One chat, two ids:** a private chat can be named by phone number or by LID, so the bot sends both and the API keeps
+  them as one conversation (`chat_aliases`).
+- **API:** the bot polls `GET /api/v1/history/chats` (every chat id that is on) and sends the text of those chats with
+  `POST /api/v1/history`, which ignores any chat that is not on.
+- **Summaries leave this machine:** the text goes to Claude (the same CLI as `!claude`, no tools and no access to this
+  PC, its own prompt and `CLAUDE_SUMMARY_MAX_BUDGET_USD` cap, in the same line as the questions). Nothing else is sent anywhere.
 
 ## Adding a command
 

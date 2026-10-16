@@ -1,6 +1,6 @@
 import os
 from functools import lru_cache
-from typing import List
+from typing import List, Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -37,17 +37,45 @@ class Settings(BaseSettings):
     SERVICES_FILE: str = "services.json"
     # Local directory of who is who (name -> platform ids), for commands that treat certain people specially (!gay)
     USERS_FILE: str = "users.json"
+    # What each chat is about and who its people are, for !claude's context (see services/chat_profiles.py). Written by
+    # the owner, so it is the only part of the context the prompt does not present as "data, not instructions".
+    CHATS_FILE: str = "chats.json"
     # Names for the devices !ipmaster finds, by MAC (the router and phones don't announce one): {"mac": "name"}
     DEVICES_FILE: str = "devices.json"
-    # `!claude` (admin only): runs the Claude Code CLI (`claude -p`) with FULL access (it can edit files and run commands)
-    # in CLAUDE_WORKDIR, and answers with a short text. Limits: a money cap per question, questions per hour (counted over
-    # all admins), a wall-clock timeout, and the length of the answer sent to the chat. CLAUDE_BIN empty = look it up in PATH.
+    # `!claude`: runs the Claude Code CLI (`claude -p`). Admins get FULL access (it can edit files and run commands) in
+    # CLAUDE_WORKDIR; everybody else gets a plain chat with NO access to this PC (no tools, no files, no MCP). Limits: a money
+    # cap per question, questions per hour (admins together; others in total and per person), a wall-clock timeout, and the
+    # length of the answer sent to the chat. CLAUDE_BIN empty = look it up in PATH.
     CLAUDE_WORKDIR: str = "~/dev"
     CLAUDE_BIN: str = ""
-    CLAUDE_MAX_BUDGET_USD: float = Field(default=5.0, gt=0, le=100)
-    CLAUDE_QUESTIONS_PER_HOUR: int = Field(default=30, ge=1, le=1000)
+    CLAUDE_MAX_BUDGET_USD: float = Field(default=2.5, gt=0, le=100)  # ~$U 100
+    CLAUDE_QUESTIONS_PER_HOUR: int = Field(default=200, ge=1, le=1000)  # admins, all together
     CLAUDE_TIMEOUT_SECONDS: int = Field(default=600, ge=30, le=3600)
+    # At once: the admins' questions go one by one; the no-access ones and the summaries CLAUDE_PARALLEL at a time. The
+    # rest wait in a line of CLAUDE_QUEUE_MAX places (0 = refuse straight away) and are answered in turn.
+    # How the no-access mode talks: "salado" (insults and swearing, like the friends do), "picante" (sarcastic and
+    # chicanero) or "normal" (just friendly). The two spicy ones keep a few hard limits (see TONE_PROMPTS).
+    CLAUDE_TONE: Literal["normal", "picante", "salado"] = "salado"
+    CLAUDE_PARALLEL: int = Field(default=2, ge=1, le=8)
+    CLAUDE_QUEUE_MAX: int = Field(default=5, ge=0, le=50)
     CLAUDE_MAX_ANSWER_CHARS: int = Field(default=400, ge=100, le=3000)
+    CLAUDE_PUBLIC_MAX_BUDGET_USD: float = Field(default=0.10, gt=0, le=100)  # an answer costs ~US$0.01-0.03
+    CLAUDE_PUBLIC_QUESTIONS_PER_HOUR: int = Field(default=100, ge=1, le=1000)  # everybody else, all together
+    CLAUDE_PUBLIC_QUESTIONS_PER_PERSON_PER_HOUR: int = Field(default=100, ge=1, le=1000)
+    # Context for everybody without access to the PC, in the chats where the owner turned the history on (!h -on): the
+    # latest CLAUDE_CONTEXT_MESSAGES messages of the last CLAUDE_CONTEXT_HOURS hours go with the question (0 = none).
+    # The admins' full-access mode never gets them: anybody in the group could write instructions there.
+    CLAUDE_CONTEXT_MESSAGES: int = Field(default=150, ge=0, le=200)
+    CLAUDE_CONTEXT_MAX_CHARS: int = Field(default=20_000, ge=1000, le=100_000)  # ~5000 tokens; the oldest go first
+    CLAUDE_CONTEXT_HOURS: int = Field(default=12, ge=1, le=168)
+    # Chat history (!h, !resumen): the text of the chats the owner turned it on for, kept in a SQLite file of its
+    # own (not tox.db). Once it passes HISTORY_MAX_MB the oldest messages are deleted. `!resumen` hands the latest
+    # HISTORY_SUMMARY_MAX_MESSAGES of a chat to Claude (no tools, no access to this PC), with its own money cap.
+    HISTORY_DB_PATH: str = "history.sqlite"
+    HISTORY_MAX_MB: int = Field(default=1024, ge=1, le=102400)
+    HISTORY_SUMMARY_MAX_MESSAGES: int = Field(default=500, ge=10, le=2000)
+    HISTORY_SUMMARY_MAX_CHARS: int = Field(default=1500, ge=200, le=3000)
+    CLAUDE_SUMMARY_MAX_BUDGET_USD: float = Field(default=0.5, gt=0, le=100)  # ~$U 20; 500 messages cost far less
     # Time zone of the clock times people type (`!recordar 18:30 ...`): an IANA name
     TIMEZONE: str = "America/Montevideo"
     # `!web` (admin only): the apps it may open in a remote browser, by name (see webapps.example.json), and how long the

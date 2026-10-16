@@ -43,6 +43,9 @@ def remind(ctx: CommandContext) -> str:
         return f"Es demasiado largo (máx. {reminders.MAX_TEXT_CHARS} caracteres)."
 
     message = ctx.message
+    if message.personal:
+        # The reminder would be delivered by the groups bot, which would write to this private chat from ITS number.
+        return "Los recordatorios no están disponibles desde acá: nadie los podría mandar."
     if reminders.pending_count(ctx.db, message.platform, message.user_id) >= reminders.MAX_PENDING_PER_USER:
         return f"Ya tenés {reminders.MAX_PENDING_PER_USER} recordatorios pendientes: esperá a que salte alguno."
 

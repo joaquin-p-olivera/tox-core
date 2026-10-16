@@ -14,6 +14,11 @@ _COMMAND_TOKEN = re.compile(r"^[a-z0-9_]+(-[a-z0-9_]+)*$")  # "ruleta-ban": hyph
 REFUSED_REACTION = "🚫"  # what the bot reacts with to an admin-only command used by someone who isn't an admin
 
 
+# The prefix of the bot's personal mode (run on the owner's own number): ".b sticker hola". It replaces "!" and "/"
+# there, so the owner's normal chats can't trigger anything by accident.
+PERSONAL_PREFIX = ".b "
+
+
 def parse_command(text: str, prefixes: list[str]) -> tuple[str, str, str] | None:
     """Split ``"!roll 2d6"`` into ``("!", "roll", "2d6")``. Returns None if it isn't a command."""
     text = text.strip()
@@ -35,7 +40,8 @@ def parse_command(text: str, prefixes: list[str]) -> tuple[str, str, str] | None
 
 
 def handle_message(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
-    parsed = parse_command(message.text, settings.command_prefixes_list)
+    prefixes = [PERSONAL_PREFIX] if message.personal else settings.command_prefixes_list
+    parsed = parse_command(message.text, prefixes)
     if parsed is None:
         return []
     prefix, token, raw_args = parsed
@@ -56,7 +62,7 @@ def handle_message(message: IncomingMessage, db: Session, settings: Settings) ->
         db=db,
         settings=settings,
     )
-    if cmd.admin_only and not ctx.is_admin:
+    if (cmd.admin_only and not ctx.is_admin) or (cmd.owner_only and not (message.personal or ctx.is_admin)):
         return [Reply(reaction=REFUSED_REACTION)]  # no text: the bot just reacts to the command
 
     try:

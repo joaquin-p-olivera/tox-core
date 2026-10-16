@@ -23,6 +23,15 @@ class Participant(BaseModel):
     )
 
 
+class QuotedMessage(BaseModel):
+    """The message the command replies to (WhatsApp: the one that was swiped), when it has text."""
+
+    text: str = Field(max_length=4096)
+    user_id: str | None = Field(default=None, description="Who wrote it, in the same form as the senders' ids.")
+    user_name: str | None = None
+    is_bot: bool = Field(default=False, description="True when the bot itself wrote it.")
+
+
 class IncomingMessage(BaseModel):
     """A chat message as forwarded by a bot, normalised across platforms."""
 
@@ -39,6 +48,20 @@ class IncomingMessage(BaseModel):
         "user_id must use the same form as the sender's.",
     )
 
+    chat_aliases: list[str] = Field(
+        default_factory=list,
+        max_length=4,
+        description="Other ids of this same chat (WhatsApp private chats: the phone-number and the LID form). Used "
+        "by !h so a conversation is one chat whichever form WhatsApp names it by.",
+    )
+    personal: bool = Field(
+        default=False,
+        description="Sent from the owner's own number (the bot's personal mode), in a private chat with someone else. "
+        "Commands then start with the personal prefix (\".b sticker\", not \"!sticker\"), the sender is never "
+        "treated as an admin (the reply is visible to the other person) and commands that would send something "
+        "later on their own (!recordar) are refused: no bot is running there to deliver it.",
+    )
+
     sender_is_group_admin: bool | None = Field(
         default=None,
         description="In a group, whether the sender administers THAT group (WhatsApp reports it). Admin-only commands "
@@ -50,11 +73,15 @@ class IncomingMessage(BaseModel):
         description="Users the sender tagged with @ in this message, as the platform reports them (e.g. for !gay).",
     )
 
+    quoted: QuotedMessage | None = Field(
+        default=None,
+        description="The text message this one replies to. !claude hands it to Claude along with the question.",
+    )
     image: str | None = Field(
         default=None,
         max_length=8_000_000,
-        description="Base64 of the picture the message carries or replies to, when there is one (WhatsApp). "
-        "Only commands that work on a picture (!sticker) read it.",
+        description="Base64 of the picture (or sticker) the message carries or replies to, when there is one "
+        "(WhatsApp). Only commands that work on a picture (!sticker, !foto) read it.",
     )
 
     @property

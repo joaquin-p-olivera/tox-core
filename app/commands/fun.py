@@ -90,6 +90,23 @@ def sticker(ctx: CommandContext) -> str | Reply:
 
 
 @command(
+    "foto",
+    description="Convierte un sticker en una foto (respondé al sticker con !foto)",
+    aliases=("imagen",),
+    category=CATEGORY,
+)
+def foto(ctx: CommandContext) -> str | Reply:
+    # A sticker can't carry a caption, so it always arrives as the one being replied to.
+    if not ctx.message.image:
+        return f"Respondé a un sticker con {ctx.prefix}foto y te lo paso a foto."
+    try:
+        image = sticker_generator.sticker_to_image(base64.b64decode(ctx.message.image, validate=True))
+    except (binascii.Error, sticker_generator.UnreadableImage):
+        return "No pude leer ese sticker."
+    return Reply(image=media_cache.store(image, "image/png", ctx.settings.MEDIA_CACHE_SECONDS))
+
+
+@command(
     "voz",
     description="Lo dice con voz de hombre (por defecto) o mujer con -m",
     usage="voz [-h | -m] <texto>",

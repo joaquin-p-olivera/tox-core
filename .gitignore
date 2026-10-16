@@ -12,6 +12,9 @@ __pycache__/
 
 # Local SQLite database
 *.db
+# Saved chat text (!historial): private conversations, never tracked
+*.sqlite
+*.sqlite-journal
 *.db-journal
 *.db-wal
 *.db-shm
@@ -25,6 +28,9 @@ services.json
 
 # Who is who (platform ids, phone numbers) is local data about real people (only the example is tracked)
 users.json
+
+# What each chat is about and who its people are, for !claude's context (only the example is tracked)
+chats.json
 
 # MAC -> name of the devices on the home network (only the example is tracked)
 devices.json

@@ -44,8 +44,9 @@ def settings(audios_dir, risa_audios_dir, tmp_path) -> Settings:
                     ADMIN_USER_IDS="whatsapp:admin1@lid, telegram:99", AUDIOS_DIR=str(audios_dir),
                     RISA_AUDIOS_DIR=str(risa_audios_dir),
                     SERVICES_FILE=str(tmp_path / "services.json"), USERS_FILE=str(tmp_path / "users.json"),
-                    DEVICES_FILE=str(tmp_path / "devices.json"),
-                    WEB_APPS_FILE=str(tmp_path / "webapps.json"), SERVICE_COMMAND_TIMEOUT_SECONDS=2)
+                    DEVICES_FILE=str(tmp_path / "devices.json"), CHATS_FILE=str(tmp_path / "chats.json"),
+                    WEB_APPS_FILE=str(tmp_path / "webapps.json"), SERVICE_COMMAND_TIMEOUT_SECONDS=2,
+                    HISTORY_DB_PATH=str(tmp_path / "history.sqlite"))
 
 
 @pytest.fixture

@@ -26,7 +26,8 @@ class CommandContext:
 
     @property
     def is_listed_admin(self) -> bool:
-        return self.message.user_key in self.settings.admin_user_keys
+        # Never from the owner's personal number: there the replies land in a chat with a third party.
+        return not self.message.personal and self.message.user_key in self.settings.admin_user_keys
 
     @property
     def is_admin(self) -> bool:
@@ -51,6 +52,7 @@ class Command:
     category: str
     admin_only: bool = False
     hidden: bool = False  # not listed by !ayuda, not even for admins
+    owner_only: bool = False  # the owner only: from their personal bot (message.personal) or as an admin; else 🚫, unlisted
 
 
 _COMMANDS: dict[str, Command] = {}  # keyed by name and by every alias
@@ -65,6 +67,7 @@ def command(
     category: str = "General",
     admin_only: bool = False,
     hidden: bool = False,
+    owner_only: bool = False,
 ) -> Callable[[Handler], Handler]:
     def decorator(handler: Handler) -> Handler:
         cmd = Command(
@@ -76,6 +79,7 @@ def command(
             category=category,
             admin_only=admin_only,
             hidden=hidden,
+            owner_only=owner_only,
         )
         for token in (name, *aliases):
             if token in _COMMANDS:
