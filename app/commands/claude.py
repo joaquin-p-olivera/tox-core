@@ -1,11 +1,12 @@
 import logging
+import random
 from datetime import timedelta
 
 from sqlalchemy import select
 
 from ..models import ClaudeQuery
 from ..schemas import Reply
-from ..services import claude_context, claude_runner, jobs
+from ..services import claude_context, claude_runner, jobs, media_cache, tts_generator
 from ..utils import utcnow
 from .registry import CommandContext, command
 
@@ -18,14 +19,31 @@ DONE_REACTION = "✅"  # replaces it when the answer arrives
 FAILED_REACTION = "⚠️"  # ... or when there is none (the runner starts every error message with it)
 
 
-def _finished(text: str, context: claude_context.Context | None = None) -> list[Reply]:
+def _finished(text: str, context: claude_context.Context | None = None, speak_with=None) -> list[Reply]:
     """The answer first (so a failing reaction can never lose it), then the reaction that replaces the ⏳. With a
-    `context`, the @Names in the answer become real mentions."""
+    `context`, the @Names in the answer become real mentions. With `speak_with` (the settings), the answer is sent as
+    a voice note instead; see `_spoken`."""
     failed = text.startswith(FAILED_REACTION)
     mentions = []
     if context is not None and not failed:
         text, mentions = claude_context.tag_mentions(context, text)
-    return [Reply(text=text, mentions=mentions), Reply(reaction=FAILED_REACTION if failed else DONE_REACTION)]
+    answer = Reply(text=text, mentions=mentions)
+    if speak_with is not None and not failed and not mentions:
+        audio = _spoken(text, speak_with)
+        if audio is not None:
+            answer = Reply(audio=audio)
+    return [answer, Reply(reaction=FAILED_REACTION if failed else DONE_REACTION)]
+
+
+def _spoken(text: str, settings) -> str | None:
+    """The answer as a voice note (the id of the cached audio), or None to send it as text after all: too long to
+    speak, or the voice service failed. An answer that tags somebody is never spoken: the tag would be lost."""
+    try:
+        audio = tts_generator.synthesize(text, settings.CLAUDE_AUDIO_VOICE, settings.TTS_TIMEOUT_SECONDS)
+    except (ValueError, tts_generator.TtsError) as error:  # TextTooLong is a ValueError
+        logger.info("CLAUDE answer sent as text, it could not be spoken: %s", error)
+        return None
+    return media_cache.store(audio, tts_generator.MIMETYPE, settings.MEDIA_CACHE_SECONDS)
 
 
 def _limit_message(limit: int, oldest, what: str) -> str:
@@ -77,16 +95,18 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
 
     # Names of the group and the replied-to message always; the latest messages only for people without access to the PC
     context = claude_context.gather(ctx.db, settings, message, with_history=not full_access)
+    # Decided before asking, not after: an answer that is going to be heard is asked for short and without tags
+    speak = random.random() < settings.CLAUDE_AUDIO_CHANCE
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
 
     def done(text: str) -> None:
         if not text.startswith(FAILED_REACTION):
             claude_context.remember(settings, context, message, text, job_id)  # (in the history, when it is on)
-        jobs.finish(job_id, _finished(text, context))
+        jobs.finish(job_id, _finished(text, context, settings if speak else None))
 
     try:
         claude_runner.start(
-            message.chat_key, context.prompt(question), new_conversation, settings,
+            message.chat_key, context.prompt(question, speak=speak), new_conversation, settings,
             on_done=done, full_access=full_access,
         )
     except claude_runner.Busy:
@@ -94,6 +114,7 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
         return claude_runner.BUSY_MESSAGE
     ctx.db.add(ClaudeQuery(user_key=message.user_key, chat_key=message.chat_key))
     ctx.db.commit()
-    logger.info("CLAUDE question by %s in %s (%d chars%s%s)", message.user_key, message.chat_key, len(question),
-                ", new conversation" if new_conversation else "", "" if full_access else ", no PC access")
+    logger.info("CLAUDE question by %s in %s (%d chars%s%s%s)", message.user_key, message.chat_key, len(question),
+                ", new conversation" if new_conversation else "", "" if full_access else ", no PC access",
+                ", spoken" if speak else "")
     return Reply(reaction=WAITING_REACTION, job=job_id)

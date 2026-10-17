@@ -626,6 +626,11 @@ hourly pools so a busy group can't use up the admins' questions.
 - **What the chat is.** `CHATS_FILE` (`chats.json`, see above) gives the chat a name, what it is about, who its people are and any notes, and all of it goes
   to **both** modes. It is the one part of the context nobody but the owner can write, so the prompt presents it as the owner's own description of the chat
   instead of as untrusted data; everything else (members, transcript, quoted message) stays data.
+- **Sometimes a voice note.** `CLAUDE_AUDIO_CHANCE` (0.4) of the answers are sent as a voice note instead of text, read with
+  `CLAUDE_AUDIO_VOICE` (`hombre`: the same voice as `!voz -h`). The dice is rolled **before** asking, so an answer that will be
+  heard is asked for under 280 characters, with no emoji, markdown or tags. It falls back to text when the answer tags somebody
+  (the tag would be lost), is longer than the voice service takes, or the synthesis fails: the answer is never lost. Summaries
+  (`res`) are always text.
 - **Tone.** `CLAUDE_TONE` sets how the no-access mode talks: `salado` (the default: insults, swearing and heavy teasing, as the friends do among themselves),
   `picante` (sarcastic and chicanero, milder) or `normal` (just friendly). The two spicy prompts keep a few hard limits, written into them (`TONE_PROMPTS`): no
   insults for race, origin, religion, gender, orientation, disability or illness, nothing sexually explicit, no threats or pushing anybody to hurt themselves,

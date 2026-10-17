@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from app.commands import claude as claude_command
 from app.services import claude_runner, jobs
 from tests.conftest import API_KEY
 
@@ -172,3 +173,47 @@ def test_two_accounts_listed_under_one_name_are_one_person(client, fake_claude, 
     reply = answer(client, "!claude quiénes están?")
     assert "Integrantes del grupo: Alice, Mili\n" in fake_claude["prompts"][-1] + "\n"  # once, not "Mili (1)" twice
     assert reply["mentions"] == [{"user_id": "u2", "user_name": "Mili"}]  # tagged by the account that is in the chat
+
+
+# --- now and then the answer is a voice note instead of text ---
+
+@pytest.fixture
+def spoken(monkeypatch):
+    """Never the real voice service: records what would be spoken and gives back fake audio."""
+    said = []
+
+    def fake(text, voice, timeout):
+        if len(text) > claude_command.tts_generator.MAX_CHARS:
+            raise claude_command.tts_generator.TextTooLong("demasiado largo")
+        said.append((text, voice))
+        return b"OGG"
+
+    monkeypatch.setattr(claude_command.tts_generator, "synthesize", fake)
+    return said
+
+
+def test_four_in_ten_answers_are_sent_as_a_voice_note(client, settings, fake_claude, spoken):
+    object.__setattr__(settings, "CLAUDE_AUDIO_CHANCE", 1)  # the dice always says "speak"
+    reply = answer(client, "!claude contame algo")
+    assert reply["audio"] and reply["text"] == ""
+    assert spoken == [("Listo.", "hombre")]  # the same voice as `!voz -h`
+    assert "nota de voz" in fake_claude["prompts"][-1]  # asked short and without tags, before answering
+
+    object.__setattr__(settings, "CLAUDE_AUDIO_CHANCE", 0)
+    assert answer(client, "!claude otra vez")["text"] == "Listo." and len(spoken) == 1
+
+
+def test_it_falls_back_to_text_when_it_cannot_be_spoken(client, settings, fake_claude, spoken, monkeypatch):
+    object.__setattr__(settings, "CLAUDE_AUDIO_CHANCE", 1)
+    fake_claude["answer"] = "Che @Bob, vos sabés."  # tagging somebody: the tag would be lost in a voice note
+    tagged = answer(client, "!claude preguntale a Bob")
+    assert tagged["text"] == "Che {@0}, vos sabés." and not tagged["audio"] and spoken == []
+
+    fake_claude["answer"] = "x" * 400  # longer than the voice service takes
+    assert answer(client, "!claude largo")["text"] == "x" * 400
+
+    fake_claude["answer"] = "Una respuesta corta."
+    def broken(*_):
+        raise claude_command.tts_generator.TtsError("el servicio no respondió")
+    monkeypatch.setattr(claude_command.tts_generator, "synthesize", broken)
+    assert answer(client, "!claude y ahora")["text"] == "Una respuesta corta."  # never loses the answer

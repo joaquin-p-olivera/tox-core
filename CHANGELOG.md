@@ -9,6 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `claude` answers are sent as a voice note `CLAUDE_AUDIO_CHANCE` (0.4) of the time, in `CLAUDE_AUDIO_VOICE` (`!voz -h`'s voice). Decided before asking, so a spoken answer is asked for short and tagless; it falls back to text when it tags somebody, is too long or the voice service fails.
 - Per-chat profile for `claude`: `CHATS_FILE` (`chats.json`, git-ignored, `chats.example.json` tracked) holds each chat's `name`, `about`, `people` and `notes`, read on every call (`app/services/chat_profiles.py`) and handed to both modes as the owner's own description of the chat (the rest of the context stays untrusted data).
 - `claude` context: `CLAUDE_CONTEXT_MESSAGES` is 150 by default and `CLAUDE_CONTEXT_MAX_CHARS` (20000) bounds it; `CLAUDE_PUBLIC_MAX_BUDGET_USD` is 0.10. In a chat with the history on, every `!claude` exchange (the question and the answer sent to the chat, admin or not) is saved in it (`claude_context.remember`), so the no-access mode keeps the thread whoever asks. The admins' CLI session stays separate and never reads others' text.
 - `claude` no longer answers "Ya hay una consulta en curso": questions wait their turn (`CLAUDE_PARALLEL` no-access questions and summaries at once, the admins' full-access ones one by one, `CLAUDE_QUEUE_MAX` places in line; `Busy` only when it is full). New `CLAUDE_TONE` (`salado` by default; `picante`, `normal`): the no-access prompt insults and swears like the friends do, with a few explicit limits.
@@ -108,3 +109,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `cumple <dd/mm/aaaa | dd/mm>`: registers a birthday (the year is optional); admins can set someone else's by tagging them (overwrites).
 - `fred` now sends the state of the apps in one message and then one message per app with only its URL; `fred-studio` (port 5203, local-only by design) was added.
 - `claude [-n] <pregunta>`: open to everyone. Admins: runs the Claude Code CLI in `CLAUDE_WORKDIR` with full access; everybody else: a plain chat with no access to the PC (no tools, no MCP, empty temporary folder, stateless; `CLAUDE_PUBLIC_*` limits, e-mail addresses masked). The admin mode runs the CLI in `CLAUDE_WORKDIR` with full access, one question at a time, with a per-question budget, a per-hour limit, a timeout, an answer cut to 400 characters and secrets scrubbed. Reacts with ⏳ to the command at once and sends the real answer through a new job mechanism (`job` on a reply, `GET /api/v1/jobs/{id}`), swapping the reaction for ✅ (⚠️ on an error).
+
+### Fixed
+
+- `voz` had been timing out for days: `edge-tts` 7.2.8 hangs for ever against Microsoft's service (its own timeouts never fire, only the command's wall-clock guard does). Pinned to 7.3.1, which answers in ~2 s.

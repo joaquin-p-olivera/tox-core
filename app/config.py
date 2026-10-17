@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     CLAUDE_TIMEOUT_SECONDS: int = Field(default=600, ge=30, le=3600)
     # At once: the admins' questions go one by one; the no-access ones and the summaries CLAUDE_PARALLEL at a time. The
     # rest wait in a line of CLAUDE_QUEUE_MAX places (0 = refuse straight away) and are answered in turn.
+    # Now and then the answer is sent as a voice note instead of text: the share of answers (0 = never, 1 = always)
+    # and the voice to read them with (a key of tts_generator.VOICES). An answer that is too long to speak, or one
+    # that tags somebody, is sent as text anyway.
+    CLAUDE_AUDIO_CHANCE: float = Field(default=0.4, ge=0, le=1)
+    CLAUDE_AUDIO_VOICE: Literal["hombre", "mujer"] = "hombre"
     # How the no-access mode talks: "salado" (insults and swearing, like the friends do), "picante" (sarcastic and
     # chicanero) or "normal" (just friendly). The two spicy ones keep a few hard limits (see TONE_PROMPTS).
     CLAUDE_TONE: Literal["normal", "picante", "salado"] = "salado"

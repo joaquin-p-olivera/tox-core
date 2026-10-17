@@ -46,7 +46,8 @@ def settings(audios_dir, risa_audios_dir, tmp_path) -> Settings:
                     SERVICES_FILE=str(tmp_path / "services.json"), USERS_FILE=str(tmp_path / "users.json"),
                     DEVICES_FILE=str(tmp_path / "devices.json"), CHATS_FILE=str(tmp_path / "chats.json"),
                     WEB_APPS_FILE=str(tmp_path / "webapps.json"), SERVICE_COMMAND_TIMEOUT_SECONDS=2,
-                    HISTORY_DB_PATH=str(tmp_path / "history.sqlite"))
+                    HISTORY_DB_PATH=str(tmp_path / "history.sqlite"),
+                    CLAUDE_AUDIO_CHANCE=0)  # no test speaks an answer by chance (it would call the real service)
 
 
 @pytest.fixture
