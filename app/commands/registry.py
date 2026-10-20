@@ -23,8 +23,8 @@ class CommandContext:
     prefix: str  # the prefix the user typed, e.g. "!" or "/"
     db: Session
     settings: Settings
-    # Nobody typed a command: the message is a reply to one of the bot's own messages, which !claude answers as if it
-    # had been asked (see services/command_router.py). Only !claude ever sees it set.
+    # Nobody typed a command: the message is a reply to one of the bot's own messages (which !claude answers as if it
+    # had been asked) or the one it is butting in on. See services/command_router.py; only !claude ever sees it set.
     implicit: bool = False
 
     @property

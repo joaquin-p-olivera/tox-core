@@ -628,6 +628,17 @@ hourly pools so a busy group can't use up the admins' questions.
   (replying to a voice note counts too, even though there is no text to quote). The same limits and modes apply; it never works
   in the personal mode, where the bot writes as the owner and a reply to it is their own chat. The WhatsApp bot only forwards the
   message when WhatsApp says the quoted one is the bot's: in a private chat it sometimes doesn't, and then the command is needed.
+- **It butts in now and then** (`CLAUDE_INTERJECT_CHANCE`, 0.02 of the messages): in a group whose history is on, Tox reads the
+  conversation and drops **one remark nobody asked for**, always as text (never a voice note) and always in the no-access mode,
+  whoever happened to write the message that got it talking — nobody asked for anything, so it must never run commands on this PC.
+  It ends with a `> Tox` line, so a remark is never taken for an answer to somebody. Whether it is worth saying anything at all is
+  Claude's own call: it is told to answer `paso` (and then nothing is sent, and nobody is told) when the recent messages are mostly
+  its own, questions put to it or commands instead of a real conversation. It also stays quiet if it said something in that chat
+  within `CLAUDE_INTERJECT_COOLDOWN_MINUTES` (30; answering a question counts as having spoken), if the hourly limits are full
+  (a remark is charged to the bot itself, `tox-bot`, not to the person who was talking) or if the line of questions is full.
+  Everything about it is silent: no reaction, no "I'm busy", no limit message. `0` turns it off, and then nothing is even rolled.
+  This is what the WhatsApp bot forwards ordinary chatter for, and only from the groups whose history is on: a message that
+  carries a picture is forwarded without downloading it.
 - **What the chat is.** `CHATS_FILE` (`chats.json`, see above) gives the chat a name, what it is about, who its people are and any notes, and all of it goes
   to **both** modes. It is the one part of the context nobody but the owner can write, so the prompt presents it as the owner's own description of the chat
   instead of as untrusted data; everything else (members, transcript, quoted message) stays data.

@@ -43,15 +43,20 @@ def post(client, text, *, user_id="u1", name="Alice", is_group=True, admin=False
     return response.json()["replies"]
 
 
-def answer(client, text, **kwargs):
-    (reply,) = post(client, text, **kwargs)
+def wait(client, job_id):
+    """The replies of a finished job (an empty list when it finished with nothing to say)."""
     deadline = time.time() + 5
     while time.time() < deadline:
-        body = client.get(f"/api/v1/jobs/{reply['job']}", headers=HEADERS).json()
+        body = client.get(f"/api/v1/jobs/{job_id}", headers=HEADERS).json()
         if body["status"] == "done":
-            return body["replies"][0]
+            return body["replies"]
         time.sleep(0.02)
     raise AssertionError("the job never finished")
+
+
+def answer(client, text, **kwargs):
+    (reply,) = post(client, text, **kwargs)
+    return wait(client, reply["job"])[0]
 
 
 def save(client, number, sender, name, text):
@@ -166,6 +171,82 @@ def test_the_question_of_a_reply_is_not_saved_twice_in_the_history(client, fake_
     answer(client, "!c y ahora?")
     saved = chat_history.recent(settings, f"whatsapp:{CHAT}", since=None, limit=10)
     assert [item.text for item in saved] == ["Listo.", "!c y ahora?", "Listo."]
+
+
+# --- now and then Tox butts in by itself (CLAUDE_INTERJECT_CHANCE) ---
+
+@pytest.fixture
+def always_butts_in(settings):
+    """The dice always says "say something", and the cooldown of earlier tests is forgotten."""
+    object.__setattr__(settings, "CLAUDE_INTERJECT_CHANCE", 1)
+    claude_command._spoke_in.clear()
+    return settings
+
+
+def chatter(client, text, **kwargs):
+    """An ordinary message, with no command in it: what the bot forwards from a group whose history is on."""
+    return post(client, text, **kwargs)
+
+
+def test_it_reads_the_conversation_and_drops_one_remark_of_its_own(client, fake_claude, always_butts_in, spoken):
+    object.__setattr__(always_butts_in, "CLAUDE_AUDIO_CHANCE", 1)  # a remark is text even when the dice says "speak"
+    post(client, "!h -on", **{"user_id": "admin1@lid", "name": "Owner", "admin": True})
+    save(client, 1, "u2", "Bob", "me quedé sin plata para el asado")
+    fake_claude["answer"] = "Pedile a @Bob que ponga él."
+    (reply,) = chatter(client, "y ahora qué hacemos", user_id="u3", name="Carla")
+
+    assert reply["job"] and reply["text"] == "" and reply["reaction"] is None  # nobody is waiting for it
+    done = wait(client, reply["job"])
+    assert done[0]["text"] == "Pedile a {@0} que ponga él.\n> Tox" and done[0]["audio"] is None
+    assert done[0]["mentions"] == [{"user_id": "u2", "user_name": "Bob"}] and len(done) == 1
+    assert spoken == []
+
+    prompt = fake_claude["prompts"][-1]
+    assert "Bob: me quedé sin plata para el asado" in prompt and "Pregunta de" not in prompt
+    assert "El último mensaje es de Carla" in prompt and "respondé exactamente «paso»" in prompt
+
+
+def test_when_claude_says_there_is_nothing_worth_saying_nothing_is_sent(client, fake_claude, always_butts_in):
+    post(client, "!h -on", **{"user_id": "admin1@lid", "name": "Owner", "admin": True})
+    save(client, 1, "u2", "Bob", "!ping")
+    fake_claude["answer"] = "«Paso»"
+    (reply,) = chatter(client, "ahí anda")
+    assert wait(client, reply["job"]) == []  # the chat never hears about it
+
+
+def test_it_stays_quiet_without_a_saved_conversation_and_right_after_speaking(client, fake_claude, always_butts_in):
+    assert chatter(client, "hola") == []  # the history of this chat is off: there is nothing to read
+    assert fake_claude["prompts"] == []
+
+    post(client, "!h -on", **{"user_id": "admin1@lid", "name": "Owner", "admin": True})
+    save(client, 1, "u2", "Bob", "mañana juego")
+    (reply,) = chatter(client, "dale")
+    wait(client, reply["job"])
+    assert chatter(client, "y después?") == []  # the cooldown: it just spoke here
+
+    claude_command._spoke_in.clear()
+    assert chatter(client, "sigue ahí?")[0]["job"]
+    object.__setattr__(always_butts_in, "CLAUDE_INTERJECT_CHANCE", 0)
+    claude_command._spoke_in.clear()
+    assert chatter(client, "y ahora") == []  # turned off: not even the dice is rolled
+
+
+def test_a_remark_never_gets_access_to_the_pc_whoever_was_talking(client, fake_claude, always_butts_in, monkeypatch):
+    """The message that gets it talking is nobody's question: an admin writing in the group must not hand it the CLI."""
+    full_access = []
+    monkeypatch.setattr(claude_runner, "execute", lambda *a: full_access.append(a) or claude_runner.ClaudeResult("no", None, 0.0))
+    post(client, "!h -on", **{"user_id": "admin1@lid", "name": "Owner", "admin": True})
+    save(client, 1, "u2", "Bob", "qué calor")
+    (reply,) = chatter(client, "sí, terrible", user_id="admin1@lid", name="Owner", admin=True)
+    wait(client, reply["job"])
+    assert full_access == [] and fake_claude["prompts"]  # answered, but by the no-access runner
+
+
+def test_answering_a_question_counts_as_having_spoken(client, fake_claude, always_butts_in):
+    post(client, "!h -on", **{"user_id": "admin1@lid", "name": "Owner", "admin": True})
+    save(client, 1, "u2", "Bob", "quién sabe")
+    answer(client, "!c quién ganó?")
+    assert chatter(client, "gracias") == []  # it just took part in the chat; no remark on top of its answer
 
 
 # --- the chat's own profile (CHATS_FILE, written by the owner) ---

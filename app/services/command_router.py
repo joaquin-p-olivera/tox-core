@@ -4,6 +4,7 @@ import re
 from sqlalchemy.orm import Session
 
 from ..commands import CommandContext, get_command
+from ..commands.claude import interject
 from ..config import Settings
 from ..schemas import IncomingMessage, Reply
 from . import chat_members
@@ -50,12 +51,28 @@ def replying_to_the_bot(message: IncomingMessage, settings: Settings) -> bool:
             and message.quoted is not None and message.quoted.is_bot)
 
 
+def _butt_in(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
+    """Nobody is talking to the bot: now and then it says something of its own anyway (commands/claude.py's
+    `interject`, CLAUDE_INTERJECT_CHANCE), and the rest of the time this is where an ordinary message stops."""
+    if settings.CLAUDE_INTERJECT_CHANCE <= 0 or message.personal or not message.is_group:
+        return []
+    ctx = CommandContext(message=message, args=[], raw_args="", invoked_as=REPLY_COMMAND,
+                         prefix=settings.command_prefixes_list[0], db=db, settings=settings, implicit=True)
+    try:
+        remark = interject(ctx)
+    except Exception:
+        logger.exception("Could not butt into a conversation")
+        db.rollback()
+        return []
+    return [remark] if remark is not None else []
+
+
 def handle_message(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
     prefixes = [PERSONAL_PREFIX] if message.personal else settings.command_prefixes_list
     parsed = parse_command(message.text, prefixes)
     implicit = parsed is None and replying_to_the_bot(message, settings)
     if parsed is None and not implicit:
-        return []
+        return _butt_in(message, db, settings)
     # A reply to the bot: the whole message is the question, and the prefix is only there for the usage messages.
     prefix, token, raw_args = parsed or (prefixes[0], REPLY_COMMAND, message.text.strip())
 

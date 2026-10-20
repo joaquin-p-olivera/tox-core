@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     # Replying to one of the bot's own messages asks Claude without typing the command: the reply is the question
     # (the same limits apply). Never in the personal mode, where the bot's messages are the owner's own.
     CLAUDE_ON_REPLY: bool = True
+    # Now and then Tox butts into a conversation nobody invited it to: it reads what is going on in the group and drops
+    # one remark of its own, always as text. CLAUDE_INTERJECT_CHANCE is the share of messages that trigger one
+    # (0 = never), and it never happens twice in a chat within CLAUDE_INTERJECT_COOLDOWN_MINUTES (answering a question
+    # counts as having spoken). Only in groups whose history is on: what it reads is its only context.
+    CLAUDE_INTERJECT_CHANCE: float = Field(default=0.02, ge=0, le=1)
+    CLAUDE_INTERJECT_COOLDOWN_MINUTES: int = Field(default=30, ge=1, le=1440)
     # Context for everybody without access to the PC, in the chats where the owner turned the history on (!h -on): the
     # latest CLAUDE_CONTEXT_MESSAGES messages of the last CLAUDE_CONTEXT_HOURS hours go with the question (0 = none).
     # The admins' full-access mode never gets them: anybody in the group could write instructions there.

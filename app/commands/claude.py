@@ -1,6 +1,7 @@
 import logging
 import random
-from datetime import timedelta
+import re
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
@@ -52,6 +53,25 @@ def _limit_message(limit: int, oldest, what: str) -> str:
     return f"Se alcanzó el límite de {limit} {what}. Probá de nuevo en unos {minutes} min."
 
 
+def _limit_reached(ctx: CommandContext, full_access: bool, user_key: str) -> str | None:
+    """What to answer when there is no room for one more question this hour, or None when there is. `user_key` is who
+    the question is charged to (the bot itself, for the remarks it makes on its own)."""
+    rows = ctx.db.execute(select(ClaudeQuery.user_key, ClaudeQuery.created_at)
+                          .where(ClaudeQuery.created_at > utcnow() - WINDOW).order_by(ClaudeQuery.created_at)).all()
+    admins = ctx.settings.admin_user_keys
+    # Admins share one pool; the others share another one, so a busy group can't use up the admins' questions
+    pool = [at for user, at in rows if (user in admins) == full_access]
+    pool_limit = ctx.settings.CLAUDE_QUESTIONS_PER_HOUR if full_access else ctx.settings.CLAUDE_PUBLIC_QUESTIONS_PER_HOUR
+    if len(pool) >= pool_limit:
+        return _limit_message(pool_limit, pool[0], "preguntas por hora")
+    if not full_access:
+        mine = [at for user, at in rows if user == user_key]
+        per_person = ctx.settings.CLAUDE_PUBLIC_QUESTIONS_PER_PERSON_PER_HOUR
+        if len(mine) >= per_person:
+            return _limit_message(per_person, mine[0], "preguntas por hora por persona")
+    return None
+
+
 @command(
     "claude",
     description="Le hace una pregunta a Claude (IA); responde resumido. Los admins además pueden pedirle cosas sobre la PC",
@@ -82,20 +102,9 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
     if full_access and not claude_runner.workdir(settings).is_dir():
         return f"No existe la carpeta de trabajo ({settings.CLAUDE_WORKDIR})."
 
-    since = utcnow() - WINDOW
-    rows = ctx.db.execute(select(ClaudeQuery.user_key, ClaudeQuery.created_at).where(ClaudeQuery.created_at > since)
-                          .order_by(ClaudeQuery.created_at)).all()
-    admins = settings.admin_user_keys
-    # Admins share one pool; the others share another one, so a busy group can't use up the admins' questions
-    pool = [at for user, at in rows if (user in admins) == full_access]
-    pool_limit = settings.CLAUDE_QUESTIONS_PER_HOUR if full_access else settings.CLAUDE_PUBLIC_QUESTIONS_PER_HOUR
-    if len(pool) >= pool_limit:
-        return _limit_message(pool_limit, pool[0], "preguntas por hora")
-    if not full_access:
-        mine = [at for user, at in rows if user == message.user_key]
-        per_person = settings.CLAUDE_PUBLIC_QUESTIONS_PER_PERSON_PER_HOUR
-        if len(mine) >= per_person:
-            return _limit_message(per_person, mine[0], "preguntas por hora por persona")
+    reached = _limit_reached(ctx, full_access, message.user_key)
+    if reached is not None:
+        return reached
 
     # Names of the group and the replied-to message always; the latest messages only for people without access to the PC
     context = claude_context.gather(ctx.db, settings, message, with_history=not full_access)
@@ -119,7 +128,57 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
         return claude_runner.BUSY_MESSAGE
     ctx.db.add(ClaudeQuery(user_key=message.user_key, chat_key=message.chat_key))
     ctx.db.commit()
+    _spoke_in[message.chat_key] = utcnow()  # it just took part: no remark of its own for a while (see `interject`)
     logger.info("CLAUDE question by %s in %s (%d chars%s%s%s%s)", message.user_key, message.chat_key, len(question),
                 ", new conversation" if new_conversation else "", "" if full_access else ", no PC access",
                 ", spoken" if speak else "", ", replying to the bot" if ctx.implicit else "")
     return Reply(reaction=WAITING_REACTION, job=job_id)
+
+
+# --- Butting in: now and then Tox says something nobody asked for (CLAUDE_INTERJECT_CHANCE) ---
+
+PASS_ANSWER = re.compile(r"^[«\"\'(]*paso[.!…»\"\')]*$", re.IGNORECASE)  # Claude's way of saying "not worth it"
+SIGNATURE = "\n> Tox"  # marks a remark nobody asked for, so it is never taken for an answer to somebody
+_spoke_in: dict[str, datetime] = {}  # chat_key -> when Claude last said something there, asked or not
+
+
+def interject(ctx: CommandContext) -> Reply | None:
+    """A remark nobody asked for, on the message that happened to get Claude talking: it reads the conversation of the
+    group and sends one message of its own. Always text (never a voice note) and always the no-access mode, whoever
+    wrote that message: nobody asked for anything, so it must not run commands on this PC.
+
+    Everything about it is quiet: it is dropped without a word (no reaction, no "I am busy", no limit message) when the
+    dice says no, when it already spoke in this chat within CLAUDE_INTERJECT_COOLDOWN_MINUTES, when there is no saved
+    conversation to read, or when Claude itself answers that there is nothing worth saying."""
+    settings, message = ctx.settings, ctx.message
+    if message.personal or not message.is_group or random.random() >= settings.CLAUDE_INTERJECT_CHANCE:
+        return None
+    spoke = _spoke_in.get(message.chat_key)
+    if spoke is not None and utcnow() - spoke < timedelta(minutes=settings.CLAUDE_INTERJECT_COOLDOWN_MINUTES):
+        return None
+    user_key = f"{message.platform}:{claude_context.BOT_ID}"  # what it says on its own is charged to the bot itself
+    if _limit_reached(ctx, full_access=False, user_key=user_key) is not None:
+        return None
+    context = claude_context.gather(ctx.db, settings, message, with_history=True)
+    if context.history_key is None or not context.transcript:
+        return None  # the history of this chat is off: there is nothing to read, and nobody asked to be read
+    job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
+
+    def done(text: str) -> None:
+        if text.startswith(FAILED_REACTION) or not text.strip() or PASS_ANSWER.match(text.strip()):
+            jobs.finish(job_id, [])  # nothing is sent to the chat, and nobody is told why
+            return
+        claude_context.remember(settings, context, message, text, job_id, save_question=False)
+        tagged, mentions = claude_context.tag_mentions(context, text)
+        jobs.finish(job_id, [Reply(text=tagged + SIGNATURE, mentions=mentions)])
+
+    try:
+        claude_runner.start(message.chat_key, context.interjection(), False, settings, on_done=done, full_access=False)
+    except claude_runner.Busy:
+        jobs.discard(job_id)
+        return None
+    ctx.db.add(ClaudeQuery(user_key=user_key, chat_key=message.chat_key))
+    ctx.db.commit()
+    _spoke_in[message.chat_key] = utcnow()
+    logger.info("CLAUDE butting in on %s, after a message of %s", message.chat_key, message.user_key)
+    return Reply(job=job_id)  # no reaction: the message it answers is not a command, and nobody is waiting

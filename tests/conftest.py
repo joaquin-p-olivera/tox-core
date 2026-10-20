@@ -47,7 +47,9 @@ def settings(audios_dir, risa_audios_dir, tmp_path) -> Settings:
                     DEVICES_FILE=str(tmp_path / "devices.json"), CHATS_FILE=str(tmp_path / "chats.json"),
                     WEB_APPS_FILE=str(tmp_path / "webapps.json"), SERVICE_COMMAND_TIMEOUT_SECONDS=2,
                     HISTORY_DB_PATH=str(tmp_path / "history.sqlite"),
-                    CLAUDE_AUDIO_CHANCE=0)  # no test speaks an answer by chance (it would call the real service)
+                    # No test speaks an answer by chance (it would call the real voice service), and none of them has
+                    # Claude butting into a chat on its own: both are asked for explicitly where they are the subject.
+                    CLAUDE_AUDIO_CHANCE=0, CLAUDE_INTERJECT_CHANCE=0)
 
 
 @pytest.fixture
