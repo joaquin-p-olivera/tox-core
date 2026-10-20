@@ -117,7 +117,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `foto`                                 | `imagen`                   | Turns a sticker into a photo (reply to the sticker with `!foto`) |
 | `qr <texto o link>`                    |                            | A QR code image of the text or link                       |
 | `recordar <HH:MM> <qué>`               |                            | Reminds you (tagging you, in the same chat) at that time: today if still ahead, else tomorrow (see below) |
-| `claude [-n] <pregunta>`               |                            | Asks Claude: admins get full access in `~/dev`, everybody else a chat with no access to the PC; a ⏳ reaction first, then the answer (see below) |
+| `claude [-n] <pregunta>`               |                            | Asks Claude: admins get full access in `~/dev`, everybody else a chat with no access to the PC; a ⏳ reaction first, then the answer (see below). Replying to a message of the bot asks it too, with no command |
 | `ban @usuario`                         |                            | **Admin only.** Removes the tagged member from the group (see below) |
 | `permaban @usuario`                    |                            | **Admin only.** Bans and blacklists: removed from every group the bot is in, and again if they come back |
 | `unpermaban [número o nombre]`         | `despermaban`              | **Admin only.** Lists the blacklist, or takes someone off it |
@@ -623,10 +623,15 @@ hourly pools so a busy group can't use up the admins' questions.
   the context of an agent that can run commands. So the admins' mode reads nothing written by others except the message it replies to, and what the
   no-access mode reads is only what the chat has already seen.
 - **`!c <question>`** is the short way of asking (`!c` alone is still the trivia answer C).
+- **Replying to Tox needs no command** (`CLAUDE_ON_REPLY`, on by default): a reply to one of the bot's own messages is a question
+  for Claude, and the whole reply is the question. It keeps the conversation going the way it does with anybody else in the chat
+  (replying to a voice note counts too, even though there is no text to quote). The same limits and modes apply; it never works
+  in the personal mode, where the bot writes as the owner and a reply to it is their own chat. The WhatsApp bot only forwards the
+  message when WhatsApp says the quoted one is the bot's: in a private chat it sometimes doesn't, and then the command is needed.
 - **What the chat is.** `CHATS_FILE` (`chats.json`, see above) gives the chat a name, what it is about, who its people are and any notes, and all of it goes
   to **both** modes. It is the one part of the context nobody but the owner can write, so the prompt presents it as the owner's own description of the chat
   instead of as untrusted data; everything else (members, transcript, quoted message) stays data.
-- **Sometimes a voice note.** `CLAUDE_AUDIO_CHANCE` (0.4) of the answers are sent as a voice note instead of text, read with
+- **Sometimes a voice note.** `CLAUDE_AUDIO_CHANCE` (0.25) of the answers are sent as a voice note instead of text, read with
   `CLAUDE_AUDIO_VOICE` (`hombre`: the same voice as `!voz -h`). The dice is rolled **before** asking, so an answer that will be
   heard is asked for under 280 characters, with no emoji, markdown or tags. It falls back to text when the answer tags somebody
   (the tag would be lost), is longer than the voice service takes, or the synthesis fails: the answer is never lost. Summaries
@@ -636,7 +641,7 @@ hourly pools so a busy group can't use up the admins' questions.
   insults for race, origin, religion, gender, orientation, disability or illness, nothing sexually explicit, no threats or pushing anybody to hurt themselves,
   no serious accusations or private data; and the jokes stop when somebody is really down. It applies to the admins' full-access mode too (only the manner changes: the answers about the PC stay correct, and the secrecy rules stay); the summaries are unchanged.
 - **A reaction, then the answer.** The reply is a `⏳` reaction to the command (no placeholder message) with a `job` id; the bot polls `GET /api/v1/jobs/{id}` (every 2 s, up to 15 min)
-  and sends the answer, quoting the command, when it is ready, followed by a `✅` (or `⚠️` for an error) reaction that replaces the `⏳`. A question can take minutes; the chat request doesn't wait for it.
+  and sends the answer, quoting the command, when it is ready; the `⏳` is then taken off (an empty `reaction`, which is how the bot revokes one) or turned into `⚠️` if there is no answer. A question can take minutes; the chat request doesn't wait for it.
   Jobs live in memory: if the API restarts meanwhile, the bot says the query was lost.
 - **Limits.** Few at a time, never "busy": the admins' questions go one by one, the no-access ones and the summaries `CLAUDE_PARALLEL` (2) at a time, and the rest wait their turn in a line of `CLAUDE_QUEUE_MAX` (5) places (only a full line is refused); questions per hour, counted in `claude_queries`: `CLAUDE_QUESTIONS_PER_HOUR` (200, admins together)
   and `CLAUDE_PUBLIC_QUESTIONS_PER_HOUR` (100, everybody else together); `CLAUDE_MAX_BUDGET_USD` (2.5, about $U 100) per question, passed as `--max-budget-usd`; `CLAUDE_TIMEOUT_SECONDS` (600),

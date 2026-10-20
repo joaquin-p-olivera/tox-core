@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.commands import claude as claude_command
-from app.services import claude_runner, jobs
+from app.services import chat_history, claude_runner, jobs
 from tests.conftest import API_KEY
 
 HEADERS = {"X-API-Key": API_KEY}
@@ -126,6 +126,46 @@ def test_the_exchanges_are_kept_in_the_history_so_the_next_question_sees_them(cl
     post(client, "!h -off", **{"user_id": "admin1@lid", "name": "Owner", "admin": True})
     answer(client, "!claude otra más")
     assert "colgado" not in fake_claude["prompts"][-1]
+
+
+# --- replying to one of the bot's own messages is a question too, with no command typed (CLAUDE_ON_REPLY) ---
+
+BOT_REPLY = {"text": "Bob es un colgado.", "is_bot": True}
+
+
+def test_replying_to_the_bot_asks_claude_without_writing_the_command(client, fake_claude):
+    reply = answer(client, "y por qué decís eso?", quoted=BOT_REPLY)
+    prompt = fake_claude["prompts"][-1]
+    assert "respondiendo a este mensaje de Tox (vos): «Bob es un colgado.»" in prompt
+    assert prompt.endswith("Pregunta de Alice: y por qué decís eso?")
+    assert reply["text"] == "Listo."
+
+
+def test_a_reply_with_no_text_in_it_is_a_question_all_the_same(client, fake_claude):
+    """The bot's answer was a voice note: WhatsApp quotes it with no text, and the question stands on its own."""
+    answer(client, "jajaja y eso?", quoted={"text": "", "is_bot": True})
+    assert fake_claude["prompts"][-1].endswith("Pregunta de Alice: jajaja y eso?")
+    assert "respondiendo a este mensaje" not in fake_claude["prompts"][-1]
+
+
+def test_only_a_reply_to_the_bot_counts_and_only_while_the_setting_is_on(client, settings, fake_claude):
+    assert post(client, "jajaja") == []  # ordinary chatter
+    assert post(client, "y eso?", quoted={"text": "Mañana no llego", "user_id": "u2"}) == []  # a reply to Bob
+    assert post(client, ".b y eso?", personal=True, quoted=BOT_REPLY) == []  # the personal mode: the owner's own chat
+
+    object.__setattr__(settings, "CLAUDE_ON_REPLY", False)
+    assert post(client, "y por qué decís eso?", quoted=BOT_REPLY) == []
+    assert fake_claude["prompts"] == []
+
+
+def test_the_question_of_a_reply_is_not_saved_twice_in_the_history(client, fake_claude, settings):
+    """The bot saves every message that is not a command, so this one is in the history already: only the answer is
+    added. A typed command is never saved by the bot, so both halves of it are."""
+    post(client, "!h -on", **{"user_id": "admin1@lid", "name": "Owner", "admin": True})
+    answer(client, "y por qué decís eso?", quoted=BOT_REPLY)
+    answer(client, "!c y ahora?")
+    saved = chat_history.recent(settings, f"whatsapp:{CHAT}", since=None, limit=10)
+    assert [item.text for item in saved] == ["Listo.", "!c y ahora?", "Listo."]
 
 
 # --- the chat's own profile (CHATS_FILE, written by the owner) ---

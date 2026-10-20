@@ -44,7 +44,8 @@ def test_it_answers_at_once_and_the_answer_comes_through_the_job(client, isolate
     # no placeholder message: the bot reacts with ⏳ to the command and sends the answer when the job is done
     assert reply["text"] == "" and reply["reaction"] == "⏳" and reply["job"]
     done = wait_done(client, reply["job"])
-    assert [r["text"] for r in done] == ["Todo bien.", ""] and done[1]["reaction"] == "✅"  # ✅ replaces the ⏳
+    # the ⏳ is taken off when the answer arrives (an empty reaction), not replaced by one of its own
+    assert [r["text"] for r in done] == ["Todo bien.", ""] and done[1]["reaction"] == ""
     assert isolated == [("cuántos servicios hay?", None)]
 
 

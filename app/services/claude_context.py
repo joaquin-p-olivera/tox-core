@@ -169,16 +169,21 @@ BOT_ID = "tox-bot"  # the sender id of the answers in the saved history
 BOT_NAME = "Tox"
 
 
-def remember(settings: Settings, context: Context, message: IncomingMessage, answer: str, exchange_id: str) -> None:
+def remember(settings: Settings, context: Context, message: IncomingMessage, answer: str, exchange_id: str, *,
+             save_question: bool = True) -> None:
     """Keeps the exchange (what was typed and what Claude said back) in the saved history of the chat, when it is turned
-    on, so the next questions see it: the bot does not save its own messages. Only text the whole chat already saw."""
+    on, so the next questions see it: the bot does not save its own messages. Only text the whole chat already saw.
+
+    `save_question` False: the question is in the history already, so saving it here would show it twice. That is the
+    case when nobody typed a command (a reply to the bot): the bot saves every message that is not one."""
     if context.history_key is None or not answer.strip():
         return
     now = utcnow()
-    chat_history.store(settings, context.history_key, [
-        chat_history.Incoming(f"claude:{exchange_id}:q", message.user_id, message.user_name, message.text, now),
-        chat_history.Incoming(f"claude:{exchange_id}:a", BOT_ID, BOT_NAME, answer, now),
-    ])
+    rows = [chat_history.Incoming(f"claude:{exchange_id}:a", BOT_ID, BOT_NAME, answer, now)]
+    if save_question:
+        rows.insert(0, chat_history.Incoming(f"claude:{exchange_id}:q", message.user_id, message.user_name,
+                                             message.text, now))
+    chat_history.store(settings, context.history_key, rows)
 
 
 def _merge_listed(people: list[Person], by_id: dict[str, Person], users: dict, platform: str) -> None:

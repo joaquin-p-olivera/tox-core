@@ -157,7 +157,7 @@ def test_the_summary_gets_who_said_what_and_when(client, isolated):
     (reply,) = personal(client, ".b res")  # today is the default
     assert reply["text"] == "" and reply["reaction"] == "⏳" and reply["job"]
     text, reaction = wait_done(client, reply["job"])
-    assert text["text"] == "Hablaron de la cena." and reaction["reaction"] == "✅"
+    assert text["text"] == "Hablaron de la cena." and reaction["reaction"] == ""  # the ⏳ is taken off, not replaced
 
     (transcript,) = isolated
     assert "[13/10 11:30] Ana: ¿cenamos el viernes?" in transcript  # local time

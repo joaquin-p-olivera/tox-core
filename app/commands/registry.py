@@ -23,6 +23,9 @@ class CommandContext:
     prefix: str  # the prefix the user typed, e.g. "!" or "/"
     db: Session
     settings: Settings
+    # Nobody typed a command: the message is a reply to one of the bot's own messages, which !claude answers as if it
+    # had been asked (see services/command_router.py). Only !claude ever sees it set.
+    implicit: bool = False
 
     @property
     def is_listed_admin(self) -> bool:

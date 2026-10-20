@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     # Now and then the answer is sent as a voice note instead of text: the share of answers (0 = never, 1 = always)
     # and the voice to read them with (a key of tts_generator.VOICES). An answer that is too long to speak, or one
     # that tags somebody, is sent as text anyway.
-    CLAUDE_AUDIO_CHANCE: float = Field(default=0.4, ge=0, le=1)
+    CLAUDE_AUDIO_CHANCE: float = Field(default=0.25, ge=0, le=1)
     CLAUDE_AUDIO_VOICE: Literal["hombre", "mujer"] = "hombre"
     # How the no-access mode talks: "salado" (insults and swearing, like the friends do), "picante" (sarcastic and
     # chicanero) or "normal" (just friendly). The two spicy ones keep a few hard limits (see TONE_PROMPTS).
@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     CLAUDE_PUBLIC_MAX_BUDGET_USD: float = Field(default=0.10, gt=0, le=100)  # an answer costs ~US$0.01-0.03
     CLAUDE_PUBLIC_QUESTIONS_PER_HOUR: int = Field(default=100, ge=1, le=1000)  # everybody else, all together
     CLAUDE_PUBLIC_QUESTIONS_PER_PERSON_PER_HOUR: int = Field(default=100, ge=1, le=1000)
+    # Replying to one of the bot's own messages asks Claude without typing the command: the reply is the question
+    # (the same limits apply). Never in the personal mode, where the bot's messages are the owner's own.
+    CLAUDE_ON_REPLY: bool = True
     # Context for everybody without access to the PC, in the chats where the owner turned the history on (!h -on): the
     # latest CLAUDE_CONTEXT_MESSAGES messages of the last CLAUDE_CONTEXT_HOURS hours go with the question (0 = none).
     # The admins' full-access mode never gets them: anybody in the group could write instructions there.

@@ -119,7 +119,9 @@ class Reply(BaseModel):
     )
     reaction: str | None = Field(
         default=None,
-        description="An emoji the bot reacts with to the message that triggered the command (no text is sent).",
+        description="An emoji the bot reacts with to the message that triggered the command (no text is sent). The "
+        "empty string takes off the reaction the bot put there before (e.g. !claude's ⏳ once the answer is sent); "
+        "null is \"leave the reactions alone\".",
     )
     image: str | None = Field(
         default=None,

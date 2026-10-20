@@ -18,6 +18,9 @@ REFUSED_REACTION = "🚫"  # what the bot reacts with to an admin-only command u
 # there, so the owner's normal chats can't trigger anything by accident.
 PERSONAL_PREFIX = ".b "
 
+# What a reply to one of the bot's own messages is answered by (see `replying_to_the_bot`)
+REPLY_COMMAND = "claude"
+
 
 def parse_command(text: str, prefixes: list[str]) -> tuple[str, str, str] | None:
     """Split ``"!roll 2d6"`` into ``("!", "roll", "2d6")``. Returns None if it isn't a command."""
@@ -39,12 +42,22 @@ def parse_command(text: str, prefixes: list[str]) -> tuple[str, str, str] | None
     return None
 
 
+def replying_to_the_bot(message: IncomingMessage, settings: Settings) -> bool:
+    """Whether this message is somebody replying to one of the bot's own messages, which is the other way of talking to
+    Claude: no command typed, the reply itself is the question (CLAUDE_ON_REPLY). Never in the personal mode, where the
+    bot writes as the owner, so a reply to it is the owner's own chat and none of the bot's business."""
+    return (settings.CLAUDE_ON_REPLY and not message.personal and bool(message.text.strip())
+            and message.quoted is not None and message.quoted.is_bot)
+
+
 def handle_message(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
     prefixes = [PERSONAL_PREFIX] if message.personal else settings.command_prefixes_list
     parsed = parse_command(message.text, prefixes)
-    if parsed is None:
+    implicit = parsed is None and replying_to_the_bot(message, settings)
+    if parsed is None and not implicit:
         return []
-    prefix, token, raw_args = parsed
+    # A reply to the bot: the whole message is the question, and the prefix is only there for the usage messages.
+    prefix, token, raw_args = parsed or (prefixes[0], REPLY_COMMAND, message.text.strip())
 
     cmd = get_command(token)
     if cmd is None:
@@ -61,6 +74,7 @@ def handle_message(message: IncomingMessage, db: Session, settings: Settings) ->
         prefix=prefix,
         db=db,
         settings=settings,
+        implicit=implicit,
     )
     if (cmd.admin_only and not ctx.is_admin) or (cmd.owner_only and not (message.personal or ctx.is_admin)):
         return [Reply(reaction=REFUSED_REACTION)]  # no text: the bot just reacts to the command

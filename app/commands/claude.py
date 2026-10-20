@@ -15,14 +15,14 @@ logger = logging.getLogger("tox.claude")
 WINDOW = timedelta(hours=1)
 NEW_FLAGS = ("-n", "--nuevo")
 WAITING_REACTION = "⏳"  # on the command message while Claude works (no placeholder message)
-DONE_REACTION = "✅"  # replaces it when the answer arrives
-FAILED_REACTION = "⚠️"  # ... or when there is none (the runner starts every error message with it)
+CLEAR_REACTION = ""  # when the answer arrives the ⏳ is taken off, not replaced: the answer itself says it is done
+FAILED_REACTION = "⚠️"  # ... except when there is no answer (the runner starts every error message with it)
 
 
 def _finished(text: str, context: claude_context.Context | None = None, speak_with=None) -> list[Reply]:
-    """The answer first (so a failing reaction can never lose it), then the reaction that replaces the ⏳. With a
-    `context`, the @Names in the answer become real mentions. With `speak_with` (the settings), the answer is sent as
-    a voice note instead; see `_spoken`."""
+    """The answer first (so a failing reaction can never lose it), then what becomes of the ⏳: it is removed, or it
+    turns into ⚠️ when there is no answer. With a `context`, the @Names in the answer become real mentions. With
+    `speak_with` (the settings), the answer is sent as a voice note instead; see `_spoken`."""
     failed = text.startswith(FAILED_REACTION)
     mentions = []
     if context is not None and not failed:
@@ -32,7 +32,7 @@ def _finished(text: str, context: claude_context.Context | None = None, speak_wi
         audio = _spoken(text, speak_with)
         if audio is not None:
             answer = Reply(audio=audio)
-    return [answer, Reply(reaction=FAILED_REACTION if failed else DONE_REACTION)]
+    return [answer, Reply(reaction=FAILED_REACTION if failed else CLEAR_REACTION)]
 
 
 def _spoken(text: str, settings) -> str | None:
@@ -55,7 +55,7 @@ def _limit_message(limit: int, oldest, what: str) -> str:
 @command(
     "claude",
     description="Le hace una pregunta a Claude (IA); responde resumido. Los admins además pueden pedirle cosas sobre la PC",
-    usage="claude [-n] <pregunta o pedido>   (o !c <pregunta>)",
+    usage="claude [-n] <pregunta o pedido>   (o !c <pregunta>, o respondiendo a un mensaje de Tox)",
     category="Utilidades",
 )
 def ask_claude(ctx: CommandContext) -> str | Reply:
@@ -63,12 +63,16 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
     answer when it is ready (a question can take minutes, longer than a chat request should wait).
 
     Who asks decides what Claude can do: admins (ctx.is_admin) get the full-access mode in the work directory; anybody
-    else a plain chat with no access to this PC (claude_runner.execute_public), with a per-person limit on top."""
+    else a plain chat with no access to this PC (claude_runner.execute_public), with a per-person limit on top.
+
+    It is also what answers a reply to one of the bot's own messages, with no command typed (ctx.implicit): the whole
+    message is then the question."""
     settings, message = ctx.settings, ctx.message
     full_access = ctx.is_admin
     first, _, rest = ctx.raw_args.strip().partition(" ")
-    new_conversation = full_access and first.lower() in NEW_FLAGS
-    question = (rest if first.lower() in NEW_FLAGS else ctx.raw_args).strip()
+    # A reply to the bot (ctx.implicit) is plain chat: a "-n" in it is part of what was written, not a flag.
+    new_conversation = full_access and not ctx.implicit and first.lower() in NEW_FLAGS
+    question = (rest if new_conversation else ctx.raw_args).strip()
     if not question:
         usage = f"Uso: {ctx.prefix}claude <pregunta>"
         if full_access:
@@ -101,7 +105,8 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
 
     def done(text: str) -> None:
         if not text.startswith(FAILED_REACTION):
-            claude_context.remember(settings, context, message, text, job_id)  # (in the history, when it is on)
+            # (in the history, when it is on). A reply to the bot is not a command, so the bot already saved it.
+            claude_context.remember(settings, context, message, text, job_id, save_question=not ctx.implicit)
         jobs.finish(job_id, _finished(text, context, settings if speak else None))
 
     try:
@@ -114,7 +119,7 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
         return claude_runner.BUSY_MESSAGE
     ctx.db.add(ClaudeQuery(user_key=message.user_key, chat_key=message.chat_key))
     ctx.db.commit()
-    logger.info("CLAUDE question by %s in %s (%d chars%s%s%s)", message.user_key, message.chat_key, len(question),
+    logger.info("CLAUDE question by %s in %s (%d chars%s%s%s%s)", message.user_key, message.chat_key, len(question),
                 ", new conversation" if new_conversation else "", "" if full_access else ", no PC access",
-                ", spoken" if speak else "")
+                ", spoken" if speak else "", ", replying to the bot" if ctx.implicit else "")
     return Reply(reaction=WAITING_REACTION, job=job_id)

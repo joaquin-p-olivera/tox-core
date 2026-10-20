@@ -7,9 +7,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- When a `claude` (or `res`) answer arrives the `⏳` reaction is taken off instead of being replaced by a `✅`: a reply with an empty `reaction` now means "revoke the reaction you left there" (`null` still means "leave them alone"). `⚠️` is still used when there is no answer.
+
 ### Added
 
-- `claude` answers are sent as a voice note `CLAUDE_AUDIO_CHANCE` (0.4) of the time, in `CLAUDE_AUDIO_VOICE` (`!voz -h`'s voice). Decided before asking, so a spoken answer is asked for short and tagless; it falls back to text when it tags somebody, is too long or the voice service fails.
+- Replying to a message of the bot asks `claude`, with no command typed (`CLAUDE_ON_REPLY`, on by default): the whole reply is the question and the answer continues the thread. A reply to a voice note counts too, and the personal mode is left out (there the bot writes as the owner). The question is not saved to the history twice, since the bot already saves everything that is not a command.
+- `claude` answers are sent as a voice note `CLAUDE_AUDIO_CHANCE` (0.25) of the time, in `CLAUDE_AUDIO_VOICE` (`!voz -h`'s voice). Decided before asking, so a spoken answer is asked for short and tagless; it falls back to text when it tags somebody, is too long or the voice service fails.
 - Per-chat profile for `claude`: `CHATS_FILE` (`chats.json`, git-ignored, `chats.example.json` tracked) holds each chat's `name`, `about`, `people` and `notes`, read on every call (`app/services/chat_profiles.py`) and handed to both modes as the owner's own description of the chat (the rest of the context stays untrusted data).
 - `claude` context: `CLAUDE_CONTEXT_MESSAGES` is 150 by default and `CLAUDE_CONTEXT_MAX_CHARS` (20000) bounds it; `CLAUDE_PUBLIC_MAX_BUDGET_USD` is 0.10. In a chat with the history on, every `!claude` exchange (the question and the answer sent to the chat, admin or not) is saved in it (`claude_context.remember`), so the no-access mode keeps the thread whoever asks. The admins' CLI session stays separate and never reads others' text.
 - `claude` no longer answers "Ya hay una consulta en curso": questions wait their turn (`CLAUDE_PARALLEL` no-access questions and summaries at once, the admins' full-access ones one by one, `CLAUDE_QUEUE_MAX` places in line; `Busy` only when it is full). New `CLAUDE_TONE` (`salado` by default; `picante`, `normal`): the no-access prompt insults and swears like the friends do, with a few explicit limits.
