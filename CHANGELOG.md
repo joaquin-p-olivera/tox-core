@@ -16,6 +16,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `!censura @usuario` (admin, groups only): a switch that makes the bot delete every message that person sends in that group, their commands included, until the same command lifts it. It is per chat, and anybody can be censored except the bot and whoever runs the command (a group admin and a listed admin included: nobody leaves the group and the same command undoes it). The API only keeps the list (`censored_users`) and serves it at `GET /api/v1/censored`; the bot reads it and deletes on its own, which is the only way it reaches the messages the API never sees (ordinary chatter of a group with history off). The bot has to be an admin of the group.
 - The log is written to a file besides the console: one per `LOG_ROTATE_HOURS` (24 by default, rolled over at midnight) in `LOG_DIR` (`logs/`, git-ignored), as `tox.log` plus `tox-2026-10-20.log` for the days gone by. uvicorn's own lines (startup, the access log) go to the same file. Nothing is deleted automatically: old files are removed by hand. `LOG_DIR=` (empty) keeps it on the console only, which is what the tests do.
 - `start_test.sh`, the API while writing code: the same thing as `./start_dev.sh` (dev, `.env`, `requirements-dev.txt`) with uvicorn's reloader on, so every save restarts it.
 - `tox-core.service`, a systemd user unit running `./start_dev.sh`, documented in the README (the unit itself lives in `~/.config/systemd/user/`, outside the repo).

@@ -152,6 +152,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `permaban @usuario`                    |                            | **Admin only.** Bans and blacklists: removed from every group the bot is in, and again if they come back |
 | `unpermaban [número o nombre]`         | `despermaban`              | **Admin only.** Lists the blacklist, or takes someone off it |
 | `ruleta-ban`                           | `ruletaban`                | **Admin only.** Picks a random non-admin member to ban; an admin confirms with `!si` or cancels with `!no` |
+| `censura @usuario`                     |                            | **Admin only.** Deletes everything the tagged member sends in this group; the same command again lifts it (see below) |
 | `cumple <dd/mm/aaaa \| dd/mm>`         |                            | Registers your birthday (the year is optional); admins can tag someone to set theirs (overwrites) |
 | `wol [número o nombre]`                |                            | **Admin only.** Wakes a device with Wake-on-LAN; with no argument, lists the ones in `devices.json` |
 | `speedtest`                            |                            | **Admin only.** Internet speed of this PC: download, upload and latency (~15 s) |
@@ -717,7 +718,7 @@ hourly pools so a busy group can't use up the admins' questions.
 Note that the CLI runs in the same folder as an interactive Claude Code session would, so it also reads that folder's `CLAUDE.md`
 and memory.
 
-## Moderation: `ban`, `permaban`, `unpermaban`, `ruleta-ban` (admin only)
+## Moderation: `ban`, `permaban`, `unpermaban`, `ruleta-ban`, `censura` (admin only)
 
 The API decides, the WhatsApp bot executes. A reply can carry `remove` (user ids to take out of the chat where the command ran)
 and `sweep_blacklist`; the bot needs to be **an admin of the group** to remove anyone (if it isn't, it says so instead of
@@ -734,6 +735,30 @@ announcing a ban that didn't happen).
 
 Safety: nobody can ban the bot, themselves, a group admin or anyone in `ADMIN_USER_IDS`; a person whose group-admin status the
 bot could not read is refused (fails closed). It all works only in groups.
+
+### `censura`: deleting everything somebody sends
+
+`!censura @usuario` is a switch, not an action: the same command again lifts it. While it is on, **every** message that person
+sends in that group is deleted for everyone as it arrives -- their commands included, which are not run. It is per chat: the
+same person writing in another group is untouched. It never works from the personal mode (it is `admin_only`, and that is
+never granted there).
+
+Who can be censored is a lower bar than who can be banned: **anybody except the bot itself and whoever runs the command**, a
+group admin and a listed admin of `ADMIN_USER_IDS` included. Nobody leaves the group and the same command undoes it, so there
+is nothing to fail closed about either -- unlike `!ban`, a member whose group-admin status the bot could not read is censored
+all the same.
+
+Unlike `!ban`, the API does not decide message by message. It only keeps the list (`censored_users`, with every id the roster
+knows the person under) and serves it at `GET /api/v1/censored?platform=whatsapp`:
+
+```json
+[{"chat_id": "120363000000000000@g.us", "user_ids": ["1234@lid", "59899123456@s.whatsapp.net"]}]
+```
+
+The bot reads it (at most every 15 s, and again right after any command, so the switch takes effect at once) and deletes on
+its own. It has to: a censored person's ordinary chatter only reaches the API when that chat has history on, and censorship
+cannot depend on that. **The bot must be an admin of the group** -- WhatsApp only lets an admin delete somebody else's
+message. When it can't, it says so in the group once and logs it with every message.
 
 ## Wake-on-LAN and speed test: `wol`, `speedtest` (admin only)
 

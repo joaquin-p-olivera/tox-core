@@ -1,11 +1,13 @@
 import logging
 import random
+from collections.abc import Callable
 from datetime import timedelta
 
 from sqlalchemy import select
 
 from ..models import BlacklistedUser, PendingBan
 from ..schemas import Mention, Participant, Reply
+from ..services import censorship
 from ..utils import utcnow
 from .registry import CommandContext, command
 
@@ -39,8 +41,22 @@ def _protected_reason(ctx: CommandContext, person: Participant) -> str | None:
     return None
 
 
-def _tagged_targets(ctx: CommandContext, usage: str) -> list[Participant] | str:
-    """The people tagged in the command, or the message to answer with when the command can't go on."""
+def _censorable_reason(ctx: CommandContext, person: Participant) -> str | None:
+    """Why this person can't be censored, or None. A lower bar than a ban: an admin can be censored, since nobody
+    leaves the group and the same command undoes it. So there is nothing to fail closed about either -- a member whose
+    group-admin status is unknown is censored all the same."""
+    if person.is_bot:
+        return "No me puedo censurar a mí mismo."
+    if _is_sender(ctx, person):
+        return "No te podés censurar a vos mismo."
+    return None
+
+
+def _tagged_targets(ctx: CommandContext, usage: str,
+                    protected: Callable[[CommandContext, Participant], str | None] = _protected_reason,
+                    ) -> list[Participant] | str:
+    """The people tagged in the command, or the message to answer with when the command can't go on. `protected` is
+    what decides who is off limits, which is not the same for a ban as for a censorship."""
     if not ctx.message.is_group:
         return "Solo funciona en grupos."
     tagged = list(dict.fromkeys(p.user_id for p in (ctx.message.mentioned or [])))
@@ -50,7 +66,7 @@ def _tagged_targets(ctx: CommandContext, usage: str) -> list[Participant] | str:
     if len(tagged) > MAX_TARGETS:
         return f"Máximo {MAX_TARGETS} personas por vez."
     for user_id in tagged:
-        if reason := _protected_reason(ctx, people[user_id]):
+        if reason := protected(ctx, people[user_id]):
             return reason
     return [people[user_id] for user_id in tagged]
 
@@ -211,3 +227,30 @@ def roulette_no(ctx: CommandContext) -> str | Reply:
     ctx.db.delete(pending)
     ctx.db.commit()
     return Reply(text="😮‍💨 Se salvó {@0}.", mentions=[target])
+
+
+@command(
+    "censura",
+    description="(Admin) Borra todo lo que mande la persona etiquetada en este grupo; el mismo comando otra vez la levanta",
+    usage="censura @usuario",
+    category=CATEGORY,
+    admin_only=True,
+)
+def censor(ctx: CommandContext) -> str | Reply:
+    """Switch, not an action: nothing is deleted here. A bot reads who is censored (GET /api/v1/censored) and deletes
+    their messages itself, which is the only way it reaches the ones the API never sees."""
+    targets = _tagged_targets(ctx, f"Uso: {ctx.prefix}censura @usuario", _censorable_reason)
+    if isinstance(targets, str):
+        return targets
+    mentions = [Mention(user_id=p.user_id, user_name=p.user_name) for p in targets]
+    now_on = [i for i, person in enumerate(targets) if censorship.toggle(ctx.db, ctx.message, person)]
+    now_off = [i for i in range(len(targets)) if i not in now_on]
+    logger.warning("CENSURA by %s in %s: on=%s off=%s", ctx.message.user_key, ctx.message.chat_key,
+                   [targets[i].user_id for i in now_on], [targets[i].user_id for i in now_off])
+
+    lines = []
+    if now_on:
+        lines.append(f"🔇 Censura activada de {', '.join(f'{{@{i}}}' for i in now_on)}")
+    if now_off:
+        lines.append(f"🔊 Censura levantada de {', '.join(f'{{@{i}}}' for i in now_off)}")
+    return Reply(text="\n".join(lines), mentions=mentions)
