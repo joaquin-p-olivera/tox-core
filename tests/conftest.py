@@ -5,6 +5,7 @@ import os
 os.environ["API_KEY"] = "test-key"
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["HOST_SAMPLE_INTERVAL_SECONDS"] = "0"  # no background sampler thread in tests
+os.environ["LOG_DIR"] = ""  # the tests log to the console: no log file of their own, and none of the real ones
 
 import pytest
 from fastapi.testclient import TestClient
@@ -49,7 +50,8 @@ def settings(audios_dir, risa_audios_dir, tmp_path) -> Settings:
                     HISTORY_DB_PATH=str(tmp_path / "history.sqlite"),
                     # No test speaks an answer by chance (it would call the real voice service), and none of them has
                     # Claude butting into a chat on its own: both are asked for explicitly where they are the subject.
-                    CLAUDE_AUDIO_CHANCE=0, CLAUDE_INTERJECT_CHANCE=0)
+                    # and the profile of each member is always handed over, except where that dice is the subject
+                    CLAUDE_AUDIO_CHANCE=0, CLAUDE_INTERJECT_CHANCE=0, CLAUDE_PROFILE_PEOPLE_CHANCE=1)
 
 
 @pytest.fixture

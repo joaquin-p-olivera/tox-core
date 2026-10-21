@@ -3,7 +3,10 @@
     "name": "Los de siempre",
     "about": "Grupo de amigos de toda la vida. Se habla de fútbol, de juntadas y se jode todo el día.",
     "people": {
-      "Nombre Apellido": "El que organiza las juntadas. Hincha de Peñarol, vive afuera.",
+      "Nombre Apellido": {
+        "basics": "34 años, vive en Estados Unidos",
+        "about": "El que organiza las juntadas. Hincha de Peñarol, ingeniero."
+      },
       "Otra Persona": "Llega tarde a todo. Trabaja de noche."
     },
     "notes": "Tratamiento informal, humor pesado permitido."

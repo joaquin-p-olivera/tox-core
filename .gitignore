@@ -40,3 +40,6 @@ webapps.json
 
 # Local joke list (!chiste): kept out of the repo on purpose
 app/data/jokes.json
+
+# Log files (LOG_DIR): one per day, deleted by hand
+logs/

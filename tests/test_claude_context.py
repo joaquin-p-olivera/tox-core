@@ -254,7 +254,8 @@ def test_answering_a_question_counts_as_having_spoken(client, fake_claude, alway
 PROFILE = {
     "name": "Los de siempre",
     "about": "Amigos de la facultad. Se habla de fútbol y de juntadas.",
-    "people": {"Bob": "El que organiza todo", "Carla": ["Llega tarde", "Hincha de Nacional"]},
+    "people": {"Bob": "El que organiza todo", "Carla": ["Llega tarde", "Hincha de Nacional"],
+               "Dani": {"basics": "34 años, vive afuera", "about": "Ingeniero, se la pasa jodiendo"}},
     "notes": "Humor pesado permitido",
 }
 
@@ -274,6 +275,7 @@ def test_the_owners_profile_of_the_chat_goes_to_both_modes_as_their_own_words(cl
     for prompt in fake_claude["prompts"]:
         assert "descripto por el dueño del bot" in prompt and "Nombre del chat: Los de siempre" in prompt
         assert "- Bob: El que organiza todo" in prompt and "- Carla: Llega tarde. Hincha de Nacional" in prompt
+        assert "- Dani: 34 años, vive afuera. Ingeniero, se la pasa jodiendo" in prompt
         assert "Indicaciones del dueño para este chat: Humor pesado permitido" in prompt
 
 
@@ -338,3 +340,41 @@ def test_it_falls_back_to_text_when_it_cannot_be_spoken(client, settings, fake_c
         raise claude_command.tts_generator.TtsError("el servicio no respondió")
     monkeypatch.setattr(claude_command.tts_generator, "synthesize", broken)
     assert answer(client, "!claude y ahora")["text"] == "Una respuesta corta."  # never loses the answer
+
+
+# --- what it is told about each member when nobody typed a command (CLAUDE_PROFILE_PEOPLE_CHANCE) ---
+
+def test_a_typed_command_always_knows_who_everybody_is(client, settings, fake_claude, profiles):
+    object.__setattr__(settings, "CLAUDE_PROFILE_PEOPLE_CHANCE", 0)  # the dice never says yes...
+    profiles({f"whatsapp:{CHAT}": PROFILE})
+    answer(client, "!claude quién organiza?")
+    assert "- Bob: El que organiza todo" in fake_claude["prompts"][0]  # ... and somebody who asked gets it anyway
+
+
+def test_a_reply_to_the_bot_usually_is_not_told_who_everybody_is(client, settings, fake_claude, profiles):
+    object.__setattr__(settings, "CLAUDE_PROFILE_PEOPLE_CHANCE", 0)
+    profiles({f"whatsapp:{CHAT}": PROFILE})
+    answer(client, "y por qué decís eso?", quoted=BOT_REPLY)
+
+    prompt = fake_claude["prompts"][0]
+    # The chat is still described, so it knows where it is talking, and so are the plain facts of each person:
+    # what the owner wrote *about* them is what is left out
+    assert "Nombre del chat: Los de siempre" in prompt and "Humor pesado permitido" in prompt
+    assert "- Dani: 34 años, vive afuera" in prompt and "Ingeniero, se la pasa jodiendo" not in prompt
+    assert "- Bob:" not in prompt and "Hincha de Nacional" not in prompt
+
+    object.__setattr__(settings, "CLAUDE_PROFILE_PEOPLE_CHANCE", 1)
+    answer(client, "y eso?", quoted=BOT_REPLY)
+    assert "- Bob: El que organiza todo" in fake_claude["prompts"][1]
+
+
+def test_a_remark_of_its_own_plays_the_same_dice(client, fake_claude, always_butts_in, profiles):
+    object.__setattr__(always_butts_in, "CLAUDE_PROFILE_PEOPLE_CHANCE", 0)
+    profiles({f"whatsapp:{CHAT}": PROFILE})
+    post(client, "!h -on", user_id="admin1@lid", name="Owner", admin=True)
+    save(client, 1, "u2", "Bob", "mañana hay asado")
+    (reply,) = chatter(client, "yo llevo la carne", user_id="u3", name="Carla")
+    wait(client, reply["job"])
+
+    prompt = fake_claude["prompts"][0]
+    assert "De qué va: Amigos de la facultad" in prompt and "- Bob:" not in prompt

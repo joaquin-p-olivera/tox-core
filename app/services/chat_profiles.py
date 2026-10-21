@@ -10,7 +10,7 @@ presents it as the owner's own description of the chat, and both modes of `!clau
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 logger = logging.getLogger("tox.profiles")
@@ -18,6 +18,7 @@ logger = logging.getLogger("tox.profiles")
 MAX_NAME_CHARS = 80
 MAX_ABOUT_CHARS = 1_000
 MAX_PERSON_CHARS = 60
+MAX_BASICS_CHARS = 120
 MAX_DETAIL_CHARS = 300
 MAX_PEOPLE = 40
 MAX_NOTES_CHARS = 800
@@ -29,7 +30,10 @@ class Profile:
 
     name: str = ""
     about: str = ""
-    people: tuple[tuple[str, str], ...] = ()  # (name, what to know about them), in the order they were written
+    # (name, the plain facts, the rest of what to know), in the order they were written. The facts are the elementary
+    # ones -- an age, where they live -- which Tox is told whoever is talking; the rest it only gets now and then
+    # (CLAUDE_PROFILE_PEOPLE_CHANCE), so it doesn't make the same joke about somebody's life every time it speaks.
+    people: tuple[tuple[str, str, str], ...] = ()
     notes: str = ""
 
     def __bool__(self) -> bool:
@@ -44,10 +48,17 @@ class Profile:
             parts.append(f"De qué va: {self.about}")
         if self.people:
             parts.append("Quiénes lo integran:\n" + "\n".join(
-                f"- {name}: {detail}" if detail else f"- {name}" for name, detail in self.people))
+                f"- {name}: " + ". ".join(known) if (known := [p for p in (basics, detail) if p]) else f"- {name}"
+                for name, basics, detail in self.people))
         if self.notes:
             parts.append(f"Indicaciones del dueño para este chat: {self.notes}")
         return "\n".join(parts)
+
+
+    def without_people_details(self) -> "Profile":
+        """The same profile with only the plain facts left of each person (see `people`). Everything else is kept: the
+        chat still has a name, what it is about and the owner's notes."""
+        return replace(self, people=tuple((name, basics, "") for name, basics, _ in self.people if name))
 
 
 def _text(value: object, limit: int) -> str:
@@ -58,19 +69,34 @@ def _text(value: object, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
 
-def _people(value: object) -> tuple[tuple[str, str], ...]:
-    """`{"name": "what to know"}`, or a plain list of names. Either way: at most MAX_PEOPLE, names and details cut."""
+def _detail(value: object) -> str:
+    """What to know about somebody: one line, or several that read fine joined into one."""
+    if isinstance(value, list):
+        value = ". ".join(item for item in value if isinstance(item, str))
+    return _text(value, MAX_DETAIL_CHARS)
+
+
+def _people(value: object) -> tuple[tuple[str, str, str], ...]:
+    """`{"name": "what to know"}` (a line, or a list of them), or a plain list of names. A person can also be an object
+    telling the elementary facts apart from the rest, which is what decides how often Tox is told them:
+
+        "Nombre": {"basics": "34 años, vive en Montevideo", "about": "Hincha de Peñarol, organiza las juntadas"}
+
+    Either way: at most MAX_PEOPLE, names, facts and details cut to their limits."""
     if isinstance(value, list):
         value = {name: "" for name in value if isinstance(name, str)}
     if not isinstance(value, dict):
         return ()
     found = []
     for name, detail in value.items():
-        if isinstance(detail, list):  # several things about the same person read fine as one line
-            detail = ". ".join(item for item in detail if isinstance(item, str))
-        name, detail = _text(name, MAX_PERSON_CHARS), _text(detail, MAX_DETAIL_CHARS)
+        basics = ""
+        if isinstance(detail, dict):
+            basics, detail = _text(detail.get("basics"), MAX_BASICS_CHARS), _detail(detail.get("about"))
+        else:
+            detail = _detail(detail)
+        name = _text(name, MAX_PERSON_CHARS)
         if name:
-            found.append((name, detail))
+            found.append((name, basics, detail))
     return tuple(found[:MAX_PEOPLE])
 
 

@@ -1,5 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
+from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 
 from fastapi import FastAPI
 
@@ -12,13 +14,43 @@ from .routers import alerts, audios, blacklist, history, images, jobs, messages,
 
 settings = get_settings()
 
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def log_file_handler() -> logging.Handler | None:
+    """The log file of this run (LOG_DIR), rolled over every LOG_ROTATE_HOURS: `tox.log` is the current one and
+    the older ones are named after the time they end at, `tox-2026-10-20.log`, so a day can be opened without
+    digging through everything. Nothing is ever deleted (backupCount=0): clearing them out is a manual chore.
+
+    None when LOG_DIR is empty (console only, as in the tests) or when the folder can't be written: the API is
+    never worth failing to start over a log file."""
+    if not settings.LOG_DIR.strip():
+        return None
+    daily = settings.LOG_ROTATE_HOURS == 24  # at midnight, so a daily file holds the day it is named after
+    try:
+        folder = Path(settings.LOG_DIR).expanduser()
+        folder.mkdir(parents=True, exist_ok=True)
+        handler = TimedRotatingFileHandler(
+            folder / "tox.log", when="midnight" if daily else "H",
+            interval=1 if daily else settings.LOG_ROTATE_HOURS, backupCount=0, encoding="utf-8",
+        )
+    except OSError as error:
+        logging.getLogger("tox").warning("Logging to the console only, %s is not writable: %s", settings.LOG_DIR, error)
+        return None
+    handler.suffix = "%Y-%m-%d" if daily else "%Y-%m-%d_%H"
+    # "tox.log.2026-10-20" -> "tox-2026-10-20.log": every file keeps the extension, so they all open the same way
+    handler.namer = lambda name: name.replace(".log.", "-") + ".log"
+    return handler
+
+
+# The file handler is shared with uvicorn's own loggers below, so the access log ends up in the same file.
+file_handler = log_file_handler()
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     level=settings.LOG_LEVEL.upper(),
+    handlers=[logging.StreamHandler(), *([file_handler] if file_handler is not None else [])],
 )
 logger = logging.getLogger("tox")
-
-LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 def timestamp_uvicorn_logs() -> None:
@@ -27,7 +59,12 @@ def timestamp_uvicorn_logs() -> None:
     from uvicorn.logging import AccessFormatter, DefaultFormatter
 
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
-        for handler in logging.getLogger(name).handlers:
+        uvicorn_logger = logging.getLogger(name)
+        if file_handler is not None and not uvicorn_logger.propagate and file_handler not in uvicorn_logger.handlers:
+            # Those loggers don't propagate to the root one, so the file has to be added to each of them -- except
+            # `uvicorn.error`, which does propagate (to `uvicorn`): giving it the file too wrote every line twice.
+            uvicorn_logger.addHandler(file_handler)
+        for handler in uvicorn_logger.handlers:
             formatter = handler.formatter
             if isinstance(formatter, AccessFormatter):
                 handler.setFormatter(AccessFormatter(

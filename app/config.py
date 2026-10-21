@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     TRIVIA_TIMEOUT_SECONDS: int = 60
     COMMAND_PREFIXES: str = "!,/"
     LOG_LEVEL: str = "INFO"
+    # Where the log is written besides the console, as one file every LOG_ROTATE_HOURS ("" = console only,
+    # which is what the tests use). Old files are never deleted: they pile up until somebody removes them.
+    LOG_DIR: str = "logs"
+    LOG_ROTATE_HOURS: int = Field(default=24, ge=1, le=168)  # 24 = one file per day, rolled over at midnight
     ADMIN_USER_IDS: str = ""
     # Folder with the sound clips !m can send (relative paths resolve against the working directory).
     # If it is missing or empty, !m simply always tags someone.
@@ -76,6 +80,11 @@ class Settings(BaseSettings):
     # counts as having spoken). Only in groups whose history is on: what it reads is its only context.
     CLAUDE_INTERJECT_CHANCE: float = Field(default=0.02, ge=0, le=1)
     CLAUDE_INTERJECT_COOLDOWN_MINUTES: int = Field(default=30, ge=1, le=1440)
+    # How often what the owner wrote about each member (CHATS_FILE's "people") is handed over when NOBODY typed
+    # a command -- a remark of its own, or an answer to a reply. Knowing everybody's job and where they live
+    # turns every message into the same joke about it, so most of the time it is left out and Tox has to talk
+    # about what is being said. The chat's own description always goes, and a typed !claude always gets it all.
+    CLAUDE_PROFILE_PEOPLE_CHANCE: float = Field(default=0.25, ge=0, le=1)
     # Context for everybody without access to the PC, in the chats where the owner turned the history on (!h -on): the
     # latest CLAUDE_CONTEXT_MESSAGES messages of the last CLAUDE_CONTEXT_HOURS hours go with the question (0 = none).
     # The admins' full-access mode never gets them: anybody in the group could write instructions there.

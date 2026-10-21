@@ -15,7 +15,7 @@ and content live in this API**, so a command written once works on every platfor
 
 ```bash
 cp .env.default .env   # set API_KEY (see the comment inside for a one-liner)
-./start_dev.sh         # creates .venv, installs deps, runs uvicorn with --reload on 127.0.0.1:8000
+./start_test.sh        # creates .venv, installs deps, runs uvicorn with --reload on 127.0.0.1:8000
 ```
 
 **System dependency:** `!voz` needs `ffmpeg` on `PATH` (not a pip package — install it separately, e.g. `apt install
@@ -29,13 +29,43 @@ Interactive docs: <http://127.0.0.1:8000/docs>. Run the tests with:
 
 ### Environments
 
-| Script            | `APP_ENV` | Env file     |
-| ----------------- | --------- | ------------ |
-| `./start_dev.sh`  | `dev`     | `.env`       |
-| `./start_prod.sh` | `prod`    | `.env.prod`  |
+| Script            | `APP_ENV` | Env file     | Reloads on save |
+| ----------------- | --------- | ------------ | --------------- |
+| `./start_test.sh` | `dev`     | `.env`       | yes             |
+| `./start_dev.sh`  | `dev`     | `.env`       | no              |
+| `./start_prod.sh` | `prod`    | `.env.prod`  | no              |
+
+`./start_test.sh` is the one to use while writing code; `./start_dev.sh` is the same thing without the
+reloader, which is what the service runs. uvicorn only watches `*.py`, so a change in `.env` needs a
+restart either way.
 
 `.env` and `.env.prod` are git-ignored; only `.env.default` (the template) is tracked.
 Real environment variables always win over the files.
+
+### Logs
+
+Everything (the app's lines and uvicorn's access log) goes to the console and to a file in `LOG_DIR`
+(`logs/`, git-ignored): `logs/tox.log` is the current one and a new one starts every `LOG_ROTATE_HOURS`
+(24 by default, rolled over at midnight), leaving the day behind as `logs/tox-2026-10-20.log`.
+
+Nothing is ever deleted automatically, so clear out the old files by hand once in a while. Set `LOG_DIR=`
+(empty) to log to the console only.
+
+### Running it as a service
+
+`systemd` user units (so they need no `sudo` and start at boot thanks to `loginctl enable-linger`) live
+outside this repo, in `~/.config/systemd/user/`: `tox-core.service` runs `./start_dev.sh` from this folder.
+The bot has its own two, `tox-bot.service` and `tox-bot-personal.service`.
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now tox-core.service   # starts it now and at every boot
+systemctl --user status tox-core.service
+journalctl --user -u tox-core.service -f         # uvicorn's own output (the app's log is in logs/)
+```
+
+Only start one instance of each: the API would fail to bind the port, and two bots on the same WhatsApp
+session kick each other out (`stream_error_replaced` in the log).
 
 The API binds to `127.0.0.1` by default (bots run on the same machine). Set `HOST=0.0.0.0` only if you
 put something in front of it.
@@ -270,6 +300,20 @@ always gets 1899 % (`FIXED_GAY_PERCENT` in `app/commands/fun.py`).
 chat, keyed by `"platform:chat_id"` (the bare id works too), with `name`, `about` (what the chat is for), `people`
 (`{"Name": "what to know about them"}`, or a list of several things about one person) and `notes`. Only `!claude` uses it, and it is read on every call,
 so edits apply without restarting.
+
+A person can also be written as `{"basics": "...", "about": "..."}`, which tells the elementary facts apart from the
+rest:
+
+```json
+"people": {
+  "Nombre": { "basics": "34 años, vive en Estados Unidos", "about": "Ingeniero, hincha de Peñarol, organiza las juntadas" }
+}
+```
+
+`basics` goes to Claude **every time** it speaks (an age, a city: things it would be odd not to know about somebody it
+talks to every day); `about` only `CLAUDE_PROFILE_PEOPLE_CHANCE` of the time when nobody typed a command, so it stops
+making the same joke about somebody's life in every message. Written as a plain string or a list, everything counts as
+`about`.
 
 ## Service status (admin only)
 
@@ -642,6 +686,10 @@ hourly pools so a busy group can't use up the admins' questions.
 - **What the chat is.** `CHATS_FILE` (`chats.json`, see above) gives the chat a name, what it is about, who its people are and any notes, and all of it goes
   to **both** modes. It is the one part of the context nobody but the owner can write, so the prompt presents it as the owner's own description of the chat
   instead of as untrusted data; everything else (members, transcript, quoted message) stays data.
+- **Who everybody is, only now and then.** When nobody typed a command (a remark of its own, or an answer to a reply), what the profile says *about* each
+  member (`about`) is handed over only `CLAUDE_PROFILE_PEOPLE_CHANCE` of the time (0.25). With everybody's job, city and team always at hand, every message
+  ends up being the same joke about them; the rest of the time it has to talk about what is being said. Their names and the elementary facts (`basics`:
+  an age, a city) always go, and so does the chat's own description. A typed `!claude` gets all of it: somebody asked, so the answer may well need it.
 - **Sometimes a voice note.** `CLAUDE_AUDIO_CHANCE` (0.25) of the answers are sent as a voice note instead of text, read with
   `CLAUDE_AUDIO_VOICE` (`hombre`: the same voice as `!voz -h`). The dice is rolled **before** asking, so an answer that will be
   heard is asked for under 280 characters, with no emoji, markdown or tags. It falls back to text when the answer tags somebody
