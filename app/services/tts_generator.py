@@ -27,7 +27,7 @@ DEFAULT_VOICE = "hombre"
 # One-letter flag (what !voz accepts, e.g. "-h") -> VOICES key. Derived from the key's own initial, so a
 # renamed or added voice never falls out of sync with its flag.
 FLAG_VOICES = {name[0]: name for name in VOICES}
-MAX_CHARS = 300
+MAX_CHARS = 500
 MIMETYPE = "audio/ogg; codecs=opus"
 
 

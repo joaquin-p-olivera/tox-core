@@ -214,7 +214,7 @@ downloads a quoted sticker the same way as a quoted picture. The result goes out
 **`!qr <texto o link>`** replies with a QR code PNG (`app/services/qr_code.py`, `qrcode` + Pillow; up to 500
 characters), through the same `"image"` field and `GET /api/v1/images/{id}` as `!tabla`.
 
-**`!voz [-h | -m] <texto>`** (up to 300 characters) says the text out loud using Microsoft Edge's free, unofficial
+**`!voz [-h | -m] <texto>`** (up to 500 characters) says the text out loud using Microsoft Edge's free, unofficial
 neural voices (`app/services/tts_generator.py`) — the same engine behind Edge's "Read aloud" feature, no API key.
 `-h` (default) is a man's voice, `-m` a woman's; both are Uruguayan Spanish (`es-UY-MateoNeural` /
 `es-UY-ValentinaNeural`). Only a *leading* flag is recognised, so a sentence that happens to start with a hyphenated
@@ -693,7 +693,7 @@ hourly pools so a busy group can't use up the admins' questions.
   an age, a city) always go, and so does the chat's own description. A typed `!claude` gets all of it: somebody asked, so the answer may well need it.
 - **Sometimes a voice note.** `CLAUDE_AUDIO_CHANCE` (0.25) of the answers are sent as a voice note instead of text, read with
   `CLAUDE_AUDIO_VOICE` (`hombre`: the same voice as `!voz -h`). The dice is rolled **before** asking, so an answer that will be
-  heard is asked for under 280 characters, with no emoji, markdown or tags. It falls back to text when the answer tags somebody
+  heard is asked for under 480 characters (20 under what the voice service takes), with no emoji, markdown or tags. It falls back to text when the answer tags somebody
   (the tag would be lost), is longer than the voice service takes, or the synthesis fails: the answer is never lost. Summaries
   (`res`) are always text.
 - **Tone.** `CLAUDE_TONE` sets how the no-access mode talks: `salado` (the default: insults, swearing and heavy teasing, as the friends do among themselves),
@@ -706,7 +706,7 @@ hourly pools so a busy group can't use up the admins' questions.
 - **Limits.** Few at a time, never "busy": the admins' questions go one by one, the no-access ones and the summaries `CLAUDE_PARALLEL` (2) at a time, and the rest wait their turn in a line of `CLAUDE_QUEUE_MAX` (5) places (only a full line is refused); questions per hour, counted in `claude_queries`: `CLAUDE_QUESTIONS_PER_HOUR` (200, admins together)
   and `CLAUDE_PUBLIC_QUESTIONS_PER_HOUR` (100, everybody else together); `CLAUDE_MAX_BUDGET_USD` (2.5, about $U 100) per question, passed as `--max-budget-usd`; `CLAUDE_TIMEOUT_SECONDS` (600),
   after which the whole process group is killed. A cold question costs roughly US$0.30 in tokens (the CLI loads its context first).
-- **Short answers.** The system prompt asks for a summary of at most `CLAUDE_MAX_ANSWER_CHARS` (400) characters, and the API cuts
+- **Short answers.** The system prompt asks for a summary of at most `CLAUDE_MAX_ANSWER_CHARS` (800) characters, and the API cuts
   the text to that length anyway (the model can ignore the prompt).
 - **No secrets.** The system prompt forbids printing `.env` contents or sensitive data (only the *structure* of a `.env` is allowed), and
   the API scrubs the answer before sending it: the values of every secret-looking variable (`*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASS*`...) of

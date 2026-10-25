@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     CLAUDE_TONE: Literal["normal", "picante", "salado"] = "salado"
     CLAUDE_PARALLEL: int = Field(default=2, ge=1, le=8)
     CLAUDE_QUEUE_MAX: int = Field(default=5, ge=0, le=50)
-    CLAUDE_MAX_ANSWER_CHARS: int = Field(default=400, ge=100, le=3000)
+    CLAUDE_MAX_ANSWER_CHARS: int = Field(default=800, ge=100, le=3000)
     CLAUDE_PUBLIC_MAX_BUDGET_USD: float = Field(default=0.10, gt=0, le=100)  # an answer costs ~US$0.01-0.03
     CLAUDE_PUBLIC_QUESTIONS_PER_HOUR: int = Field(default=100, ge=1, le=1000)  # everybody else, all together
     CLAUDE_PUBLIC_QUESTIONS_PER_PERSON_PER_HOUR: int = Field(default=100, ge=1, le=1000)

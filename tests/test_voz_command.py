@@ -93,7 +93,7 @@ def test_two_calls_get_different_ids(client, fake_synthesize):
 
 def test_text_too_long_is_a_friendly_error(client, monkeypatch):
     def fake(text, voice, timeout_seconds):
-        raise tts_generator.TextTooLong("El texto es demasiado largo (máx. 300 caracteres).")
+        raise tts_generator.TextTooLong("El texto es demasiado largo (máx. 500 caracteres).")
 
     monkeypatch.setattr(tts_generator, "synthesize", fake)
     (reply,) = raw(client, "!voz " + "x" * 400)

@@ -332,8 +332,8 @@ def test_it_falls_back_to_text_when_it_cannot_be_spoken(client, settings, fake_c
     tagged = answer(client, "!claude preguntale a Bob")
     assert tagged["text"] == "Che {@0}, vos sabés." and not tagged["audio"] and spoken == []
 
-    fake_claude["answer"] = "x" * 400  # longer than the voice service takes
-    assert answer(client, "!claude largo")["text"] == "x" * 400
+    fake_claude["answer"] = "x" * 600  # longer than the voice service takes (but under the answer limit)
+    assert answer(client, "!claude largo")["text"] == "x" * 600
 
     fake_claude["answer"] = "Una respuesta corta."
     def broken(*_):

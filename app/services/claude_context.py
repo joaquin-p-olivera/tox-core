@@ -27,7 +27,7 @@ from ..config import Settings
 from ..models import ChatUser, HistoryChat
 from ..schemas import IncomingMessage, Mention
 from ..utils import utcnow
-from . import chat_history, chat_members, chat_profiles, user_directory
+from . import chat_history, chat_members, chat_profiles, tts_generator, user_directory
 
 MAX_MEMBERS = 50  # names listed
 MAX_NAME_CHARS = 40
@@ -36,7 +36,11 @@ MAX_QUOTED_CHARS = 1_000
 MAX_TAGS = 5  # people one answer may tag
 UNKNOWN = "alguien"
 # Added to the question when the answer is going to be sent as a voice note (see commands/claude.py)
-SPOKEN_NOTE = ("\n\n(Esta respuesta se va a escuchar como nota de voz, no se lee: MÁXIMO 280 caracteres, sin emojis, "
+# A little under what the voice service takes (tts_generator.MAX_CHARS), so an answer that goes slightly over the mark
+# is still spoken instead of falling back to text. Derived from it: raising that limit moves this prompt along with it.
+SPOKEN_SLACK = 20
+SPOKEN_NOTE = ("\n\n(Esta respuesta se va a escuchar como nota de voz, no se lee: MÁXIMO "
+               f"{tts_generator.MAX_CHARS - SPOKEN_SLACK} caracteres, sin emojis, "
                "sin markdown, sin listas y sin etiquetar a nadie. Que suene natural dicha en voz alta.)")
 # What is asked instead of a question when Tox butts into the conversation on its own (`Context.interjection`). Whether
 # it is worth saying anything at all is Claude's call: the answer «paso» sends nothing (commands/claude.py's `interject`).
