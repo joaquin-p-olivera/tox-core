@@ -17,6 +17,9 @@ logger = logging.getLogger("tox.claude")
 WINDOW = timedelta(hours=1)
 NEW_FLAGS = ("-n", "--nuevo")
 TEXT_FLAGS = ("-t", "--texto")
+# Written at the head of a reply to one of the bot's own messages: that reply is for the people in the chat,
+# not for Tox, and nothing is answered. Only there -- with a command typed, the question was asked on purpose.
+QUIET_FLAGS = ("-no", "--no")
 WAITING_REACTION = "⏳"  # on the command message while Claude works (no placeholder message)
 CLEAR_REACTION = ""  # when the answer arrives the ⏳ is taken off, not replaced: the answer itself says it is done
 FAILED_REACTION = "⚠️"  # ... except when there is no answer (the runner starts every error message with it)
@@ -87,16 +90,17 @@ def _limit_reached(ctx: CommandContext, full_access: bool, user_key: str) -> str
     return None
 
 
-def _leading_flags(ctx: CommandContext, full_access: bool) -> tuple[bool, bool, str]:
+def _leading_flags(ctx: CommandContext, full_access: bool) -> tuple[bool, bool, bool, str]:
     """The flags written before the question, and what is left to ask: `-n` starts the conversation from scratch
-    (admins only, see `ask_claude`) and `-t` asks for the answer as text, never as a voice note. Both may come
-    together ("!c -n -t ..."), and anything else stops the reading: a "-n" typed by somebody without access, or a
-    question that simply starts with a dash, is the question itself.
+    (admins only, see `ask_claude`), `-t` asks for the answer as text, never as a voice note, and `-no` says this
+    is not for Tox at all. They may come together ("!c -n -t ..."), and anything else stops the reading: a "-n"
+    typed by somebody without access, or a question that simply starts with a dash, is the question itself.
 
     A `-n` in a reply to the bot (ctx.implicit) is part of what was written too: nobody types a flag when they are
     only answering a message. `-t` is taken there all the same -- with no command written, it is the only way to
-    ask for text."""
-    new_conversation = as_text = False
+    ask for text. `-no` is the other way round: it only means anything in a reply, since somebody who wrote the
+    command wants an answer, and there "-no sé" stays the question it looks like."""
+    new_conversation = as_text = quiet = False
     question = ctx.raw_args.strip()
     while question.startswith("-"):
         flag, _, rest = question.partition(" ")
@@ -104,19 +108,22 @@ def _leading_flags(ctx: CommandContext, full_access: bool) -> tuple[bool, bool, 
             new_conversation = True
         elif normalize_flag(flag) in TEXT_FLAGS:
             as_text = True
+        elif normalize_flag(flag) in QUIET_FLAGS and ctx.implicit:
+            quiet = True
         else:
             break
         question = rest.strip()
-    return new_conversation, as_text, question
+    return new_conversation, as_text, quiet, question
 
 
 @command(
     "claude",
-    description="Le hace una pregunta a Claude (IA); responde resumido. Los admins además pueden pedirle cosas sobre la PC",
+    description="Le hace una pregunta a Claude (IA); responde resumido. Los admins además pueden pedirle cosas sobre "
+                "la PC. Si le respondés un mensaje y empezás con -no, no contesta: ese mensaje no era para él",
     usage="claude [-n] [-t] <pregunta o pedido>   (o !c <pregunta>, o respondiendo a un mensaje de Tox)",
     category="Utilidades",
 )
-def ask_claude(ctx: CommandContext) -> str | Reply:
+def ask_claude(ctx: CommandContext) -> str | Reply | None:
     """Answers at once with a ⏳ reaction to the command and a job id: the bot reacts, then polls the job and sends the
     answer when it is ready (a question can take minutes, longer than a chat request should wait).
 
@@ -124,10 +131,13 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
     else a plain chat with no access to this PC (claude_runner.execute_public), with a per-person limit on top.
 
     It is also what answers a reply to one of the bot's own messages, with no command typed (ctx.implicit): the whole
-    message is then the question."""
+    message is then the question, unless it starts with `-no`, which is how somebody says that reply is for the
+    people in the chat and not for Tox."""
     settings, message = ctx.settings, ctx.message
     full_access = ctx.is_admin
-    new_conversation, as_text, question = _leading_flags(ctx, full_access)
+    new_conversation, as_text, quiet, question = _leading_flags(ctx, full_access)
+    if quiet:
+        return None  # "-no ...": the reply is for the chat, not for Tox. Nothing is sent and nobody is told
     if not question:
         usage = (f"Uso: {ctx.prefix}claude <pregunta>"
                  f"\n{ctx.prefix}claude -t <pregunta>: la respuesta como texto, nunca como nota de voz.")

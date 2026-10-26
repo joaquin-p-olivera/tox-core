@@ -730,6 +730,11 @@ hourly pools so a busy group can't use up the admins' questions.
   (replying to a voice note counts too, even though there is no text to quote). The same limits and modes apply; it never works
   in the personal mode, where the bot writes as the owner and a reply to it is their own chat. The WhatsApp bot only forwards the
   message when WhatsApp says the quoted one is the bot's: in a private chat it sometimes doesn't, and then the command is needed.
+- **`-no`: that reply was not for Tox.** Starting a reply to one of its messages with `-no` (or `--no`) answers nothing: in a group
+  people reply to what the bot said to talk to *each other*, and until now every one of those got an answer nobody asked for. Nothing
+  is sent, nothing is reacted to and **Claude is never called**, so it costs nothing and uses no question of the hour. It is read only
+  where there is no command to put a flag on: a typed `!claude -no sé qué hacer` is the question it looks like. It goes with `-t`
+  in any order. Tagging somebody else in the reply does not stop the answer on its own -- a question for Tox often tags people too.
 - **It butts in now and then** (`CLAUDE_INTERJECT_CHANCE`, 0.02 of the messages; per chat with `!config`, see below): in a group whose history is on, Tox reads the
   conversation and drops **one remark nobody asked for**, always as text (never a voice note) and always in the no-access mode,
   whoever happened to write the message that got it talking — nobody asked for anything, so it must never run commands on this PC.

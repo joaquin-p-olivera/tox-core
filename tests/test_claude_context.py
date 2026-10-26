@@ -387,6 +387,24 @@ def test_t_is_read_when_replying_to_the_bot_as_well_where_no_command_is_written(
     assert fake_claude["prompts"][-1].endswith("Pregunta de Alice: y por qué decís eso?")
 
 
+
+def test_no_at_the_head_of_a_reply_says_it_was_not_for_the_bot(client, fake_claude):
+    """Replying to one of its messages to talk to somebody else: with -no nothing is answered and nothing is asked."""
+    assert post(client, "-no te hablaba a vos, Bob", quoted=BOT_REPLY) == []
+    assert fake_claude["prompts"] == []  # Claude is never called, so it costs nothing
+
+
+def test_no_is_only_a_flag_where_there_is_no_command_to_put_it_on(client, fake_claude):
+    """Somebody who wrote the command wants an answer, so there "-no" is just how the question starts."""
+    reply = answer(client, "!claude -no sé qué hacer, ayudame")
+    assert reply["text"] == "Listo."
+    assert fake_claude["prompts"][-1].endswith("Pregunta de Alice: -no sé qué hacer, ayudame")
+
+
+def test_no_goes_with_the_other_flags_of_a_reply(client, fake_claude):
+    assert post(client, "-t -no nada que ver, era para Carla", quoted=BOT_REPLY) == []
+    assert fake_claude["prompts"] == []
+
 # --- what it is told about each member when nobody typed a command (CLAUDE_PROFILE_PEOPLE_CHANCE) ---
 
 def test_a_typed_command_always_knows_who_everybody_is(client, settings, fake_claude, profiles):
