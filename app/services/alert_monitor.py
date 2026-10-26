@@ -40,6 +40,13 @@ def check_local(name: str, catalog: service_control.Catalog, timeout: int) -> tu
     return False, word or f"código de salida {result.exit_code}"
 
 
+def destinations(settings: Settings) -> list[tuple[str, str]]:
+    """(platform, chat_id) of every chat proactive messages go to. Shared with the countdown, which is meant to
+    reach the same groups as the alerts."""
+    return ([("whatsapp", jid) for jid in settings.alert_whatsapp_group_jids] +
+            [("telegram", chat_id) for chat_id in settings.alert_telegram_chat_ids])
+
+
 def _ran_ok(result: service_control.RunResult) -> bool:
     return not result.timed_out and result.error is None and result.exit_code == 0 and bool(result.output)
 
@@ -72,18 +79,13 @@ class AlertMonitor:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
-    def _destinations(self) -> list[tuple[str, str]]:
-        settings = self._settings
-        return ([("whatsapp", jid) for jid in settings.alert_whatsapp_group_jids] +
-                [("telegram", chat_id) for chat_id in settings.alert_telegram_chat_ids])
-
     def check_once(self) -> None:
         services = self._settings.alert_services_list
         if not services:
             return
         catalog = service_control.load_catalog(self._settings.SERVICES_FILE)
         timeout = self._settings.SERVICE_COMMAND_TIMEOUT_SECONDS
-        destinations = self._destinations()
+        where = destinations(self._settings)
         with self._session_factory() as db:
             for name in services:
                 key = f"local:{name}"
@@ -106,7 +108,7 @@ class AlertMonitor:
                     lines = detail_lines(definition, timeout)
                     if lines:
                         text += "\n" + "\n".join(lines)
-                for platform, chat_id in destinations:
+                for platform, chat_id in where:
                     admins = self._settings.admin_ids_for(platform)
                     # Tag every admin of that platform, same {@0}, {@1}... convention as a normal Reply.
                     tags = "\n" + " ".join(f"{{@{i}}}" for i in range(len(admins))) if admins else ""

@@ -136,6 +136,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `risa`                                 |                            | Sends a random laugh audio from `media/risa`               |
 | `futbol <país>`                        | `fut`                      | This week's fixtures for Uruguay/Ecuador/Argentina/España's top league |
 | `tabla <país>`                         |                            | The current standings table, as an image                  |
+| `vi`                                   | `gta6`                     | How long is left until Grand Theft Auto VI (see below); the same message the countdown sends on its own |
 | `trivia [categoría]`                   | `preguntas`                | Starts a multiplayer trivia question                      |
 | `responder <A-D>`                      | `a`, `b`, `c`, `d`         | Answers the open question (`!b` is a shortcut)            |
 | `ranking`                              | `top`, `puntajes`          | Per-chat trivia leaderboard                               |
@@ -617,6 +618,35 @@ same as every command.
   or `ALLOWED_GROUP_JIDS`/`ALLOWED_CHAT_IDS` use. Both are independent: set either, both, or neither per
   platform. Each bot also has its own `ALERTS_POLL_INTERVAL_SECONDS` / `ALERTS_POLL_INTERVAL_MS` (default
   ~30 s) controlling how quickly it notices a queued alert — unrelated to how often the API itself checks.
+
+## The GTA VI countdown: `vi`
+
+```
+!vi
+🌴 Falta 00:23:05:30:00 para Grand Theft Auto VI 🦩
+```
+
+`mm:dd:HH:MM:SS` left until **19 November 2026, 00:00 Uruguay time**. The months are calendar months, so they shrink
+the way a person counts them rather than in 30-day blocks (until the release is less than a month away, which it is,
+`mm` simply reads `00`).
+
+Besides the command, the API sends it **on its own to the same chats the alerts go to**
+(`ALERT_WHATSAPP_GROUP_JIDS` / `ALERT_TELEGRAM_CHAT_IDS`):
+
+- **once a day at 00:00** (`TIMEZONE`), until 14 November;
+- **every hour** from 15 November on, when waiting by the day stops being fun;
+- and on 19 November, one last `🌴 Bienvenidos a VICE CITY. 🌴`, after which nothing is ever sent again and `!vi`
+  answers that same line instead of a countdown.
+
+`!vi` answers in the chat it was typed in, so it works in the **personal mode** too (`.b vi`), where the bot polls
+for nothing and no alert ever lands. Anyone can use it.
+
+Like reminders, nothing runs in the background: each bot poll of `GET /api/v1/alerts/pending` first queues whatever
+is due. What the `countdown_states` table remembers is the **scheduled moment already sent**, not when it was sent,
+which is what makes it both catch up and never repeat itself: a poll after a restart still sends the slot nobody
+sent, ten polls inside the same hour send one message, and a whole day the API spent down is one missed message
+instead of a burst of them. The first poll ever sends nothing — it only writes down where the schedule stands, so a
+restart never fires a message by itself.
 
 ## Reminders: `recordar`
 

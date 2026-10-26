@@ -4,6 +4,7 @@ from .blacklisted_user import BlacklistedUser
 from .censored_user import CensoredUser
 from .chat_user import ChatUser
 from .claude_query import ClaudeQuery
+from .countdown_state import CountdownState
 from .history_chat import HistoryChat
 from .host_sample import HostSample
 from .last_audio import LastAudio
@@ -15,6 +16,6 @@ from .score import Score
 from .trivia_round import TriviaAttempt, TriviaRound
 
 __all__ = [
-    "AlertState", "Birthday", "BlacklistedUser", "CensoredUser", "ChatUser", "ClaudeQuery", "HistoryChat", "HostSample", "LastAudio", "MutedUser", "PendingAlert", "PendingBan", "Reminder", "Score",
+    "AlertState", "Birthday", "BlacklistedUser", "CensoredUser", "ChatUser", "ClaudeQuery", "CountdownState", "HistoryChat", "HostSample", "LastAudio", "MutedUser", "PendingAlert", "PendingBan", "Reminder", "Score",
     "TriviaAttempt", "TriviaRound",
 ]
