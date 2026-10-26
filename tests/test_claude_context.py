@@ -342,6 +342,23 @@ def test_it_falls_back_to_text_when_it_cannot_be_spoken(client, settings, fake_c
     assert answer(client, "!claude y ahora")["text"] == "Una respuesta corta."  # never loses the answer
 
 
+def test_t_asks_for_text_and_the_dice_is_not_thrown_at_all(client, settings, fake_claude, spoken):
+    object.__setattr__(settings, "CLAUDE_AUDIO_CHANCE", 1)  # the dice would always say "speak"
+    reply = answer(client, "!claude -t contame algo", participants=[])
+    assert reply["text"] == "Listo." and not reply["audio"] and spoken == []
+    # the flag is not part of the question, and nothing asks for an answer made to be heard
+    assert fake_claude["prompts"][-1] == "contame algo"
+
+    assert not answer(client, "!c -t y otra cosa")["audio"]  # the short alias too
+
+
+def test_t_is_read_when_replying_to_the_bot_as_well_where_no_command_is_written(client, settings, fake_claude, spoken):
+    object.__setattr__(settings, "CLAUDE_AUDIO_CHANCE", 1)
+    reply = answer(client, "-t y por qué decís eso?", quoted=BOT_REPLY)
+    assert reply["text"] == "Listo." and not reply["audio"] and spoken == []
+    assert fake_claude["prompts"][-1].endswith("Pregunta de Alice: y por qué decís eso?")
+
+
 # --- what it is told about each member when nobody typed a command (CLAUDE_PROFILE_PEOPLE_CHANCE) ---
 
 def test_a_typed_command_always_knows_who_everybody_is(client, settings, fake_claude, profiles):

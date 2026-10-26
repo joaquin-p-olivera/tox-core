@@ -56,6 +56,15 @@ def test_the_conversation_is_resumed_until_a_new_one_is_asked_for(client, isolat
     assert isolated == [("uno", None), ("dos", "session-1"), ("tres", None)]
 
 
+def test_the_flags_before_the_question_are_read_off_it_and_may_come_together(client, isolated):
+    for text in ("!claude -t dos", "!claude -n -t tres", "!claude -t -n cuatro", "!claude -x cinco"):
+        (reply,) = raw(client, text, **ADMIN)
+        wait_done(client, reply["job"])
+    # -t never touches the conversation, -n starts a new one wherever it is written, and "-x" is not a flag of ours:
+    # a question that merely starts with a dash is asked as typed
+    assert isolated == [("dos", None), ("tres", None), ("cuatro", None), ("-x cinco", "session-1")]
+
+
 def test_the_answer_is_cut_and_scrubbed_even_if_the_model_ignores_the_prompt(client, settings, monkeypatch, tmp_path):
     (tmp_path / "dev" / "tox" / ".env").write_text("API_KEY=supersecretvalue123\nLOG_LEVEL=INFO\n")
     long = "x" * 1000 + " supersecretvalue123"
@@ -162,7 +171,9 @@ def test_anybody_can_ask_but_only_gets_the_no_access_mode(client, isolated, publ
     # no PC access: the full-access runner is never used, and the account's e-mail is masked in the answer
     assert wait_done(client, reply["job"])[0]["text"] == "Escribile a ***"
     assert public == ["capital de Francia?"] and isolated == []
-    assert raw(client, "!claude", **PERSON)[0]["text"] == "Uso: !claude <pregunta>"  # no admin extras
+    usage = raw(client, "!claude", **PERSON)[0]["text"]
+    assert usage.startswith("Uso: !claude <pregunta>") and "-t" in usage  # -t is for everybody
+    assert "-n" not in usage and "la PC" not in usage  # ... the admin extras are not
 
 
 def test_a_listed_admin_who_is_not_admin_of_the_group_gets_the_no_access_mode(client, isolated, public):

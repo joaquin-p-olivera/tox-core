@@ -9,12 +9,14 @@ from ..models import ClaudeQuery
 from ..schemas import Reply
 from ..services import claude_context, claude_runner, jobs, media_cache, tts_generator
 from ..utils import utcnow
+from .flags import normalize_flag
 from .registry import CommandContext, command
 
 logger = logging.getLogger("tox.claude")
 
 WINDOW = timedelta(hours=1)
 NEW_FLAGS = ("-n", "--nuevo")
+TEXT_FLAGS = ("-t", "--texto")
 WAITING_REACTION = "⏳"  # on the command message while Claude works (no placeholder message)
 CLEAR_REACTION = ""  # when the answer arrives the ⏳ is taken off, not replaced: the answer itself says it is done
 FAILED_REACTION = "⚠️"  # ... except when there is no answer (the runner starts every error message with it)
@@ -79,10 +81,33 @@ def _limit_reached(ctx: CommandContext, full_access: bool, user_key: str) -> str
     return None
 
 
+def _leading_flags(ctx: CommandContext, full_access: bool) -> tuple[bool, bool, str]:
+    """The flags written before the question, and what is left to ask: `-n` starts the conversation from scratch
+    (admins only, see `ask_claude`) and `-t` asks for the answer as text, never as a voice note. Both may come
+    together ("!c -n -t ..."), and anything else stops the reading: a "-n" typed by somebody without access, or a
+    question that simply starts with a dash, is the question itself.
+
+    A `-n` in a reply to the bot (ctx.implicit) is part of what was written too: nobody types a flag when they are
+    only answering a message. `-t` is taken there all the same -- with no command written, it is the only way to
+    ask for text."""
+    new_conversation = as_text = False
+    question = ctx.raw_args.strip()
+    while question.startswith("-"):
+        flag, _, rest = question.partition(" ")
+        if normalize_flag(flag) in NEW_FLAGS and full_access and not ctx.implicit:
+            new_conversation = True
+        elif normalize_flag(flag) in TEXT_FLAGS:
+            as_text = True
+        else:
+            break
+        question = rest.strip()
+    return new_conversation, as_text, question
+
+
 @command(
     "claude",
     description="Le hace una pregunta a Claude (IA); responde resumido. Los admins además pueden pedirle cosas sobre la PC",
-    usage="claude [-n] <pregunta o pedido>   (o !c <pregunta>, o respondiendo a un mensaje de Tox)",
+    usage="claude [-n] [-t] <pregunta o pedido>   (o !c <pregunta>, o respondiendo a un mensaje de Tox)",
     category="Utilidades",
 )
 def ask_claude(ctx: CommandContext) -> str | Reply:
@@ -96,12 +121,10 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
     message is then the question."""
     settings, message = ctx.settings, ctx.message
     full_access = ctx.is_admin
-    first, _, rest = ctx.raw_args.strip().partition(" ")
-    # A reply to the bot (ctx.implicit) is plain chat: a "-n" in it is part of what was written, not a flag.
-    new_conversation = full_access and not ctx.implicit and first.lower() in NEW_FLAGS
-    question = (rest if new_conversation else ctx.raw_args).strip()
+    new_conversation, as_text, question = _leading_flags(ctx, full_access)
     if not question:
-        usage = f"Uso: {ctx.prefix}claude <pregunta>"
+        usage = (f"Uso: {ctx.prefix}claude <pregunta>"
+                 f"\n{ctx.prefix}claude -t <pregunta>: la respuesta como texto, nunca como nota de voz.")
         if full_access:
             usage += (f"\n{ctx.prefix}claude -n <pregunta>: empieza una conversación nueva (sin el contexto anterior)."
                       f"\nPodés pedirle también cosas sobre la PC y los proyectos.")
@@ -118,7 +141,7 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
                                     # Nobody typed anything, so this is chat, not a request: see `_knows_who_everybody_is`
                                     with_profile_people=not ctx.implicit or _knows_who_everybody_is(settings))
     # Decided before asking, not after: an answer that is going to be heard is asked for short and without tags
-    speak = random.random() < settings.CLAUDE_AUDIO_CHANCE
+    speak = not as_text and random.random() < settings.CLAUDE_AUDIO_CHANCE
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
 
     def done(text: str) -> None:
@@ -138,9 +161,10 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
     ctx.db.add(ClaudeQuery(user_key=message.user_key, chat_key=message.chat_key))
     ctx.db.commit()
     _spoke_in[message.chat_key] = utcnow()  # it just took part: no remark of its own for a while (see `interject`)
-    logger.info("CLAUDE question by %s in %s (%d chars%s%s%s%s)", message.user_key, message.chat_key, len(question),
+    logger.info("CLAUDE question by %s in %s (%d chars%s%s%s%s%s)", message.user_key, message.chat_key, len(question),
                 ", new conversation" if new_conversation else "", "" if full_access else ", no PC access",
-                ", spoken" if speak else "", ", replying to the bot" if ctx.implicit else "")
+                ", spoken" if speak else "", ", text asked" if as_text else "",
+                ", replying to the bot" if ctx.implicit else "")
     return Reply(reaction=WAITING_REACTION, job=job_id)
 
 

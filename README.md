@@ -147,7 +147,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `foto`                                 | `imagen`                   | Turns a sticker into a photo (reply to the sticker with `!foto`) |
 | `qr <texto o link>`                    |                            | A QR code image of the text or link                       |
 | `recordar <HH:MM> <qué>`               |                            | Reminds you (tagging you, in the same chat) at that time: today if still ahead, else tomorrow (see below) |
-| `claude [-n] <pregunta>`               |                            | Asks Claude: admins get full access in `~/dev`, everybody else a chat with no access to the PC; a ⏳ reaction first, then the answer (see below). Replying to a message of the bot asks it too, with no command |
+| `claude [-n] [-t] <pregunta>`          |                            | Asks Claude: admins get full access in `~/dev`, everybody else a chat with no access to the PC; a ⏳ reaction first, then the answer (see below). Replying to a message of the bot asks it too, with no command |
 | `ban @usuario`                         |                            | **Admin only.** Removes the tagged member from the group (see below) |
 | `permaban @usuario`                    |                            | **Admin only.** Bans and blacklists: removed from every group the bot is in, and again if they come back |
 | `unpermaban [número o nombre]`         | `despermaban`              | **Admin only.** Lists the blacklist, or takes someone off it |
@@ -696,6 +696,10 @@ hourly pools so a busy group can't use up the admins' questions.
   heard is asked for under 480 characters (20 under what the voice service takes), with no emoji, markdown or tags. It falls back to text when the answer tags somebody
   (the tag would be lost), is longer than the voice service takes, or the synthesis fails: the answer is never lost. Summaries
   (`res`) are always text.
+- **`-t`: text, no dice.** `!claude -t <pregunta>` (or `!c -t ...`) answers as text for certain, without rolling the dice above.
+  Anybody can use it, admins included, and it goes with `-n` in any order (`!c -n -t ...`). It is read when replying to a
+  message of the bot as well, where there is no command to put a flag on, and in the personal mode (`.b c -t <pregunta>`).
+  A question that merely starts with a dash is asked as typed: only `-t`, `--texto`, `-n` and `--nuevo` are flags.
 - **Tone.** `CLAUDE_TONE` sets how the no-access mode talks: `salado` (the default: insults, swearing and heavy teasing, as the friends do among themselves),
   `picante` (sarcastic and chicanero, milder) or `normal` (just friendly). The two spicy prompts keep a few hard limits, written into them (`TONE_PROMPTS`): no
   insults for race, origin, religion, gender, orientation, disability or illness, nothing sexually explicit, no threats or pushing anybody to hurt themselves,
