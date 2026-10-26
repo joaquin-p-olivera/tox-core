@@ -149,6 +149,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `qr <texto o link>`                    |                            | A QR code image of the text or link                       |
 | `recordar <HH:MM> <qué>`               |                            | Reminds you (tagging you, in the same chat) at that time: today if still ahead, else tomorrow (see below) |
 | `claude [-n] [-t] <pregunta>`          |                            | Asks Claude: admins get full access in `~/dev`, everybody else a chat with no access to the PC; a ⏳ reaction first, then the answer (see below). Replying to a message of the bot asks it too, with no command |
+| `config [clave valor \| -off \| -on]`    | `conf`                     | **Admin only.** How much Tox talks **in this chat**: lists it, changes one setting here only (`-reset` goes back to the general value) and `-off` / `-on` stop or resume it butting in (see below) |
 | `ban @usuario`                         |                            | **Admin only.** Removes the tagged member from the group (see below) |
 | `permaban @usuario`                    |                            | **Admin only.** Bans and blacklists: removed from every group the bot is in, and again if they come back |
 | `unpermaban [número o nombre]`         | `despermaban`              | **Admin only.** Lists the blacklist, or takes someone off it |
@@ -724,12 +725,12 @@ hourly pools so a busy group can't use up the admins' questions.
   the context of an agent that can run commands. So the admins' mode reads nothing written by others except the message it replies to, and what the
   no-access mode reads is only what the chat has already seen.
 - **`!c <question>`** is the short way of asking (`!c` alone is still the trivia answer C).
-- **Replying to Tox needs no command** (`CLAUDE_ON_REPLY`, on by default): a reply to one of the bot's own messages is a question
+- **Replying to Tox needs no command** (`CLAUDE_ON_REPLY`, on by default; per chat with `!config`): a reply to one of the bot's own messages is a question
   for Claude, and the whole reply is the question. It keeps the conversation going the way it does with anybody else in the chat
   (replying to a voice note counts too, even though there is no text to quote). The same limits and modes apply; it never works
   in the personal mode, where the bot writes as the owner and a reply to it is their own chat. The WhatsApp bot only forwards the
   message when WhatsApp says the quoted one is the bot's: in a private chat it sometimes doesn't, and then the command is needed.
-- **It butts in now and then** (`CLAUDE_INTERJECT_CHANCE`, 0.02 of the messages): in a group whose history is on, Tox reads the
+- **It butts in now and then** (`CLAUDE_INTERJECT_CHANCE`, 0.02 of the messages; per chat with `!config`, see below): in a group whose history is on, Tox reads the
   conversation and drops **one remark nobody asked for**, always as text (never a voice note) and always in the no-access mode,
   whoever happened to write the message that got it talking — nobody asked for anything, so it must never run commands on this PC.
   It ends with a `> Tox` line, so a remark is never taken for an answer to somebody. Whether it is worth saying anything at all is
@@ -777,6 +778,38 @@ hourly pools so a busy group can't use up the admins' questions.
 
 Note that the CLI runs in the same folder as an interactive Claude Code session would, so it also reads that folder's `CLAUDE.md`
 and memory.
+
+### Per chat: `config` (admin only)
+
+Everything above is global, read from the `.env` when the API starts. A group that writes all day and a quiet one don't want the
+same numbers, so **`!config` gives one chat its own value** for how talkative Tox is there (`app/services/chat_config.py`,
+`chat_settings`). What is typed in a chat changes that chat and no other.
+
+| Typed | Setting | What it is |
+|---|---|---|
+| `charla` | `CLAUDE_INTERJECT_CHANCE` | How often it butts in with nobody talking to it |
+| `espera` | `CLAUDE_INTERJECT_COOLDOWN_MINUTES` | How long it stays quiet after speaking |
+| `perfiles` | `CLAUDE_PROFILE_PEOPLE_CHANCE` | How often it is told who everybody is |
+| `respuestas` | `CLAUDE_ON_REPLY` | Whether replying to it is a question |
+| `audio` | `CLAUDE_AUDIO_CHANCE` | How often an answer is a voice note |
+| `contexto` | `CLAUDE_CONTEXT_MESSAGES` | How many messages of the conversation it reads |
+| `horas` | `CLAUDE_CONTEXT_HOURS` | How far back they are read from |
+
+- `!config` lists them all with what each is worth here and whether that is **this chat's own value or the general one**;
+  `!config charla` shows just one. `!config charla 15%` sets it, `!config charla -reset` drops the row and the `.env` value
+  applies again. A chance is read and written as a **percentage** (`15%`, or `nunca`), a yes/no as `sí` / `no`.
+- `!config -off` is the switch the owner asked for: `charla` to `0` **in this chat**, so Tox stops butting in there while it
+  still answers whoever talks to it. `!config -on` undoes it (a `-reset` of that one key, not a `0.02` written by hand).
+- **The list of settings it can touch is a whitelist** (`chat_config.OVERRIDABLE`), and only those seven. An admin typing into a
+  group reaches this code, so a key, a path, a money cap or `ADMIN_USER_IDS` must never be reachable from a message — the service
+  refuses anything outside the list even if a command asked it to.
+- Every value is validated by **the field's own rules in `config.py`** (its type and its `ge`/`le`), so a chat cannot be given a
+  number the `.env` itself would have been refused for, and the error message quotes the real limits instead of a hand-written
+  copy. A stored value that stops being valid (a range narrowed in a new version) is ignored and the general value applies again,
+  rather than taking the chat down.
+- `admin_only`, and in a WhatsApp group `is_admin` also asks for the sender to administer **that** group: nobody configures a
+  group they aren't an admin of. Rows survive a restart, so none of this needs the `.env` touched again — **the `.env` stays the
+  default for every chat that was never configured, and there is deliberately no way to change that default from a chat.**
 
 ## Moderation: `ban`, `permaban`, `unpermaban`, `ruleta-ban`, `censura` (admin only)
 

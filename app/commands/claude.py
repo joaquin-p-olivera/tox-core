@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from ..models import ClaudeQuery
 from ..schemas import Reply
-from ..services import claude_context, claude_runner, jobs, media_cache, tts_generator
+from ..services import chat_config, claude_context, claude_runner, jobs, media_cache, tts_generator
 from ..utils import utcnow
 from .flags import normalize_flag
 from .registry import CommandContext, command
@@ -49,11 +49,17 @@ def _spoken(text: str, settings) -> str | None:
     return media_cache.store(audio, tts_generator.MIMETYPE, settings.MEDIA_CACHE_SECONDS)
 
 
-def _knows_who_everybody_is(settings) -> bool:
-    """Whether what the owner wrote about each member goes into the prompt this time (CLAUDE_PROFILE_PEOPLE_CHANCE).
-    Most of the time it does not: with everybody's job, city and team at hand every remark ends up being the same joke
-    about them, and the way to stop that is not to hand the material over. What the chat itself is about always goes."""
-    return random.random() < settings.CLAUDE_PROFILE_PEOPLE_CHANCE
+def _knows_who_everybody_is(ctx: CommandContext) -> bool:
+    """Whether what the owner wrote about each member goes into the prompt this time (CLAUDE_PROFILE_PEOPLE_CHANCE,
+    which a chat may set for itself with !config). Most of the time it does not: with everybody's job, city and team
+    at hand every remark ends up being the same joke about them, and the way to stop that is not to hand the material
+    over. What the chat itself is about always goes."""
+    return random.random() < _setting(ctx, "CLAUDE_PROFILE_PEOPLE_CHANCE")
+
+
+def _setting(ctx: CommandContext, name: str):
+    """What `name` is worth in the chat this message came from (services/chat_config.py)."""
+    return chat_config.value(ctx.db, ctx.settings, ctx.message.chat_key, name)
 
 
 def _limit_message(limit: int, oldest, what: str) -> str:
@@ -139,9 +145,9 @@ def ask_claude(ctx: CommandContext) -> str | Reply:
     # Names of the group and the replied-to message always; the latest messages only for people without access to the PC
     context = claude_context.gather(ctx.db, settings, message, with_history=not full_access,
                                     # Nobody typed anything, so this is chat, not a request: see `_knows_who_everybody_is`
-                                    with_profile_people=not ctx.implicit or _knows_who_everybody_is(settings))
+                                    with_profile_people=not ctx.implicit or _knows_who_everybody_is(ctx))
     # Decided before asking, not after: an answer that is going to be heard is asked for short and without tags
-    speak = not as_text and random.random() < settings.CLAUDE_AUDIO_CHANCE
+    speak = not as_text and random.random() < _setting(ctx, "CLAUDE_AUDIO_CHANCE")
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
 
     def done(text: str) -> None:
@@ -184,16 +190,16 @@ def interject(ctx: CommandContext) -> Reply | None:
     dice says no, when it already spoke in this chat within CLAUDE_INTERJECT_COOLDOWN_MINUTES, when there is no saved
     conversation to read, or when Claude itself answers that there is nothing worth saying."""
     settings, message = ctx.settings, ctx.message
-    if message.personal or not message.is_group or random.random() >= settings.CLAUDE_INTERJECT_CHANCE:
+    if message.personal or not message.is_group or random.random() >= _setting(ctx, "CLAUDE_INTERJECT_CHANCE"):
         return None
     spoke = _spoke_in.get(message.chat_key)
-    if spoke is not None and utcnow() - spoke < timedelta(minutes=settings.CLAUDE_INTERJECT_COOLDOWN_MINUTES):
+    if spoke is not None and utcnow() - spoke < timedelta(minutes=_setting(ctx, "CLAUDE_INTERJECT_COOLDOWN_MINUTES")):
         return None
     user_key = f"{message.platform}:{claude_context.BOT_ID}"  # what it says on its own is charged to the bot itself
     if _limit_reached(ctx, full_access=False, user_key=user_key) is not None:
         return None
     context = claude_context.gather(ctx.db, settings, message, with_history=True,
-                                    with_profile_people=_knows_who_everybody_is(settings))
+                                    with_profile_people=_knows_who_everybody_is(ctx))
     if context.history_key is None or not context.transcript:
         return None  # the history of this chat is off: there is nothing to read, and nobody asked to be read
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)

@@ -7,7 +7,7 @@ from ..commands import CommandContext, get_command
 from ..commands.claude import interject
 from ..config import Settings
 from ..schemas import IncomingMessage, Reply
-from . import chat_members
+from . import chat_config, chat_members
 
 logger = logging.getLogger("tox.router")
 
@@ -43,18 +43,22 @@ def parse_command(text: str, prefixes: list[str]) -> tuple[str, str, str] | None
     return None
 
 
-def replying_to_the_bot(message: IncomingMessage, settings: Settings) -> bool:
+def replying_to_the_bot(message: IncomingMessage, db: Session, settings: Settings) -> bool:
     """Whether this message is somebody replying to one of the bot's own messages, which is the other way of talking to
-    Claude: no command typed, the reply itself is the question (CLAUDE_ON_REPLY). Never in the personal mode, where the
-    bot writes as the owner, so a reply to it is the owner's own chat and none of the bot's business."""
-    return (settings.CLAUDE_ON_REPLY and not message.personal and bool(message.text.strip())
-            and message.quoted is not None and message.quoted.is_bot)
+    Claude: no command typed, the reply itself is the question (CLAUDE_ON_REPLY, which a chat may turn off for itself
+    with !config). Never in the personal mode, where the bot writes as the owner, so a reply to it is the owner's own
+    chat and none of the bot's business."""
+    return (not message.personal and bool(message.text.strip())
+            and message.quoted is not None and message.quoted.is_bot
+            and chat_config.value(db, settings, message.chat_key, "CLAUDE_ON_REPLY"))
 
 
 def _butt_in(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
     """Nobody is talking to the bot: now and then it says something of its own anyway (commands/claude.py's
     `interject`, CLAUDE_INTERJECT_CHANCE), and the rest of the time this is where an ordinary message stops."""
-    if settings.CLAUDE_INTERJECT_CHANCE <= 0 or message.personal or not message.is_group:
+    if message.personal or not message.is_group:
+        return []
+    if chat_config.value(db, settings, message.chat_key, "CLAUDE_INTERJECT_CHANCE") <= 0:
         return []
     ctx = CommandContext(message=message, args=[], raw_args="", invoked_as=REPLY_COMMAND,
                          prefix=settings.command_prefixes_list[0], db=db, settings=settings, implicit=True)
@@ -70,7 +74,7 @@ def _butt_in(message: IncomingMessage, db: Session, settings: Settings) -> list[
 def handle_message(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
     prefixes = [PERSONAL_PREFIX] if message.personal else settings.command_prefixes_list
     parsed = parse_command(message.text, prefixes)
-    implicit = parsed is None and replying_to_the_bot(message, settings)
+    implicit = parsed is None and replying_to_the_bot(message, db, settings)
     if parsed is None and not implicit:
         return _butt_in(message, db, settings)
     # A reply to the bot: the whole message is the question, and the prefix is only there for the usage messages.

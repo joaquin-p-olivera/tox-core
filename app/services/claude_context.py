@@ -27,7 +27,7 @@ from ..config import Settings
 from ..models import ChatUser, HistoryChat
 from ..schemas import IncomingMessage, Mention
 from ..utils import utcnow
-from . import chat_history, chat_members, chat_profiles, tts_generator, user_directory
+from . import chat_config, chat_history, chat_members, chat_profiles, tts_generator, user_directory
 
 MAX_MEMBERS = 50  # names listed
 MAX_NAME_CHARS = 40
@@ -165,9 +165,11 @@ def gather(db: Session, settings: Settings, message: IncomingMessage, *, with_hi
     saved: list[chat_history.Saved] = []
     key = chat_history.chat_key_for(db, message.platform, [message.chat_id, *message.chat_aliases])
     enabled = db.get(HistoryChat, key) is not None
-    if with_history and enabled and settings.CLAUDE_CONTEXT_MESSAGES > 0:
-        since = utcnow() - timedelta(hours=settings.CLAUDE_CONTEXT_HOURS)
-        saved = chat_history.recent(settings, key, since=since, limit=settings.CLAUDE_CONTEXT_MESSAGES)
+    # How much of the conversation goes with the question is one of the things a chat may set for itself (!config)
+    most = chat_config.value(db, settings, message.chat_key, "CLAUDE_CONTEXT_MESSAGES")
+    if with_history and enabled and most > 0:
+        hours = chat_config.value(db, settings, message.chat_key, "CLAUDE_CONTEXT_HOURS")
+        saved = chat_history.recent(settings, key, since=utcnow() - timedelta(hours=hours), limit=most)
         for item in saved:
             see(item.sender_id, item.sender_name, add=False)
 

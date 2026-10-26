@@ -231,6 +231,34 @@ def test_it_stays_quiet_without_a_saved_conversation_and_right_after_speaking(cl
     assert chatter(client, "y ahora") == []  # turned off: not even the dice is rolled
 
 
+def test_a_chat_that_turned_it_off_is_the_only_one_that_stays_quiet(client, fake_claude, always_butts_in):
+    """!config -off is per chat: the dice still says yes everywhere, and only this group hears nothing."""
+    post(client, "!h -on", **OWNER, admin=True)
+    save(client, 1, "u2", "Bob", "qué pasó ayer")
+    post(client, "!config -off", **OWNER, admin=True)
+    claude_command._spoke_in.clear()
+
+    assert chatter(client, "contame") == []
+    assert fake_claude["prompts"] == []  # not even asked
+
+    post(client, "!config -on", **OWNER, admin=True)
+    claude_command._spoke_in.clear()
+    assert chatter(client, "ahora sí")[0]["job"]
+
+
+def test_the_cooldown_of_this_chat_wins_over_the_general_one(client, fake_claude, always_butts_in):
+    object.__setattr__(always_butts_in, "CLAUDE_INTERJECT_COOLDOWN_MINUTES", 1440)  # a day, everywhere
+    post(client, "!h -on", **OWNER, admin=True)
+    save(client, 1, "u2", "Bob", "hoy no fui")
+    post(client, "!config espera 1", **OWNER, admin=True)  # ... but one minute here
+    claude_command._spoke_in.clear()
+
+    (reply,) = chatter(client, "y eso?")
+    wait(client, reply["job"])
+    claude_command._spoke_in[f"whatsapp:{CHAT}"] -= timedelta(minutes=2)  # two minutes went by
+    assert chatter(client, "seguís ahí?")[0]["job"]  # the general value would still have it quiet
+
+
 def test_a_remark_never_gets_access_to_the_pc_whoever_was_talking(client, fake_claude, always_butts_in, monkeypatch):
     """The message that gets it talking is nobody's question: an admin writing in the group must not hand it the CLI."""
     full_access = []
