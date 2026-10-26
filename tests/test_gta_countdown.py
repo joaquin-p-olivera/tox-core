@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.models import CountdownState, PendingAlert
 from app.services import gta_countdown
+from tests.test_mention import raw
 
 GROUPS = "1@g.us,2@g.us"
 BEFORE_RELEASE = datetime(2026, 10, 26, 21, 30, 0)  # 18:30 in Montevideo, 23 days to go
@@ -123,9 +124,9 @@ def test_the_countdown_rides_the_poll_the_bots_already_make(client, alerting, db
     assert client.get("/api/v1/alerts/pending", params={"platform": "whatsapp"}, headers={"X-API-Key": "test-key"}).json() == []
 
 
-def test_vi_answers_the_same_message_by_hand(send):
-    assert send("!vi")[0].endswith("para Grand Theft Auto VI 🦩")
-    assert send("!gta6")[0].startswith("🌴 Falta ")
+def test_vi_answers_the_same_message_by_hand(client):
+    assert raw(client, "!vi")[0]["image"]  # the card, not a text message
+    assert raw(client, "!gta6")[0]["image"]
 
 
 def test_vi_works_in_the_personal_mode_too(client):
@@ -134,4 +135,4 @@ def test_vi_works_in_the_personal_mode_too(client):
                            json={"platform": "whatsapp", "chat_id": "me", "user_id": "owner", "user_name": "Joaco",
                                  "text": ".b vi", "is_group": False, "personal": True})
     assert response.status_code == 200
-    assert "para Grand Theft Auto VI" in response.json()["replies"][0]["text"]
+    assert response.json()["replies"][0]["image"]

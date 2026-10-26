@@ -21,4 +21,7 @@ class PendingAlert(Base):
     text: Mapped[str] = mapped_column(String)
     # Comma-separated platform user ids to tag (referenced from `text` as {@0}, {@1}... same convention as Reply.mentions)
     mentions: Mapped[str] = mapped_column(String, default="")
+    # Id of a generated image (services/media_cache.py) to send instead of `text`, which is then the fallback for a
+    # bot that cannot fetch it. Short-lived by design: it is rendered on the very poll that hands this row over.
+    image: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

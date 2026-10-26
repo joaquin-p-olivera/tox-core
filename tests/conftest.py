@@ -48,6 +48,8 @@ def settings(audios_dir, risa_audios_dir, tmp_path) -> Settings:
                     DEVICES_FILE=str(tmp_path / "devices.json"), CHATS_FILE=str(tmp_path / "chats.json"),
                     WEB_APPS_FILE=str(tmp_path / "webapps.json"), SERVICE_COMMAND_TIMEOUT_SECONDS=2,
                     HISTORY_DB_PATH=str(tmp_path / "history.sqlite"),
+                    # Never the owner's real artwork folder: the card falls back to the sunset it draws itself
+                    GTA_ARTWORK_DIR=str(tmp_path / "gta6"), GTA_COVER_FILE=str(tmp_path / "gta6" / "cover.jpg"),
                     # No test speaks an answer by chance (it would call the real voice service), and none of them has
                     # Claude butting into a chat on its own: both are asked for explicitly where they are the subject.
                     # and the profile of each member is always handed over, except where that dice is the subject

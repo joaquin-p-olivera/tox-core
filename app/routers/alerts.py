@@ -31,7 +31,7 @@ def get_pending_alerts(
         db.delete(row)
     db.commit()
     return [
-        PendingAlertOut(chat_id=row.chat_id, text=row.text,
+        PendingAlertOut(chat_id=row.chat_id, text=row.text, image=row.image,
                         mentions=[Mention(user_id=uid) for uid in row.mentions.split(",") if uid])
         for row in rows
     ]

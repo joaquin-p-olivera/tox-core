@@ -1,4 +1,5 @@
-"""The countdown to Grand Theft Auto VI, sent on its own to the same groups the alerts go to (ALERT_WHATSAPP_GROUP_JIDS
+"""The countdown to Grand Theft Auto VI, sent on its own as a card (services/gta_card.py) to the same groups the
+alerts go to, and -- when it is set up (services/instagram.py) -- published as an Instagram story at the same moments (ALERT_WHATSAPP_GROUP_JIDS
 and ALERT_TELEGRAM_CHAT_IDS, see `alert_monitor.destinations`): once a day at midnight, and every hour over the last
 four days, when waiting by the day stops being fun. The day it comes out, one last message welcomes everybody to Vice
 City and the countdown is over for good -- `!vi` included.
@@ -16,6 +17,8 @@ wall-clock time in the app.
 
 import calendar
 import logging
+import random
+import threading
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -24,6 +27,7 @@ from sqlalchemy.orm import Session
 from ..config import Settings
 from ..models import CountdownState, PendingAlert
 from ..utils import utcnow
+from . import gta_card, instagram, media_cache
 from .alert_monitor import destinations
 
 logger = logging.getLogger("tox.gta_countdown")
@@ -69,6 +73,57 @@ def message(now_utc: datetime | None = None) -> str:
     return f"🌴 Falta {months:02d}:{days:02d}:{hours:02d}:{minutes:02d}:{seconds:02d} para {GAME} 🦩"
 
 
+def _left(now_utc: datetime) -> tuple[int, int, int, int]:
+    """Days, hours, minutes and seconds left. Plain days, months and all: that is what the card counts, where there
+    is no room for a fifth number and nobody reads "0 meses" anyway."""
+    left = RELEASE - now_utc
+    hours, rest = divmod(left.seconds, 3600)
+    minutes, seconds = divmod(rest, 60)
+    return left.days, hours, minutes, seconds
+
+
+def _artwork(settings: Settings, now_utc: datetime) -> str | None:
+    """Which picture goes on this card: one of GTA_ARTWORK_DIR at random, except the day it comes out, which is
+    always the cover -- that one is the news, and a random screenshot would bury it."""
+    if arrived(now_utc):
+        return settings.GTA_COVER_FILE or None
+    artworks = gta_card.list_artworks(settings.GTA_ARTWORK_DIR)
+    return str(random.choice(artworks)) if artworks else None
+
+
+def card(settings: Settings, now_utc: datetime | None = None, artwork: str | None = None) -> str | None:
+    """The message as an image, stored for the bot to download, or None when it cannot be drawn -- in which case the
+    text is what goes out. Drawing must never be what keeps the countdown from being sent. Without an `artwork` one
+    is picked here, which is what `!vi` wants; the countdown picks it once and passes it, so the card that goes to
+    the chats and the story that goes to Instagram show the same picture."""
+    now_utc = now_utc or utcnow()
+    artwork = artwork or _artwork(settings, now_utc)
+    try:
+        png = gta_card.render_arrived(artwork) if arrived(now_utc) else gta_card.render(*_left(now_utc), artwork)
+    except Exception:  # a broken font, an artwork that is not an image, anything: the text still goes out
+        logger.exception("Could not draw the GTA VI card")
+        return None
+    return media_cache.store(png, gta_card.MIMETYPE, settings.MEDIA_CACHE_SECONDS)
+
+
+def _publish_story(settings: Settings, now_utc: datetime, artwork: str | None) -> None:
+    """The same countdown as an Instagram story, in a thread of its own: this runs inside the bots' poll for pending
+    alerts, and a slow network must not hold that request (or the chat message) up."""
+    if not instagram.configured(settings):
+        return
+
+    def work() -> None:
+        try:
+            jpeg = (gta_card.render_arrived_story(artwork) if arrived(now_utc)
+                    else gta_card.render_story(*_left(now_utc), artwork))
+        except Exception:
+            logger.exception("Could not draw the GTA VI story")
+            return
+        instagram.publish_story(settings, jpeg)  # says so itself when it fails; never raises
+
+    threading.Thread(target=work, name="gta-story", daemon=True).start()
+
+
 def _slot(now_utc: datetime, timezone_name: str) -> datetime:
     """The scheduled moment this instant belongs to: the top of the hour from HOURLY_FROM on, midnight before that.
     Naive UTC, so it can be compared with what is stored."""
@@ -106,8 +161,11 @@ def queue_due(db: Session, settings: Settings, now_utc: datetime | None = None) 
     else:
         text = message(now_utc)
 
+    artwork = _artwork(settings, now_utc)
+    image = card(settings, now_utc, artwork)  # the same one for every chat: the cache serves it as many times as asked
     for platform, chat_id in where:
-        db.add(PendingAlert(platform=platform, chat_id=chat_id, text=text))
+        db.add(PendingAlert(platform=platform, chat_id=chat_id, text=text, image=image))
+    _publish_story(settings, now_utc, artwork)
     if state is None:
         db.add(CountdownState(key=KEY, last_slot=slot, finished=True))
     else:

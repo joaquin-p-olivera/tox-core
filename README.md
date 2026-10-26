@@ -136,7 +136,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `risa`                                 |                            | Sends a random laugh audio from `media/risa`               |
 | `futbol <país>`                        | `fut`                      | This week's fixtures for Uruguay/Ecuador/Argentina/España's top league |
 | `tabla <país>`                         |                            | The current standings table, as an image                  |
-| `vi`                                   | `gta6`                     | How long is left until Grand Theft Auto VI (see below); the same message the countdown sends on its own |
+| `vi`                                   | `gta6`                     | A card with how long is left until Grand Theft Auto VI, over a random picture of the game (see below); the same one the countdown sends on its own |
 | `trivia [categoría]`                   | `preguntas`                | Starts a multiplayer trivia question                      |
 | `responder <A-D>`                      | `a`, `b`, `c`, `d`         | Answers the open question (`!b` is a shortcut)            |
 | `ranking`                              | `top`, `puntajes`          | Per-chat trivia leaderboard                               |
@@ -621,22 +621,31 @@ same as every command.
 
 ## The GTA VI countdown: `vi`
 
-```
-!vi
-🌴 Falta 00:23:05:30:00 para Grand Theft Auto VI 🦩
-```
+`!vi` answers with a **card**: a picture of the game over a bar with the days, hours, minutes and seconds left until
+**19 November 2026, 00:00 Uruguay time**.
 
-`mm:dd:HH:MM:SS` left until **19 November 2026, 00:00 Uruguay time**. The months are calendar months, so they shrink
-the way a person counts them rather than in 30-day blocks (until the release is less than a month away, which it is,
-`mm` simply reads `00`).
+The picture is one of `GTA_ARTWORK_DIR` (`media/gta6`) at random, read from disk every time, so adding or removing one
+needs no restart. `media/` is not tracked: the pictures are Rockstar's, handed out as wallpapers on their own site, so
+they stay on this machine. With nothing readable there the card draws its own Vice City sunset instead, which is also
+what happens if a file turns out not to be an image.
+
+The card is **square (900x900) on purpose**: WhatsApp on iOS crops a preview taller than about 1:1, and an earlier
+720x898 card lost its numbers off the bottom of the bubble (Android showed it whole). The artwork is therefore cropped
+to a landscape rectangle, a little above its centre (`VERTICAL_BIAS`), which is where faces and skylines sit.
+
+The text message is still there underneath (`🌴 Falta mm:dd:HH:MM:SS para Grand Theft Auto VI 🦩`) and is what the bot
+sends if it cannot fetch the card: the message is never lost to a drawing. The months are calendar months, so they
+shrink the way a person counts them rather than in 30-day blocks (until the release is less than a month away, which
+it is, `mm` simply reads `00`).
 
 Besides the command, the API sends it **on its own to the same chats the alerts go to**
 (`ALERT_WHATSAPP_GROUP_JIDS` / `ALERT_TELEGRAM_CHAT_IDS`):
 
 - **once a day at 00:00** (`TIMEZONE`), until 14 November;
 - **every hour** from 15 November on, when waiting by the day stops being fun;
-- and on 19 November, one last `🌴 Bienvenidos a VICE CITY. 🌴`, after which nothing is ever sent again and `!vi`
-  answers that same line instead of a countdown.
+- and on 19 November, one last `🌴 Bienvenidos a VICE CITY. 🌴` over the official cover art, after which nothing is
+  ever sent again and `!vi` answers that same card instead of a countdown. That day's picture is never a random one:
+  it is always `GTA_COVER_FILE`, since the cover is the news.
 
 `!vi` answers in the chat it was typed in, so it works in the **personal mode** too (`.b vi`), where the bot polls
 for nothing and no alert ever lands. Anyone can use it.
@@ -647,6 +656,23 @@ which is what makes it both catch up and never repeat itself: a poll after a res
 sent, ten polls inside the same hour send one message, and a whole day the API spent down is one missed message
 instead of a burst of them. The first poll ever sends nothing — it only writes down where the schedule stands, so a
 restart never fires a message by itself.
+
+### The same countdown as an Instagram story
+
+Set `INSTAGRAM_ENABLED` with the three things around it and every one of those moments is also published as a story
+(`app/services/instagram.py`): the same picture as the card, laid out 1080x1920 over its own artwork blurred and
+darkened.
+
+The account has to be a professional **business** one — a creator account cannot publish stories — reached with a
+token from the app dashboard (*Instagram > API setup with Instagram login*), which lasts **60 days**. Instagram never
+receives the bytes: its publishing API downloads the picture from a public URL, so the card is parked on imgbb
+(`IMGBB_API_KEY`) and the upload itself asks for it to be deleted again after `INSTAGRAM_IMAGE_TTL_SECONDS`. Then a
+container is created (`media_type=STORIES`) and published — but not before its `status_code` reads `FINISHED`, since
+publishing a container Instagram is still fetching is refused with *"Media ID is not available"*.
+
+It all happens in a thread of its own, inside the bots' poll, and **nothing it does can fail the countdown**: a
+broken token, a refused upload or a timeout is logged and the chats get their message all the same. With any of the
+four settings missing, it is simply never attempted.
 
 ## Reminders: `recordar`
 

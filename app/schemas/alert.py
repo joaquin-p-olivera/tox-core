@@ -10,6 +10,11 @@ class PendingAlertOut(BaseModel):
     chat_id: str
     text: str
     mentions: list[Mention] = Field(default_factory=list)
+    image: str | None = Field(
+        default=None,
+        description="Id of an image to send instead of `text` (downloaded from GET /api/v1/images/{id}). When it is "
+        "there, `text` is what to send if the image cannot be fetched.",
+    )
 
 
 class BlacklistedOut(BaseModel):

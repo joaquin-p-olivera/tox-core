@@ -132,6 +132,22 @@ class Settings(BaseSettings):
     # How long generated media (!sticker images, !voz audio) stays available for the bot to download
     # before it's dropped from memory. Only needs to outlive the bot's own fetch, right after the command runs.
     MEDIA_CACHE_SECONDS: int = Field(default=120, ge=10, le=600)
+    # Pictures for the GTA VI countdown card (services/gta_card.py): one of GTA_ARTWORK_DIR at random on each card,
+    # and GTA_COVER_FILE, always, on the one sent the day it comes out. `media/` is git-ignored, so they are the
+    # owner's own (Rockstar hands them out as wallpapers). Nothing readable there = the sunset the card draws itself.
+    GTA_ARTWORK_DIR: str = "media/gta6"
+    GTA_COVER_FILE: str = "media/gta6/cover.jpg"
+    # The same countdown, published as an Instagram story (services/instagram.py). Off unless all three are set.
+    # The account has to be a professional BUSINESS one: stories cannot be published to a creator account. The token
+    # comes from the app dashboard (Instagram > API setup with Instagram login) and lasts 60 days.
+    # IMGBB_API_KEY is where the picture is parked for a moment: Instagram downloads it from a public URL, it never
+    # receives the bytes. The upload asks for it to be deleted again after INSTAGRAM_IMAGE_TTL_SECONDS.
+    INSTAGRAM_ENABLED: bool = False
+    INSTAGRAM_USER_ID: str = ""
+    INSTAGRAM_ACCESS_TOKEN: str = ""
+    IMGBB_API_KEY: str = ""
+    INSTAGRAM_TIMEOUT_SECONDS: int = Field(default=30, ge=5, le=120)
+    INSTAGRAM_IMAGE_TTL_SECONDS: int = Field(default=600, ge=60, le=86400)
     # Wall-clock ceiling for one !voz call: network synthesis + the ffmpeg conversion to Ogg/Opus.
     # Edge TTS's own timeouts aren't fully reliable (observed hangs past them), so this is enforced separately.
     TTS_TIMEOUT_SECONDS: int = Field(default=20, ge=5, le=60)
