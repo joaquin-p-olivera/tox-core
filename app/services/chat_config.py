@@ -21,10 +21,11 @@ from ..config import Settings
 from ..models import ChatSetting
 from ..utils import utcnow
 
-# What !config is allowed to touch: how often Tox butts in, how long it stays quiet afterwards, how much it is told
-# about the people, whether it answers when replied to, how often it speaks its answers, and how much of the
-# conversation it reads. Nothing else, and nothing that is not in Settings.
+# What !config is allowed to touch: how it talks, how often it butts in, how long it stays quiet afterwards, how much
+# it is told about the people, whether it answers when replied to, how often it speaks its answers, and how much of
+# the conversation it reads. Nothing else, and nothing that is not in Settings.
 OVERRIDABLE: tuple[str, ...] = (
+    "CLAUDE_TONE",
     "CLAUDE_INTERJECT_CHANCE",
     "CLAUDE_INTERJECT_COOLDOWN_MINUTES",
     "CLAUDE_PROFILE_PEOPLE_CHANCE",

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     LOG_DIR: str = "logs"
     LOG_ROTATE_HOURS: int = Field(default=24, ge=1, le=168)  # 24 = one file per day, rolled over at midnight
     ADMIN_USER_IDS: str = ""
+    # The owner(s): admins everywhere, including a group they do not administer in WhatsApp. Everybody else on
+    # ADMIN_USER_IDS is an admin only where the platform says they administer that group. Same shape
+    # ("platform:user_id", comma separated), and being here is enough: there is no need to be on the list above too.
+    OWNER_USER_IDS: str = ""
     # Folder with the sound clips !m can send (relative paths resolve against the working directory).
     # If it is missing or empty, !m simply always tags someone.
     AUDIOS_DIR: str = "media/m"
@@ -62,9 +66,10 @@ class Settings(BaseSettings):
     # that tags somebody, is sent as text anyway.
     CLAUDE_AUDIO_CHANCE: float = Field(default=0.25, ge=0, le=1)
     CLAUDE_AUDIO_VOICE: Literal["hombre", "mujer"] = "hombre"
-    # How the no-access mode talks: "salado" (insults and swearing, like the friends do), "picante" (sarcastic and
-    # chicanero) or "normal" (just friendly). The two spicy ones keep a few hard limits (see TONE_PROMPTS).
-    CLAUDE_TONE: Literal["normal", "picante", "salado"] = "salado"
+    # How Tox talks: "salado" (insults and swearing, like the friends do), "picante" (sarcastic and chicanero),
+    # "tranqui" (playful and joking, but it teases nobody) or "normal" (just friendly, no tone added at all). The
+    # spicy ones keep a few hard limits (see TONE_PROMPTS). A chat may be given its own with !config.
+    CLAUDE_TONE: Literal["normal", "tranqui", "picante", "salado"] = "salado"
     CLAUDE_PARALLEL: int = Field(default=2, ge=1, le=8)
     CLAUDE_QUEUE_MAX: int = Field(default=5, ge=0, le=50)
     CLAUDE_MAX_ANSWER_CHARS: int = Field(default=800, ge=100, le=3000)
@@ -91,6 +96,11 @@ class Settings(BaseSettings):
     CLAUDE_CONTEXT_MESSAGES: int = Field(default=150, ge=0, le=200)
     CLAUDE_CONTEXT_MAX_CHARS: int = Field(default=20_000, ge=1000, le=100_000)  # ~5000 tokens; the oldest go first
     CLAUDE_CONTEXT_HOURS: int = Field(default=12, ge=1, le=168)
+    # A chat may also be told what was said in ANOTHER one (models/chat_context_source.py, by hand in the database):
+    # how many of its latest messages go, and how much room they get. Only when the question names that source, so
+    # most answers never see them. The same CLAUDE_CONTEXT_HOURS bounds how far back they are read.
+    CLAUDE_SOURCE_MESSAGES: int = Field(default=50, ge=0, le=200)
+    CLAUDE_SOURCE_MAX_CHARS: int = Field(default=6000, ge=500, le=50_000)
     # Chat history (!h, !resumen): the text of the chats the owner turned it on for, kept in a SQLite file of its
     # own (not tox.db). Once it passes HISTORY_MAX_MB the oldest messages are deleted. `!resumen` hands the latest
     # HISTORY_SUMMARY_MAX_MESSAGES of a chat to Claude (no tools, no access to this PC), with its own money cap.
@@ -167,6 +177,11 @@ class Settings(BaseSettings):
     def admin_user_keys(self) -> frozenset[str]:
         """Admin identities as "platform:user_id" (same shape as IncomingMessage.user_key)."""
         return frozenset(item.strip() for item in self.ADMIN_USER_IDS.split(",") if item.strip())
+
+    @property
+    def owner_user_keys(self) -> frozenset[str]:
+        """Who is an admin in every chat, whoever runs it (OWNER_USER_IDS)."""
+        return frozenset(item.strip() for item in self.OWNER_USER_IDS.split(",") if item.strip())
 
     def admin_ids_for(self, platform: str) -> list[str]:
         """Admin user ids of one platform only, e.g. for tagging them in a proactive alert."""

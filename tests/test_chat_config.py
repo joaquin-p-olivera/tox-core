@@ -84,3 +84,23 @@ def test_a_value_out_of_range_is_answered_with_what_it_does_take(send, db_sessio
 def test_only_an_admin_configures_a_chat(send):
     from tests.conftest import REFUSED
     assert send("!config charla 100%") == REFUSED
+
+
+def test_the_tone_of_one_chat_does_not_change_the_others(send, db_session, settings):
+    """What Tox sounds like is per chat too: a group can be the calm one while the rest stay as they were."""
+    from app.services import claude_runner
+
+    assert "tranqui" in send("!config tono tranqui", user=ADMIN)[0]
+    mine = chat_config.value(db_session, settings, "whatsapp:g1", "CLAUDE_TONE")
+    assert mine == "tranqui" and chat_config.value(db_session, settings, "whatsapp:g2", "CLAUDE_TONE") == settings.CLAUDE_TONE
+
+    # ... and that is what reaches the prompt, instead of the general tone
+    assert "no insultás a nadie" in claude_runner.tone_prompt(settings, mine)
+    assert claude_runner.tone_prompt(settings, None) == claude_runner.tone_prompt(settings)
+
+
+def test_a_tone_that_does_not_exist_is_answered_with_the_ones_that_do(send, db_session):
+    answer = send("!config tono agresivo", user=ADMIN)[0]
+    for name in ("normal", "tranqui", "picante", "salado"):  # read from the field itself, not written by hand
+        assert name in answer
+    assert db_session.get(ChatSetting, ("whatsapp:g1", "CLAUDE_TONE")) is None

@@ -84,7 +84,7 @@ def client(db_session, settings):
 def send(client):
     """Send a message through the real HTTP endpoint and return the reply texts."""
 
-    def _send(text, *, user="u1", name="Alice", chat="g1", platform="whatsapp", is_group=True):
+    def _send(text, *, user="u1", name="Alice", chat="g1", platform="whatsapp", is_group=True, **extra):
         response = client.post(
             "/api/v1/messages",
             headers={"X-API-Key": API_KEY},
@@ -95,6 +95,7 @@ def send(client):
                 "user_name": name,
                 "text": text,
                 "is_group": is_group,
+                **extra,  # anything else the endpoint takes: sender_is_group_admin, personal, quoted...
             },
         )
         assert response.status_code == 200, response.text

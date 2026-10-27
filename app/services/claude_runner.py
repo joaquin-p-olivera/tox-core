@@ -78,6 +78,14 @@ Reglas de la respuesta:
 """
 # Added to the no-access prompt by CLAUDE_TONE ("normal" adds nothing). The limits are part of the tone, not an afterthought.
 TONE_PROMPTS = {
+    "tranqui": """Tono: relajado y juguetón, como el amigo de buena onda del grupo. Hacé chistes, jugá con lo que se
+está diciendo y tirá alguna ironía suave, pero sin pasarte: no insultás a nadie, no putés, y no te burlás de quien
+pregunta ni de los demás. La joda es sobre la situación o sobre vos mismo, nunca sobre los defectos, los fracasos, el
+aspecto ni la vida de alguien. Nada de humor negro ni de comentarios sexuales. Tampoco al revés: no seas acartonado ni
+des sermones, nada de "como IA" ni de avisos; sos uno más del grupo, contestá corto y con gracia lo que te preguntaron.
+Si alguien te carga a vos, seguile el juego con humor, sin devolver el golpe por el lado personal.
+Si alguien está mal de verdad (tristeza, un problema serio), dejá la joda y respondé con calidez.
+""",
     "picante": """Tono: sarcástico, irónico y picante, como el amigo más filoso del grupo. Chicaneá, exagerá, cargá
 a quien pregunta y a los demás con onda, usá humor ácido y alguna mala palabra rioplatense suelta si queda bien. Un chiste
 bueno y corto vale más que una explicación larga. Contestá igual lo que te preguntaron, pero con gracia.
@@ -200,15 +208,16 @@ def _parse(output: str) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
-def _admin_prompt(settings: Settings) -> str:
+def _admin_prompt(settings: Settings, tone: str | None = None) -> str:
     prompt = SYSTEM_PROMPT.format(limit=settings.CLAUDE_MAX_ANSWER_CHARS)
-    tone = tone_prompt(settings)
-    return prompt + tone + ADMIN_TONE_NOTE if tone else prompt
+    tone_text = tone_prompt(settings, tone)
+    return prompt + tone_text + ADMIN_TONE_NOTE if tone_text else prompt
 
 
-def tone_prompt(settings: Settings) -> str:
-    """The CLAUDE_TONE text, for every mode: how the answer sounds doesn't depend on who may touch the PC."""
-    return TONE_PROMPTS.get(settings.CLAUDE_TONE, "")
+def tone_prompt(settings: Settings, tone: str | None = None) -> str:
+    """The tone text, for every mode: how the answer sounds doesn't depend on who may touch the PC. `tone` is the one
+    the chat asked for (services/chat_config.py); without it, CLAUDE_TONE, the tone of every chat that has none."""
+    return TONE_PROMPTS.get(tone or settings.CLAUDE_TONE, "")
 
 
 # Said to the admins' mode with the tone: the manner changes, the work does not
@@ -217,14 +226,14 @@ tiene que ser correcta y completa aunque la digas con ese tono, y las reglas ant
 """
 
 
-def execute(question: str, session_id: str | None, settings: Settings) -> ClaudeResult:
+def execute(question: str, session_id: str | None, settings: Settings, tone: str | None = None) -> ClaudeResult:
     """Runs one question. Raises ClaudeError (with a chat-safe message) when it can't be answered."""
     cwd = workdir(settings)
     if not cwd.is_dir():
         raise ClaudeError(f"No existe la carpeta de trabajo ({settings.CLAUDE_WORKDIR}).")
     argv = [_binary(settings), "-p", "--output-format", "json", "--permission-mode", "bypassPermissions",
             "--max-budget-usd", f"{settings.CLAUDE_MAX_BUDGET_USD:g}",
-            "--append-system-prompt", _admin_prompt(settings)]
+            "--append-system-prompt", _admin_prompt(settings, tone)]
     done = _run([*argv, *(["--resume", session_id] if session_id else [])], question, cwd, settings.CLAUDE_TIMEOUT_SECONDS)
     data = _parse(done.stdout)
     if session_id and (data is None or data.get("is_error")):
@@ -246,10 +255,10 @@ def _chat_only(question: str, system_prompt: str, budget: float, timeout: int, s
     return _result(done, _parse(done.stdout), budget)
 
 
-def execute_public(question: str, settings: Settings) -> ClaudeResult:
+def execute_public(question: str, settings: Settings, tone: str | None = None) -> ClaudeResult:
     """Answers a question from someone without access to the PC: see the module docstring. Never resumes anything."""
     prompt = PUBLIC_SYSTEM_PROMPT.format(limit=settings.CLAUDE_MAX_ANSWER_CHARS)
-    prompt += tone_prompt(settings)
+    prompt += tone_prompt(settings, tone)
     return _chat_only(question, prompt,
                       settings.CLAUDE_PUBLIC_MAX_BUDGET_USD,
                       min(settings.CLAUDE_TIMEOUT_SECONDS, PUBLIC_TIMEOUT_SECONDS), settings)
@@ -285,7 +294,7 @@ def sanitize(text: str, settings: Settings, *, full_access: bool = True, limit: 
 
 
 def start(chat_key: str, question: str, new_conversation: bool, settings: Settings,
-          on_done: Callable[[str], None], *, full_access: bool = True) -> None:
+          on_done: Callable[[str], None], *, full_access: bool = True, tone: str | None = None) -> None:
     """Starts answering in a background thread and calls `on_done(text)` with what to send (an answer or an error
     message). The question waits its turn when others are running; raises Busy, without starting anything, only when
     the line is full too. Without `full_access` the question is answered by `execute_public` and no conversation is kept
@@ -301,11 +310,11 @@ def start(chat_key: str, question: str, new_conversation: bool, settings: Settin
         try:
             try:
                 if full_access:
-                    result = execute(question, session_id, settings)
+                    result = execute(question, session_id, settings, tone)
                     if result.session_id:
                         _sessions[chat_key] = result.session_id
                 else:
-                    result = execute_public(question, settings)
+                    result = execute_public(question, settings, tone)
                 logger.info("CLAUDE answered (%s chars, cost %s USD%s)", len(result.text), result.cost_usd,
                             "" if full_access else ", no PC access")
                 text = sanitize(result.text, settings, full_access=full_access) or "(Claude no devolvió texto)"

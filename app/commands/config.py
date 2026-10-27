@@ -7,6 +7,7 @@ typed into one group should not quietly become the rule everywhere else.
 
 import logging
 from dataclasses import dataclass
+from typing import get_args
 
 from ..config import Settings
 from ..schemas import Reply
@@ -29,11 +30,12 @@ class Option:
     name: str
     setting: str
     what: str
-    kind: str  # "chance", "number" or "yesno"
+    kind: str  # "chance", "number", "yesno" or "choice" (one of the words the field itself allows)
     unit: str = ""
 
 
 OPTIONS: tuple[Option, ...] = (
+    Option("tono", "CLAUDE_TONE", "cómo habla: salado, picante, tranqui o normal", "choice"),
     Option("charla", "CLAUDE_INTERJECT_CHANCE", "cada cuántos mensajes se mete solo", "chance"),
     Option("espera", "CLAUDE_INTERJECT_COOLDOWN_MINUTES", "cuánto se calla después de hablar", "number", "min"),
     Option("perfiles", "CLAUDE_PROFILE_PEOPLE_CHANCE", "cada cuánto sabe quién es cada uno", "chance"),
@@ -49,6 +51,8 @@ SWITCH = BY_NAME["charla"]
 
 def _shown(option: Option, value) -> str:
     """The value as it is read in the chat, not as Python holds it."""
+    if option.kind == "choice":
+        return str(value)
     if option.kind == "yesno":
         return "sí" if value else "no"
     if option.kind == "chance":
@@ -67,6 +71,8 @@ def _typed(option: Option, raw: str) -> str:
             return raw
     if option.kind == "chance" and raw.lower() in ("nunca", "no"):
         return "0"
+    if option.kind == "choice":
+        return raw.lower()
     if option.kind == "yesno":
         return {"sí": "true", "si": "true", "no": "false"}.get(raw.lower(), raw)
     return raw.replace(",", ".") if option.kind == "chance" else raw
@@ -143,12 +149,19 @@ def config(ctx: CommandContext) -> str | Reply:
 def _hint(ctx: CommandContext, option: Option) -> str:
     """What that option does take, written from the field's own rules so it can never say something the code does
     not actually accept."""
+    if option.kind == "choice":
+        return f"Las que hay: {', '.join(_choices(option.setting))}."
     if option.kind == "yesno":
         return f"Probá `{ctx.prefix}config {option.name} sí` o `{ctx.prefix}config {option.name} no`."
     if option.kind == "chance":
         return f"Va de 0% a 100%: `{ctx.prefix}config {option.name} 15%`."
     low, high = _limits(option.setting)
     return f"Va de {low} a {high}: `{ctx.prefix}config {option.name} {high}`."
+
+
+def _choices(setting: str) -> tuple[str, ...]:
+    """The words the field itself accepts (its Literal in config.py), so the message can never offer one it refuses."""
+    return get_args(Settings.model_fields[setting].annotation)
 
 
 def _limits(setting: str) -> tuple[int, int]:

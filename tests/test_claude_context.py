@@ -30,8 +30,8 @@ def fake_claude(settings, tmp_path, monkeypatch):
         seen["prompts"].append(question)
         return claude_runner.ClaudeResult(seen["answer"], None, 0.01)
 
-    monkeypatch.setattr(claude_runner, "execute", lambda question, session, settings_: reply(question))
-    monkeypatch.setattr(claude_runner, "execute_public", lambda question, settings_: reply(question))
+    monkeypatch.setattr(claude_runner, "execute", lambda question, session, settings_, tone=None: reply(question))
+    monkeypatch.setattr(claude_runner, "execute_public", lambda question, settings_, tone=None: reply(question))
     return seen
 
 

@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from ..models import ClaudeQuery
 from ..schemas import Reply
-from ..services import chat_config, claude_context, claude_runner, jobs, media_cache, tts_generator
+from ..services import chat_config, chat_sources, claude_context, claude_runner, jobs, media_cache, tts_generator
 from ..utils import utcnow
 from .flags import normalize_flag
 from .registry import CommandContext, command
@@ -145,6 +145,14 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
             usage += (f"\n{ctx.prefix}claude -n <pregunta>: empieza una conversación nueva (sin el contexto anterior)."
                       f"\nPodés pedirle también cosas sobre la PC y los proyectos.")
         return usage
+    # A question about what was said in another chat is a question about a conversation, not about this PC, so it is
+    # answered in the no-access mode even when an admin asks it. That is what lets an admin have the context at all:
+    # the full-access mode never receives anything written by other people (see services/chat_sources.py), because it
+    # runs the CLI with every permission on, and text from a chat is text anybody could have written.
+    if full_access and chat_sources.asked_for(ctx.db, message.chat_key, question):
+        full_access = False
+        logger.info("CLAUDE answering without PC access: the question asks about another chat")
+
     if full_access and not claude_runner.workdir(settings).is_dir():
         return f"No existe la carpeta de trabajo ({settings.CLAUDE_WORKDIR})."
 
@@ -155,7 +163,9 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
     # Names of the group and the replied-to message always; the latest messages only for people without access to the PC
     context = claude_context.gather(ctx.db, settings, message, with_history=not full_access,
                                     # Nobody typed anything, so this is chat, not a request: see `_knows_who_everybody_is`
-                                    with_profile_people=not ctx.implicit or _knows_who_everybody_is(ctx))
+                                    with_profile_people=not ctx.implicit or _knows_who_everybody_is(ctx),
+                                    # Another chat's conversation only when this question asked about it
+                                    question=question)
     # Decided before asking, not after: an answer that is going to be heard is asked for short and without tags
     speak = not as_text and random.random() < _setting(ctx, "CLAUDE_AUDIO_CHANCE")
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
@@ -169,7 +179,7 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
     try:
         claude_runner.start(
             message.chat_key, context.prompt(question, speak=speak), new_conversation, settings,
-            on_done=done, full_access=full_access,
+            on_done=done, full_access=full_access, tone=_setting(ctx, "CLAUDE_TONE"),
         )
     except claude_runner.Busy:
         jobs.discard(job_id)
@@ -223,7 +233,8 @@ def interject(ctx: CommandContext) -> Reply | None:
         jobs.finish(job_id, [Reply(text=tagged + SIGNATURE, mentions=mentions)])
 
     try:
-        claude_runner.start(message.chat_key, context.interjection(), False, settings, on_done=done, full_access=False)
+        claude_runner.start(message.chat_key, context.interjection(), False, settings, on_done=done,
+                            full_access=False, tone=_setting(ctx, "CLAUDE_TONE"))
     except claude_runner.Busy:
         jobs.discard(job_id)
         return None

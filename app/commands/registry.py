@@ -28,16 +28,27 @@ class CommandContext:
     implicit: bool = False
 
     @property
+    def is_owner(self) -> bool:
+        """Listed in OWNER_USER_IDS: an admin in every chat, including a group somebody else runs. The bot is theirs,
+        so a group they did not create is still their bot answering."""
+        # Never from the owner's personal number either: there the replies land in a chat with a third party.
+        return not self.message.personal and self.message.user_key in self.settings.owner_user_keys
+
+    @property
     def is_listed_admin(self) -> bool:
         # Never from the owner's personal number: there the replies land in a chat with a third party.
-        return not self.message.personal and self.message.user_key in self.settings.admin_user_keys
+        return not self.message.personal and (self.is_owner
+                                              or self.message.user_key in self.settings.admin_user_keys)
 
     @property
     def is_admin(self) -> bool:
         """Listed in ADMIN_USER_IDS and, in a group where the platform reports it (WhatsApp), also an administrator of
-        THAT group: being on the list isn't enough to use admin commands in a group where you aren't an admin."""
+        THAT group: being on the list isn't enough to use admin commands in a group where you aren't an admin. The
+        owner (OWNER_USER_IDS) is the exception, and is one everywhere."""
         if not self.is_listed_admin:
             return False
+        if self.is_owner:
+            return True
         return not (self.message.is_group and self.message.sender_is_group_admin is False)
 
 

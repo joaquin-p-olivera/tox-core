@@ -150,6 +150,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `recordar <HH:MM> <qué>`               |                            | Reminds you (tagging you, in the same chat) at that time: today if still ahead, else tomorrow (see below) |
 | `claude [-n] [-t] <pregunta>`          |                            | Asks Claude: admins get full access in `~/dev`, everybody else a chat with no access to the PC; a ⏳ reaction first, then the answer (see below). Replying to a message of the bot asks it too, with no command |
 | `config [clave valor \| -off \| -on]`    | `conf`                     | **Admin only.** How much Tox talks **in this chat**: lists it, changes one setting here only (`-reset` goes back to the general value) and `-off` / `-on` stop or resume it butting in (see below) |
+| `spy [alias [palabras]]`               | `espiar`                   | **Admin only.** Which other chats this one may be told about, and with what words (`-alias` names this chat, `-off` takes one out, `-list` shows the names); never the other way round (see below) |
 | `ban @usuario`                         |                            | **Admin only.** Removes the tagged member from the group (see below) |
 | `permaban @usuario`                    |                            | **Admin only.** Bans and blacklists: removed from every group the bot is in, and again if they come back |
 | `unpermaban [número o nombre]`         | `despermaban`              | **Admin only.** Lists the blacklist, or takes someone off it |
@@ -272,7 +273,12 @@ the platform prefix matters):
 ADMIN_USER_IDS=whatsapp:111111111111111@lid,telegram:123456789
 ```
 
-**In a group, being on that list isn't enough:** on WhatsApp the bot also tells the API whether you administer *that* group
+`OWNER_USER_IDS` is the exception to everything below: whoever is listed there is an admin **in every chat**, including a group
+somebody else runs and where WhatsApp does not make them an administrator. The bot is theirs, so a group they did not create is
+still their bot answering. Being there is enough; there is no need to be on `ADMIN_USER_IDS` too, and the personal mode is still
+excluded (there the bot writes as the owner into somebody else's chat, so an admin answer is not theirs to see).
+
+**For everybody else, being on that list isn't enough in a group:** on WhatsApp the bot also tells the API whether you administer *that* group
 (`sender_is_group_admin`), and admin commands (`!service`, `!github`, `!uid`) need both. Someone on the list who isn't an admin
 of the group where they write is treated as a normal user there. If the group's member list can't be read, nobody is
 considered an admin of it for that message (never guessed). Private chats only look at the list, and so does a platform that
@@ -763,7 +769,9 @@ hourly pools so a busy group can't use up the admins' questions.
   message of the bot as well, where there is no command to put a flag on, and in the personal mode (`.b c -t <pregunta>`).
   A question that merely starts with a dash is asked as typed: only `-t`, `--texto`, `-n` and `--nuevo` are flags.
 - **Tone.** `CLAUDE_TONE` sets how the no-access mode talks: `salado` (the default: insults, swearing and heavy teasing, as the friends do among themselves),
-  `picante` (sarcastic and chicanero, milder) or `normal` (just friendly). The two spicy prompts keep a few hard limits, written into them (`TONE_PROMPTS`): no
+  `picante` (sarcastic and chicanero, milder), `tranqui` (playful and joking, but it teases nobody: the jokes are about the situation or about itself, never about
+  somebody's defects, failures or looks, and there is no swearing, black humour or sexual joking) or `normal` (just friendly, nothing added). **It is per chat**
+  (`!config tono tranqui`, see below), which is what a group where not everybody is in on the joke wants. The two spicy prompts keep a few hard limits, written into them (`TONE_PROMPTS`): no
   insults for race, origin, religion, gender, orientation, disability or illness, nothing sexually explicit, no threats or pushing anybody to hurt themselves,
   no serious accusations or private data; and the jokes stop when somebody is really down. It applies to the admins' full-access mode too (only the manner changes: the answers about the PC stay correct, and the secrecy rules stay); the summaries are unchanged.
 - **A reaction, then the answer.** The reply is a `⏳` reaction to the command (no placeholder message) with a `job` id; the bot polls `GET /api/v1/jobs/{id}` (every 2 s, up to 15 min)
@@ -784,6 +792,47 @@ hourly pools so a busy group can't use up the admins' questions.
 Note that the CLI runs in the same folder as an interactive Claude Code session would, so it also reads that folder's `CLAUDE.md`
 and memory.
 
+### One chat reading another: `chat_context_sources`
+
+A chat can be told what was said in **another** chat (`app/services/chat_sources.py`), for the case where one group is
+the continuation of another and the question only makes sense with both. `!spy` (admin only, alias `espiar`) is where it
+is set up, always **from the chat that is going to read**:
+
+```
+!spy                          qué chats puede leer este, y cómo se llama
+!spy -alias festejen          le pone nombre a ESTE chat (una palabra), para poder nombrarlo desde otro
+!spy -list                    los nombres que hay
+!spy festejen risas,asado     este chat pasa a leer "festejen" cuando la pregunta diga alguna de esas palabras
+!spy -off festejen            deja de leerlo
+```
+
+Un alias no da permiso por sí mismo: solo evita escribir un id de WhatsApp. El permiso es la fila de
+`chat_context_sources`, y se escribe desde el chat que lee.
+
+- **A row is one direction.** `chat_key` is the chat that reads, `source_chat_key` the one that is read. A row saying A
+  reads B does not let B read A: that needs its own row, and not writing it is how the other chat learns nothing.
+- **It is read only when the question asks for it.** Each row carries `triggers` (comma separated, the `label` when
+  empty), matched against the question without accents or case. A question that names none of them is answered as if
+  the source did not exist, and **nothing of that chat reaches the prompt at all** -- which is the real control: an
+  instruction not to bring something up is a control, not a guarantee, while text that was never sent cannot be
+  repeated by accident. A remark Tox makes on its own (`interject`) has no question, so it never brings another chat up.
+- **`label` is what the prompt calls it** ("el otro grupo"), so the name of a group is not something the other one has
+  to learn. The block tells Claude to answer with it but not to copy messages verbatim, not to say who said what unless
+  asked, and not to raise the subject in other answers. The people there are not in this chat and are never taggable.
+- **A question that asks for a source is answered without access to this PC**, even when an admin asks it: the
+  full-access mode never receives anything written by other people (that is why it gets no conversation at all), and a
+  question about what was said somewhere is a question about a conversation, not about this machine. Without this an
+  admin could never see a source in their own group, since being an admin is exactly what puts them in the other mode.
+- What is read is only what the source chat's own history already saved (`!h -on` there), the latest
+  `CLAUDE_SOURCE_MESSAGES` (50) of the last `CLAUDE_CONTEXT_HOURS`, up to `CLAUDE_SOURCE_MAX_CHARS` (6000) of their own,
+  so the chat's own conversation loses no room. `CLAUDE_SOURCE_MESSAGES=0` turns the whole thing off.
+
+```sql
+INSERT INTO chat_context_sources (chat_key, source_chat_key, label, triggers, added_by, added_at)
+VALUES ('whatsapp:<el que lee>', 'whatsapp:<el que es leído>', 'el otro grupo', 'el otro grupo,los pibes',
+        'manual', datetime('now'));
+```
+
 ### Per chat: `config` (admin only)
 
 Everything above is global, read from the `.env` when the API starts. A group that writes all day and a quiet one don't want the
@@ -792,6 +841,7 @@ same numbers, so **`!config` gives one chat its own value** for how talkative To
 
 | Typed | Setting | What it is |
 |---|---|---|
+| `tono` | `CLAUDE_TONE` | How it talks: salado, picante, tranqui or normal |
 | `charla` | `CLAUDE_INTERJECT_CHANCE` | How often it butts in with nobody talking to it |
 | `espera` | `CLAUDE_INTERJECT_COOLDOWN_MINUTES` | How long it stays quiet after speaking |
 | `perfiles` | `CLAUDE_PROFILE_PEOPLE_CHANCE` | How often it is told who everybody is |
@@ -805,7 +855,7 @@ same numbers, so **`!config` gives one chat its own value** for how talkative To
   applies again. A chance is read and written as a **percentage** (`15%`, or `nunca`), a yes/no as `sí` / `no`.
 - `!config -off` is the switch the owner asked for: `charla` to `0` **in this chat**, so Tox stops butting in there while it
   still answers whoever talks to it. `!config -on` undoes it (a `-reset` of that one key, not a `0.02` written by hand).
-- **The list of settings it can touch is a whitelist** (`chat_config.OVERRIDABLE`), and only those seven. An admin typing into a
+- **The list of settings it can touch is a whitelist** (`chat_config.OVERRIDABLE`), and only those eight. An admin typing into a
   group reaches this code, so a key, a path, a money cap or `ADMIN_USER_IDS` must never be reachable from a message — the service
   refuses anything outside the list even if a command asked it to.
 - Every value is validated by **the field's own rules in `config.py`** (its type and its `ge`/`le`), so a chat cannot be given a
