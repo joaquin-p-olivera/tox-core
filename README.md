@@ -146,6 +146,8 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `hash <md5\|sha1\|sha256\|sha512> <texto>` |                        | Hash of a text                                            |
 | `sticker <texto>`                      |                            | Generates a meme-style sticker with the given text, or from a picture (sent with `!sticker` as caption, or replied to) |
 | `foto`                                 | `imagen`                   | Turns a sticker into a photo (reply to the sticker with `!foto`) |
+| `yt <link>`                            |                            | Sends the video of a YouTube link (up to 8 minutes; also works replying to a message with the link) |
+| `ytm <link>`                           |                            | The same, as audio only                                   |
 | `qr <texto o link>`                    |                            | A QR code image of the text or link                       |
 | `recordar <HH:MM> <qué>`               |                            | Reminds you (tagging you, in the same chat) at that time: today if still ahead, else tomorrow (see below) |
 | `claude [-n] [-t] <pregunta>`          |                            | Asks Claude: admins get full access in `~/dev`, everybody else a chat with no access to the PC; a ⏳ reaction first, then the answer (see below). Replying to a message of the bot asks it too, with no command |
@@ -250,6 +252,29 @@ matches any of them.
   even if they never wrote to the bot.
 - **Telegram:** bots can't list members, so only people who have already sent a command to the bot in that chat can be picked.
 - The sender is never picked. In a private chat, or if nobody else is known, the bot says so instead.
+
+### YouTube (`!yt`, `!ytm`)
+
+`!yt <link>` sends the video of a YouTube link into the chat and `!ytm <link>` sends only the audio. The link can
+also be in the message being replied to, which is how it usually arrives: somebody pastes it, somebody else asks
+for it. Both answer with a ⏳ and send the file when it is there (the job system `!claude` uses).
+
+- **Nothing is kept on this machine.** yt-dlp writes into a temp folder inside `YT_WORK_DIR` (`/dev/shm`, which is
+  RAM, so the disk is never touched), the bytes are read out of it and the folder is deleted before the reply is
+  built; from there they live in `media_cache` only until the bot has downloaded them. A video has to be written
+  somewhere first because YouTube no longer serves a single stream with picture and sound in it: yt-dlp downloads
+  the two and ffmpeg puts them in one mp4, which it cannot do into a pipe.
+- **Two limits, both checked before anything is downloaded.** `YT_MAX_DURATION_SECONDS` (480, eight minutes), and
+  `YT_MAX_BYTES` (16 MB, which is what WhatsApp takes) over the formats on offer. A video inside the duration can
+  still be far too big — eight minutes at 360p is about 24 MB — so the quality is stepped down (720p, 480p, 360p,
+  240p) until picture plus sound fit, and what does not fit even at 240p is refused with a message. Only H.264
+  video and AAC audio are picked: they go into an mp4 as they are, where a VP9 or AV1 stream would have to be
+  re-encoded, which this machine cannot afford.
+- One download at a time: these go out over a home connection, and three people pasting links at once must not
+  take it. Lives, playlists, private, age-restricted and members-only videos are refused, each with its own
+  message.
+- `yt-dlp` is in `requirements.txt` rather than the system's one on purpose: YouTube breaks old versions every few
+  months, and that way dependabot keeps it current. ffmpeg has to be on the service's `PATH` (or `FFMPEG_PATH`).
 
 ### Trivia game
 

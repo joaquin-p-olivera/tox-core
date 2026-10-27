@@ -128,6 +128,11 @@ class Reply(BaseModel):
         description="Id of a generated image (e.g. !futbol -t's table) to send instead of text; the bot "
         "downloads it from GET /api/v1/images/{id}. Short-lived: fetch it right away.",
     )
+    video: str | None = Field(
+        default=None,
+        description="Id of a video to send instead of text (!yt), downloaded from GET /api/v1/videos/{id}. "
+        "Short-lived and up to YT_MAX_BYTES: fetch it right away.",
+    )
     job: str | None = Field(
         default=None,
         description="Id of a long-running job (e.g. !claude). The bot sends `text` now, then polls "

@@ -139,6 +139,16 @@ class Settings(BaseSettings):
     HOST_HISTORY_DAYS: int = Field(default=7, ge=1, le=90)
     # Per request. Keep the total (list + deploys, roughly 2x this) below the bots' API timeout (10 s).
     RENDER_API_TIMEOUT_SECONDS: int = Field(default=4, ge=1, le=8)
+    # `!yt` / `!ytm`: the video or the audio of a YouTube link (services/youtube.py, yt-dlp + ffmpeg). Bounded by
+    # duration before anything is downloaded, and by size over the formats on offer -- a video inside the duration
+    # can still be far too big for WhatsApp, and 16 MB is what it takes. YT_WORK_DIR is where the download is
+    # written for the moment it takes to read it (`/dev/shm` is RAM, so the disk is never touched; "" = the
+    # system's temp folder). FFMPEG_PATH only when ffmpeg is somewhere yt-dlp will not find on its own.
+    YT_MAX_DURATION_SECONDS: int = Field(default=480, ge=10, le=3600)
+    YT_MAX_BYTES: int = Field(default=16_000_000, ge=1_000_000, le=64_000_000)
+    YT_TIMEOUT_SECONDS: int = Field(default=180, ge=10, le=900)
+    YT_WORK_DIR: str = "/dev/shm"
+    FFMPEG_PATH: str = ""
     # How long generated media (!sticker images, !voz audio) stays available for the bot to download
     # before it's dropped from memory. Only needs to outlive the bot's own fetch, right after the command runs.
     MEDIA_CACHE_SECONDS: int = Field(default=120, ge=10, le=600)
