@@ -138,7 +138,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `tabla <país>`                         |                            | The current standings table, as an image                  |
 | `vi`                                   | `gta6`                     | A card with how long is left until Grand Theft Auto VI, over a random picture of the game (see below); the same one the countdown sends on its own |
 | `trivia [categoría]`                   | `preguntas`                | Starts a multiplayer trivia question                      |
-| `responder <A-D>`                      | `a`, `b`, `c`, `d`         | Answers the open question (`!b` is a shortcut)            |
+| `responder <A-D>`                      | `a`, `b`, `c`, `d`         | Answers the open question (a plain `b`, no prefix, works) |
 | `ranking`                              | `top`, `puntajes`          | Per-chat trivia leaderboard                               |
 | `uuid`                                 |                            | Random UUID v4                                            |
 | `base64 codificar\|decodificar <texto>` | `b64`                      | Base64 helper                                             |
@@ -255,12 +255,16 @@ matches any of them.
 
 One open question per chat; everybody in the chat competes.
 
-- `!trivia` posts a question with options A–D (72 questions). Optional category: `geografia`, `ciencia`, `historia`,
+- `!trivia` posts a question with options A–D (144 questions). Optional category: `geografia`, `ciencia`, `historia`,
   `cultura`, `deportes`, `uruguay`, `juegos` (accents and case don't matter).
-- Each player gets **one attempt** per question (`!a`…`!d`). The first correct answer wins
-  10 points plus up to 5 speed bonus points.
-- Unanswered questions expire after `TRIVIA_TIMEOUT_SECONDS` (60). Expiry is lazy: the answer is revealed
-  on the next `!trivia`/`!a`, because the API never pushes messages on its own.
+- Each player gets **one attempt** per question. A plain `a`, `b`, `c` or `d` with **no prefix** answers while a
+  question is open — typed on its own or as a reply to the bot's question — and `!a`…`!d` still work. Outside a
+  round a letter is just a letter, and the personal mode never reads one as an answer.
+- The first correct answer wins 10 points plus up to 5 speed bonus points.
+- Unanswered questions expire after `TRIVIA_TIMEOUT_SECONDS` (30). The reveal is pushed to the chat on the bots'
+  next poll for pending alerts (`trivia_service.queue_due`, like reminders), so nobody has to type for it.
+- **The round that ends starts the next one**, whether somebody won or the time ran out — as long as at least one
+  person answered. A question nobody answered ends the streak, so a chat that moved on is left alone.
 - Answer positions are shuffled per round; recently asked questions aren't repeated.
 - Claiming a round is an atomic `UPDATE`, so two simultaneous correct answers can't both win.
 

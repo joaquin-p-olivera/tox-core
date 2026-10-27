@@ -27,7 +27,7 @@ def wrong_letter(db, chat_key="whatsapp:g1"):
 
 def test_start_shows_question_with_four_choices(send):
     (text,) = send("!trivia")
-    assert text.startswith("🧠 TRIVIA") and "Respondé con !a, !b, !c o !d" in text
+    assert text.startswith("🧠 TRIVIA") and "Respondé con a, b, c o d" in text
     for label in ("A)", "B)", "C)", "D)"):
         assert label in text
 
@@ -42,11 +42,15 @@ def test_starting_again_reuses_the_open_question(send, db_session):
 
 def test_correct_answer_wins_points(send, db_session):
     send("!trivia")
-    (reply,) = send(f"!{correct_letter(db_session)}")
+    won = current_round(db_session)
+    reply, next_question = send(f"!{correct_letter(db_session)}")
     assert "¡Alice acertó!" in reply and "+1" in reply  # 10-15 points
     score = db_session.scalars(select(Score)).one()
     assert 10 <= score.points <= 15 and score.wins == 1
-    assert current_round(db_session).status == "won"
+    assert db_session.get(TriviaRound, won.id).status == "won"
+    # A win is followed by the next question on its own
+    assert next_question.startswith("🧠 TRIVIA")
+    assert current_round(db_session).id != won.id
 
 
 def test_answer_command_variants(send, db_session):
@@ -65,15 +69,18 @@ def test_wrong_answer_then_locked_out(send, db_session):
 def test_second_player_can_still_win_after_first_misses(send, db_session):
     send("!trivia")
     send(f"!{wrong_letter(db_session)}")
-    (reply,) = send(f"!{correct_letter(db_session)}", user="u2", name="Bob")
+    reply = send(f"!{correct_letter(db_session)}", user="u2", name="Bob")[0]
     assert "¡Bob acertó!" in reply
 
 
-def test_late_correct_answer_after_win(send, db_session):
+def test_answer_to_a_round_already_won(send, db_session):
+    """The winner's round is closed, so a late answer lands on the question that followed it."""
     send("!trivia")
-    letter = correct_letter(db_session)
-    send(f"!{letter}")
-    assert send(f"!{letter}", user="u2", name="Bob")[0].startswith("No hay ninguna pregunta abierta")
+    won = current_round(db_session)
+    send(f"!{correct_letter(db_session)}")
+    send(f"!{wrong_letter(db_session)}", user="u2", name="Bob")
+    assert db_session.get(TriviaRound, won.id).winner_user_key == "whatsapp:u1"
+    assert current_round(db_session).status == "open"
 
 
 def test_concurrent_correct_answers_only_one_wins(db_session, settings):
@@ -96,11 +103,37 @@ def test_concurrent_correct_answers_only_one_wins(db_session, settings):
         return found
     trivia_service._open_round = stale_open_round
     try:
-        (reply,) = trivia_service.submit_answer(db_session, msg("u2", "Bob"), letter, "!")
+        (reply,) = trivia_service.submit_answer(db_session, msg("u2", "Bob"), letter, settings, "!")
     finally:
         trivia_service._open_round = original
     assert reply.startswith("Tarde, Bob")
     assert db_session.scalars(select(Score)).first() is None  # no points awarded
+
+
+def test_a_bare_letter_answers_without_the_prefix(send, db_session):
+    send("!trivia")
+    assert "¡Alice acertó!" in send(correct_letter(db_session))[0]
+
+
+def test_a_bare_letter_as_a_reply_to_the_question_answers_it(send, db_session):
+    send("!trivia")
+    letter = wrong_letter(db_session)
+    quoted = {"quoted": {"text": "🧠 TRIVIA", "is_bot": True}}
+    assert send(f"{letter.upper()})", **quoted) == ["❌ No, Alice."]  # not a question for Claude
+
+
+def test_a_bare_letter_with_no_round_open_is_just_a_letter(send):
+    assert send("b") == []
+
+
+def test_a_bare_letter_is_ignored_in_the_personal_mode(send, db_session):
+    send(".b trivia", personal=True)
+    assert send(correct_letter(db_session), personal=True) == []
+
+
+def test_a_letter_inside_a_sentence_is_not_an_answer(send, db_session):
+    send("!trivia")
+    assert send(f"{correct_letter(db_session)} eso") == []
 
 
 def test_no_open_question(send):
@@ -134,6 +167,46 @@ def test_trivia_after_expiry_reveals_and_starts_new(send, db_session):
     assert replies[0].startswith("⏰ ¡Se acabó el tiempo!")
     assert replies[1].startswith("🧠 TRIVIA")
     assert current_round(db_session).id != rnd.id
+
+
+def test_timeout_is_queued_for_the_bots_with_the_next_question(send, db_session, client):
+    send("!trivia")
+    send(f"!{wrong_letter(db_session)}")  # the chat is playing, so the streak goes on
+    expired = current_round(db_session)
+    expired.expires_at = utcnow() - timedelta(seconds=1)
+    db_session.commit()
+
+    alerts = client.get("/api/v1/alerts/pending", params={"platform": "whatsapp"},
+                        headers={"X-API-Key": "test-key"}).json()
+    assert [a["chat_id"] for a in alerts] == ["g1", "g1"]
+    assert alerts[0]["text"].startswith("⏰ ¡Se acabó el tiempo!")
+    assert alerts[1]["text"].startswith("🧠 TRIVIA")
+    assert db_session.get(TriviaRound, expired.id).status == "expired"
+    assert current_round(db_session).status == "open"
+
+
+def test_a_question_nobody_answered_ends_the_streak(send, db_session, client):
+    send("!trivia")
+    expired = current_round(db_session)
+    expired.expires_at = utcnow() - timedelta(seconds=1)
+    db_session.commit()
+
+    alerts = client.get("/api/v1/alerts/pending", params={"platform": "whatsapp"},
+                        headers={"X-API-Key": "test-key"}).json()
+    assert len(alerts) == 1 and alerts[0]["text"].startswith("⏰ ¡Se acabó el tiempo!")
+    assert current_round(db_session).id == expired.id  # no new round: the chat went quiet
+
+
+def test_an_expired_round_answered_late_carries_the_streak_on(send, db_session):
+    send("!trivia")
+    send(f"!{wrong_letter(db_session)}")
+    expired = current_round(db_session)
+    expired.expires_at = utcnow() - timedelta(seconds=1)
+    db_session.commit()
+
+    replies = send(f"!{correct_letter(db_session)}", user="u2", name="Bob")
+    assert replies[0].startswith("⏰ ¡Se acabó el tiempo!") and replies[1].startswith("🧠 TRIVIA")
+    assert current_round(db_session).id != expired.id
 
 
 def test_category_filter(send, db_session):

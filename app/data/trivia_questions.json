@@ -862,5 +862,869 @@
       "Hidetaka Miyazaki"
     ],
     "answer": 1
+  },
+  {
+    "id": "ciencia-entropia",
+    "category": "ciencia",
+    "question": "¿Qué magnitud dice la segunda ley de la termodinámica que nunca disminuye en un sistema aislado?",
+    "choices": [
+      "La entalpía",
+      "La entropía",
+      "La energía interna",
+      "La presión"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-uracilo",
+    "category": "ciencia",
+    "question": "¿Cuál de estas bases nitrogenadas NO aparece en el ADN?",
+    "choices": [
+      "Timina",
+      "Citosina",
+      "Uracilo",
+      "Guanina"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "ciencia-hierro",
+    "category": "ciencia",
+    "question": "¿Qué elemento tiene el número atómico 26?",
+    "choices": [
+      "Cobre",
+      "Hierro",
+      "Zinc",
+      "Plata"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-higgs",
+    "category": "ciencia",
+    "question": "¿En qué laboratorio se anunció el descubrimiento del bosón de Higgs en 2012?",
+    "choices": [
+      "Fermilab",
+      "El CERN",
+      "Los Álamos",
+      "El MIT"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-mitocondria",
+    "category": "ciencia",
+    "question": "Además del núcleo, ¿qué orgánulo de la célula tiene su propio ADN?",
+    "choices": [
+      "La mitocondria",
+      "El aparato de Golgi",
+      "El lisosoma",
+      "El retículo endoplasmático"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "ciencia-mendeleiev",
+    "category": "ciencia",
+    "question": "¿Quién propuso en 1869 la tabla periódica que usamos hoy?",
+    "choices": [
+      "Antoine Lavoisier",
+      "Dmitri Mendeléyev",
+      "Niels Bohr",
+      "John Dalton"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-ph",
+    "category": "ciencia",
+    "question": "La escala de pH es logarítmica: ¿cuántas veces más ácida es una solución de pH 3 que una de pH 5?",
+    "choices": [
+      "2 veces",
+      "10 veces",
+      "100 veces",
+      "1000 veces"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "ciencia-pluton",
+    "category": "ciencia",
+    "question": "¿En qué año Plutón dejó de ser considerado un planeta?",
+    "choices": [
+      "1999",
+      "2006",
+      "2011",
+      "1994"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-donante",
+    "category": "ciencia",
+    "question": "¿Qué grupo sanguíneo es donante universal?",
+    "choices": [
+      "AB positivo",
+      "O negativo",
+      "A positivo",
+      "B negativo"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-cero-absoluto",
+    "category": "ciencia",
+    "question": "¿A cuántos grados Celsius equivale el cero absoluto?",
+    "choices": [
+      "-100 °C",
+      "-273,15 °C",
+      "-459,67 °C",
+      "-1000 °C"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-penicilina",
+    "category": "ciencia",
+    "question": "¿Quién descubrió la penicilina en 1928?",
+    "choices": [
+      "Louis Pasteur",
+      "Alexander Fleming",
+      "Robert Koch",
+      "Jonas Salk"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-curie",
+    "category": "ciencia",
+    "question": "Marie Curie ganó dos premios Nobel, ¿en qué disciplinas?",
+    "choices": [
+      "Física y Medicina",
+      "Física y Química",
+      "Química y Medicina",
+      "Química y de la Paz"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "ciencia-luz-sol",
+    "category": "ciencia",
+    "question": "¿Cuánto tarda la luz del Sol en llegar a la Tierra?",
+    "choices": [
+      "8 segundos",
+      "8 minutos",
+      "8 horas",
+      "1 minuto"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-bastilla",
+    "category": "historia",
+    "question": "¿En qué año cayó la Bastilla, al empezar la Revolución Francesa?",
+    "choices": [
+      "1776",
+      "1789",
+      "1804",
+      "1815"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-constantinopla",
+    "category": "historia",
+    "question": "¿En qué año cayó Constantinopla en manos del Imperio otomano?",
+    "choices": [
+      "1453",
+      "1492",
+      "1204",
+      "1521"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "hist-sarajevo",
+    "category": "historia",
+    "question": "¿Qué hecho desató la Primera Guerra Mundial en 1914?",
+    "choices": [
+      "La invasión de Polonia",
+      "El asesinato del archiduque Francisco Fernando",
+      "El hundimiento del Lusitania",
+      "La Revolución Rusa"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-roma-caida",
+    "category": "historia",
+    "question": "¿En qué año cayó el Imperio Romano de Occidente?",
+    "choices": [
+      "395",
+      "476",
+      "527",
+      "800"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-gutenberg",
+    "category": "historia",
+    "question": "¿Quién desarrolló la imprenta de tipos móviles en Europa hacia 1440?",
+    "choices": [
+      "Johannes Gutenberg",
+      "Leonardo da Vinci",
+      "Galileo Galilei",
+      "Erasmo de Róterdam"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "hist-waterloo",
+    "category": "historia",
+    "question": "¿En qué batalla fue derrotado Napoleón definitivamente, en 1815?",
+    "choices": [
+      "Austerlitz",
+      "Trafalgar",
+      "Waterloo",
+      "Leipzig"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "hist-chernobil",
+    "category": "historia",
+    "question": "¿En qué año ocurrió el accidente nuclear de Chernóbil?",
+    "choices": [
+      "1979",
+      "1986",
+      "1991",
+      "1983"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-cusco",
+    "category": "historia",
+    "question": "¿Cuál era la capital del Imperio inca?",
+    "choices": [
+      "Quito",
+      "Cusco",
+      "Tenochtitlán",
+      "La Paz"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-tenochtitlan",
+    "category": "historia",
+    "question": "¿Qué conquistador tomó Tenochtitlán en 1521?",
+    "choices": [
+      "Vasco Núñez de Balboa",
+      "Hernán Cortés",
+      "Francisco Pizarro",
+      "Diego de Almagro"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-titanic",
+    "category": "historia",
+    "question": "¿En qué año se hundió el Titanic?",
+    "choices": [
+      "1905",
+      "1912",
+      "1918",
+      "1923"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-urss",
+    "category": "historia",
+    "question": "¿En qué año se disolvió la Unión Soviética?",
+    "choices": [
+      "1989",
+      "1991",
+      "1993",
+      "1987"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "hist-elcano",
+    "category": "historia",
+    "question": "¿Quién completó la primera vuelta al mundo después de que mataran a Magallanes?",
+    "choices": [
+      "Juan Sebastián Elcano",
+      "Américo Vespucio",
+      "Francis Drake",
+      "Bartolomé Díaz"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "cultura-rayuela",
+    "category": "cultura",
+    "question": "¿Quién escribió Rayuela?",
+    "choices": [
+      "Jorge Luis Borges",
+      "Julio Cortázar",
+      "Juan Rulfo",
+      "Mario Vargas Llosa"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-aleph",
+    "category": "cultura",
+    "question": "¿De qué autor es el cuento El Aleph?",
+    "choices": [
+      "Jorge Luis Borges",
+      "Julio Cortázar",
+      "Adolfo Bioy Casares",
+      "Ernesto Sábato"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "cultura-guernica",
+    "category": "cultura",
+    "question": "¿En qué guerra se enmarca el bombardeo que inspiró el Guernica de Picasso?",
+    "choices": [
+      "La Primera Guerra Mundial",
+      "La Guerra Civil Española",
+      "La Segunda Guerra Mundial",
+      "La Guerra de Crimea"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-beethoven",
+    "category": "cultura",
+    "question": "¿Qué compositor ya estaba casi completamente sordo cuando estrenó su Novena Sinfonía?",
+    "choices": [
+      "Mozart",
+      "Beethoven",
+      "Chopin",
+      "Vivaldi"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-dali",
+    "category": "cultura",
+    "question": "¿Quién pintó La persistencia de la memoria, el cuadro de los relojes blandos?",
+    "choices": [
+      "Joan Miró",
+      "Salvador Dalí",
+      "René Magritte",
+      "Max Ernst"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-odisea",
+    "category": "cultura",
+    "question": "Según la Odisea, ¿cuántos años tarda Odiseo en volver a Ítaca?",
+    "choices": [
+      "3 años",
+      "7 años",
+      "10 años",
+      "20 años"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "cultura-kafka",
+    "category": "cultura",
+    "question": "¿En qué se despierta convertido Gregorio Samsa en La metamorfosis?",
+    "choices": [
+      "En un pájaro",
+      "En un insecto enorme",
+      "En una estatua",
+      "En un perro"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-parasite",
+    "category": "cultura",
+    "question": "¿Qué película fue la primera hablada en otro idioma en ganar el Oscar a mejor película?",
+    "choices": [
+      "Roma",
+      "Parásitos",
+      "Drive My Car",
+      "Minari"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-pink-floyd",
+    "category": "cultura",
+    "question": "¿De qué banda es el álbum The Dark Side of the Moon?",
+    "choices": [
+      "Led Zeppelin",
+      "Pink Floyd",
+      "The Who",
+      "Queen"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-anillos",
+    "category": "cultura",
+    "question": "En El Señor de los Anillos, ¿cuántos Anillos de Poder recibieron los Hombres?",
+    "choices": [
+      "Tres",
+      "Siete",
+      "Nueve",
+      "Uno"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "cultura-verona",
+    "category": "cultura",
+    "question": "¿En qué ciudad transcurre Romeo y Julieta?",
+    "choices": [
+      "Venecia",
+      "Verona",
+      "Florencia",
+      "Padua"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-atlas",
+    "category": "cultura",
+    "question": "En la mitología griega, ¿qué titán fue condenado a sostener la bóveda celeste?",
+    "choices": [
+      "Prometeo",
+      "Atlas",
+      "Cronos",
+      "Hiperión"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "cultura-moma",
+    "category": "cultura",
+    "question": "¿En qué museo se exhibe La noche estrellada de Van Gogh?",
+    "choices": [
+      "El Louvre",
+      "El MoMA de Nueva York",
+      "El Prado",
+      "El Museo Van Gogh de Ámsterdam"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-ocarina",
+    "category": "juegos",
+    "question": "¿En qué consola salió originalmente The Legend of Zelda: Ocarina of Time?",
+    "choices": [
+      "Super Nintendo",
+      "Nintendo 64",
+      "GameCube",
+      "Game Boy"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-fromsoftware",
+    "category": "juegos",
+    "question": "¿Qué estudio desarrolló Dark Souls?",
+    "choices": [
+      "Capcom",
+      "FromSoftware",
+      "Platinum Games",
+      "Team Ninja"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-mario-1985",
+    "category": "juegos",
+    "question": "¿En qué año salió Super Mario Bros. en Japón?",
+    "choices": [
+      "1983",
+      "1985",
+      "1987",
+      "1990"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-doom",
+    "category": "juegos",
+    "question": "¿Qué estudio creó Doom en 1993?",
+    "choices": [
+      "id Software",
+      "3D Realms",
+      "Epic MegaGames",
+      "Bungie"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "juegos-mas-vendido",
+    "category": "juegos",
+    "question": "¿Cuál es el videojuego más vendido de la historia?",
+    "choices": [
+      "GTA V",
+      "Minecraft",
+      "Tetris",
+      "Wii Sports"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-kojima",
+    "category": "juegos",
+    "question": "¿Quién es el creador de la saga Metal Gear?",
+    "choices": [
+      "Shinji Mikami",
+      "Hideo Kojima",
+      "Yoko Taro",
+      "Fumito Ueda"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-vice-city",
+    "category": "juegos",
+    "question": "¿En qué ciudad real está inspirada Vice City, de GTA?",
+    "choices": [
+      "Los Ángeles",
+      "Miami",
+      "Nueva York",
+      "Las Vegas"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-aperture",
+    "category": "juegos",
+    "question": "¿Cómo se llama la empresa ficticia donde transcurre Portal?",
+    "choices": [
+      "Black Mesa",
+      "Aperture Science",
+      "Umbrella",
+      "Abstergo"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-umbrella",
+    "category": "juegos",
+    "question": "¿Qué corporación provocó el brote de la saga Resident Evil?",
+    "choices": [
+      "Umbrella",
+      "Weyland-Yutani",
+      "Abstergo",
+      "Vault-Tec"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "juegos-nintendo-1889",
+    "category": "juegos",
+    "question": "¿En qué año se fundó Nintendo?",
+    "choices": [
+      "1889",
+      "1923",
+      "1952",
+      "1975"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "juegos-playstation",
+    "category": "juegos",
+    "question": "¿En qué año salió la primera PlayStation en Japón?",
+    "choices": [
+      "1992",
+      "1994",
+      "1996",
+      "1998"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-silent-hill",
+    "category": "juegos",
+    "question": "¿En qué consola salió el primer Silent Hill?",
+    "choices": [
+      "PlayStation",
+      "Nintendo 64",
+      "Dreamcast",
+      "Sega Saturn"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "juegos-halo",
+    "category": "juegos",
+    "question": "¿Qué estudio desarrolló el primer Halo?",
+    "choices": [
+      "343 Industries",
+      "Bungie",
+      "Rare",
+      "Infinity Ward"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-mojang",
+    "category": "juegos",
+    "question": "¿Cuánto pagó Microsoft por Mojang, los creadores de Minecraft, en 2014?",
+    "choices": [
+      "500 millones de dólares",
+      "1000 millones de dólares",
+      "2500 millones de dólares",
+      "7000 millones de dólares"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "juegos-steam",
+    "category": "juegos",
+    "question": "¿En qué año lanzó Valve la plataforma Steam?",
+    "choices": [
+      "1999",
+      "2003",
+      "2007",
+      "2010"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "juegos-crash",
+    "category": "juegos",
+    "question": "¿Qué estudio creó a Crash Bandicoot?",
+    "choices": [
+      "Insomniac Games",
+      "Naughty Dog",
+      "Rare",
+      "Konami"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "geo-titicaca",
+    "category": "geografia",
+    "question": "¿Entre qué dos países está el lago Titicaca?",
+    "choices": [
+      "Perú y Bolivia",
+      "Chile y Argentina",
+      "Ecuador y Colombia",
+      "Bolivia y Paraguay"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "geo-vaticano",
+    "category": "geografia",
+    "question": "¿Cuál es el país más pequeño del mundo?",
+    "choices": [
+      "Mónaco",
+      "Ciudad del Vaticano",
+      "San Marino",
+      "Nauru"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "geo-bering",
+    "category": "geografia",
+    "question": "¿Qué estrecho separa Asia de América?",
+    "choices": [
+      "Gibraltar",
+      "Bering",
+      "Magallanes",
+      "Ormuz"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "geo-ankara",
+    "category": "geografia",
+    "question": "¿Cuál es la capital de Turquía?",
+    "choices": [
+      "Estambul",
+      "Ankara",
+      "Esmirna",
+      "Bursa"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "geo-atacama",
+    "category": "geografia",
+    "question": "¿En qué país está el desierto de Atacama, el más árido del mundo?",
+    "choices": [
+      "Perú",
+      "Chile",
+      "Bolivia",
+      "Argentina"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "geo-nilo",
+    "category": "geografia",
+    "question": "¿En qué mar desemboca el Nilo?",
+    "choices": [
+      "El mar Rojo",
+      "El Mediterráneo",
+      "El mar Arábigo",
+      "El mar Negro"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "geo-islandia",
+    "category": "geografia",
+    "question": "¿Cuál es la capital de Islandia?",
+    "choices": [
+      "Oslo",
+      "Reikiavik",
+      "Helsinki",
+      "Tallin"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "dep-maraton",
+    "category": "deportes",
+    "question": "¿Cuántos kilómetros tiene una maratón?",
+    "choices": [
+      "40 km",
+      "42,195 km",
+      "45 km",
+      "38,5 km"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "dep-f1-siete",
+    "category": "deportes",
+    "question": "¿Qué dos pilotos comparten el récord de 7 títulos de Fórmula 1?",
+    "choices": [
+      "Senna y Prost",
+      "Schumacher y Hamilton",
+      "Vettel y Alonso",
+      "Fangio y Lauda"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "dep-nba-titulos",
+    "category": "deportes",
+    "question": "¿Qué franquicia tiene más títulos de la NBA?",
+    "choices": [
+      "Los Angeles Lakers",
+      "Boston Celtics",
+      "Chicago Bulls",
+      "Golden State Warriors"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "dep-tour-amarillo",
+    "category": "deportes",
+    "question": "¿De qué color es la camiseta del líder del Tour de Francia?",
+    "choices": [
+      "Verde",
+      "Amarilla",
+      "Rosa",
+      "Blanca"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "dep-deep-blue",
+    "category": "deportes",
+    "question": "¿Qué computadora le ganó al campeón de ajedrez Kaspárov en 1997?",
+    "choices": [
+      "Deep Blue",
+      "Watson",
+      "AlphaZero",
+      "Stockfish"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "uy-1825",
+    "category": "uruguay",
+    "question": "¿En qué año se declaró la independencia en la Florida?",
+    "choices": [
+      "1811",
+      "1825",
+      "1830",
+      "1828"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "uy-constitucion",
+    "category": "uruguay",
+    "question": "¿En qué año se juró la primera Constitución uruguaya?",
+    "choices": [
+      "1825",
+      "1830",
+      "1838",
+      "1903"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "uy-mundiales",
+    "category": "uruguay",
+    "question": "¿Cuántas Copas del Mundo de fútbol ganó Uruguay?",
+    "choices": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "uy-departamentos",
+    "category": "uruguay",
+    "question": "¿Cuántos departamentos tiene Uruguay?",
+    "choices": [
+      "17",
+      "18",
+      "19",
+      "21"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "uy-rio-negro",
+    "category": "uruguay",
+    "question": "¿Cuál es el río más largo que corre enteramente dentro de Uruguay?",
+    "choices": [
+      "El río Negro",
+      "El río Yí",
+      "El río Santa Lucía",
+      "El río Cuareim"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "uy-galeano",
+    "category": "uruguay",
+    "question": "¿Qué escritor uruguayo es el autor de Las venas abiertas de América Latina?",
+    "choices": [
+      "Mario Benedetti",
+      "Eduardo Galeano",
+      "Juan Carlos Onetti",
+      "Felisberto Hernández"
+    ],
+    "answer": 1
   }
 ]

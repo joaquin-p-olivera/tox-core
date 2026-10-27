@@ -1,22 +1,31 @@
-"""Multiplayer trivia: one open question per chat, everyone competes, first correct answer wins."""
+"""Multiplayer trivia: one open question per chat, everyone competes, first correct answer wins.
+
+A round that ends while the chat was playing (somebody won, or the time ran out with at least one answer in)
+is followed by the next question on its own; a round nobody answered ends the streak, so a chat that went quiet
+is left alone. A win chains inside the very reply that announces it, while a timeout has nobody typing to answer
+to: `queue_due` turns it into PendingAlerts on the bots' own poll, the way reminders and the GTA countdown do.
+"""
 
 import random
+import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import Settings
-from ..models import Score, TriviaAttempt, TriviaRound
+from ..models import PendingAlert, Score, TriviaAttempt, TriviaRound
 from ..models.trivia_round import STATUS_EXPIRED, STATUS_OPEN, STATUS_WON
 from ..schemas import IncomingMessage
 from ..utils import utcnow
 from .content import load_json
 
 LETTERS = "ABCD"
+# A bare "b" (or "B)") answers the open round: no command prefix needed, see services/command_router.py.
+ANSWER_TEXT = re.compile(r"^([a-dA-D])[).:]?$")
 BASE_POINTS = 10
 MAX_SPEED_BONUS = 5
 RECENT_QUESTIONS_TO_AVOID = 10
@@ -72,10 +81,10 @@ def _question_for_round(rnd: TriviaRound) -> Question:
     return _build_question(raw, rnd.id)
 
 
-def _format_question(q: Question, seconds_left: int, prefix: str) -> str:
+def _format_question(q: Question, seconds_left: int) -> str:
     lines = [f"🧠 TRIVIA · {CATEGORY_LABELS.get(q.category, q.category)}", q.text, ""]
     lines += [f"{LETTERS[i]}) {choice}" for i, choice in enumerate(q.choices)]
-    lines += ["", f"Respondé con {prefix}a, {prefix}b, {prefix}c o {prefix}d — ¡gana el primero que acierte! ({seconds_left}s)"]
+    lines += ["", f"Respondé con a, b, c o d — ¡gana el primero que acierte! ({seconds_left}s)"]
     return "\n".join(lines)
 
 
@@ -119,14 +128,20 @@ def start_round(db: Session, message: IncomingMessage, settings: Settings, prefi
     if current is not None:
         if current.expires_at > now:
             left = max(1, int((current.expires_at - now).total_seconds()))
-            return ["¡Todavía hay una pregunta abierta!", _format_question(_question_for_round(current), left, prefix)]
+            return ["¡Todavía hay una pregunta abierta!", _format_question(_question_for_round(current), left)]
         announcement = _expire(db, current)
         if announcement:
             replies.append(announcement)
 
+    replies.append(_ask(db, message.chat_key, settings, category))
+    return replies
+
+
+def _ask(db: Session, chat_key: str, settings: Settings, category: str | None = None) -> str:
+    """Opens a round in this chat with a question it hasn't seen lately, and returns it written out."""
     recent = set(db.scalars(
         select(TriviaRound.question_id)
-        .where(TriviaRound.chat_key == message.chat_key)
+        .where(TriviaRound.chat_key == chat_key)
         .order_by(TriviaRound.id.desc())
         .limit(RECENT_QUESTIONS_TO_AVOID)
     ))
@@ -135,23 +150,33 @@ def start_round(db: Session, message: IncomingMessage, settings: Settings, prefi
     raw = random.choice(fresh)
 
     timeout = settings.TRIVIA_TIMEOUT_SECONDS
-    rnd = TriviaRound(chat_key=message.chat_key, question_id=raw["id"],
+    now = utcnow()
+    rnd = TriviaRound(chat_key=chat_key, question_id=raw["id"],
                       started_at=now, expires_at=now + timedelta(seconds=timeout))
     db.add(rnd)
     db.commit()
-    replies.append(_format_question(_build_question(raw, rnd.id), timeout, prefix))
-    return replies
+    return _format_question(_build_question(raw, rnd.id), timeout)
 
 
-def submit_answer(db: Session, message: IncomingMessage, letter: str, prefix: str) -> list[str]:
+def _answered(db: Session, round_id: int) -> bool:
+    """Whether anybody tried this round at all: what tells a chat that is playing from one that moved on."""
+    return bool(db.scalar(select(func.count()).select_from(TriviaAttempt).where(TriviaAttempt.round_id == round_id)))
+
+
+def submit_answer(db: Session, message: IncomingMessage, letter: str, settings: Settings, prefix: str) -> list[str]:
     name = message.display_name
     rnd = _open_round(db, message.chat_key)
     if rnd is None:
         return [f"No hay ninguna pregunta abierta. Empezá una con {prefix}trivia"]
 
     if rnd.expires_at <= utcnow():
+        # Beat the bots' poll to it (see `queue_due`): announce the timeout here, and carry the streak on.
         announcement = _expire(db, rnd)
-        return [announcement or "¡Llegaste tarde!", f"Empezá otra con {prefix}trivia"]
+        if announcement is None:
+            return ["¡Llegaste tarde!", f"Empezá otra con {prefix}trivia"]
+        if _answered(db, rnd.id):
+            return [announcement, _ask(db, message.chat_key, settings)]
+        return [announcement, f"Empezá otra con {prefix}trivia"]
 
     question = _question_for_round(rnd)
     choice = LETTERS.find(letter.upper())
@@ -193,7 +218,47 @@ def submit_answer(db: Session, message: IncomingMessage, letter: str, prefix: st
     score.wins += 1
     db.commit()
 
-    return [f"🎉 ¡{name} acertó! {_reveal(question)}\n+{points} pts (total: {score.points})"]
+    # The chat is playing: the next question goes out with the announcement, no one has to ask for it.
+    return [f"🎉 ¡{name} acertó! {_reveal(question)}\n+{points} pts (total: {score.points})",
+            _ask(db, message.chat_key, settings)]
+
+
+def answer_letter(text: str) -> str | None:
+    """The letter in a message that is nothing but one ("b", "B)"), or None when it isn't an answer."""
+    match = ANSWER_TEXT.match(text.strip())
+    return match.group(1) if match else None
+
+
+def round_is_open(db: Session, chat_key: str) -> bool:
+    """Whether this chat has a question open right now. Only then is a bare letter taken as an answer:
+    a stray "a" in a chat with nothing going on is just somebody typing."""
+    rnd = _open_round(db, chat_key)
+    return rnd is not None and rnd.expires_at > utcnow()
+
+
+def queue_due(db: Session, settings: Settings) -> int:
+    """Closes every round whose time is up and queues the reveal -- plus the next question, when somebody did
+    answer -- as PendingAlerts, which is how anything reaches a chat with no message to reply to. Called on each
+    bots' poll (routers/alerts.py), so a timeout is announced within one ALERTS_POLL_INTERVAL of happening."""
+    overdue = list(db.scalars(
+        select(TriviaRound).where(TriviaRound.status == STATUS_OPEN, TriviaRound.expires_at <= utcnow())
+    ))
+    queued = 0
+    for rnd in overdue:
+        answered = _answered(db, rnd.id)
+        announcement = _expire(db, rnd)
+        if announcement is None:
+            continue  # somebody's message closed it first, and took the announcement with it
+        texts = [announcement]
+        if answered:
+            texts.append(_ask(db, rnd.chat_key, settings))
+        platform, _, chat_id = rnd.chat_key.partition(":")
+        for text in texts:
+            db.add(PendingAlert(platform=platform, chat_id=chat_id, text=text))
+        queued += 1
+    if overdue:
+        db.commit()
+    return queued
 
 
 def leaderboard(db: Session, chat_key: str, limit: int = 10) -> list[Score]:

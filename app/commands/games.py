@@ -18,11 +18,12 @@ def trivia(ctx: CommandContext) -> list[str]:
     return trivia_service.start_round(ctx.db, ctx.message, ctx.settings, ctx.prefix, category)
 
 
-# "a".."d" are shortcuts: "!b" is the same as "!responder b".
+# "a".."d" are shortcuts: "!b" is the same as "!responder b". A plain "b" with no prefix at all works too,
+# while a round is open: services/command_router.py routes it here.
 @command(
     "responder",
     description="Responde la pregunta de trivia abierta",
-    usage="responder <A-D>   (o directamente !a, !b, !c, !d)",
+    usage="responder <A-D>   (o directamente a, b, c, d)",
     aliases=("a", "b", "c", "d"),
     category=CATEGORY,
 )
@@ -39,7 +40,7 @@ def answer(ctx: CommandContext) -> list[str] | str | Reply:
 
     if len(letter) != 1:
         return [f"Uso: {ctx.prefix}responder <A-D>"]
-    return trivia_service.submit_answer(ctx.db, ctx.message, letter, ctx.prefix)
+    return trivia_service.submit_answer(ctx.db, ctx.message, letter, ctx.settings, ctx.prefix)
 
 
 @command(

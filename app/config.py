@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "dev"
     API_KEY: str = ""
     DATABASE_URL: str = "sqlite:///./tox.db"
-    TRIVIA_TIMEOUT_SECONDS: int = 60
+    TRIVIA_TIMEOUT_SECONDS: int = 30
     COMMAND_PREFIXES: str = "!,/"
     LOG_LEVEL: str = "INFO"
     # Where the log is written besides the console, as one file every LOG_ROTATE_HOURS ("" = console only,

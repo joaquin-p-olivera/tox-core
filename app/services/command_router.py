@@ -7,7 +7,7 @@ from ..commands import CommandContext, get_command
 from ..commands.claude import interject
 from ..config import Settings
 from ..schemas import IncomingMessage, Reply
-from . import chat_config, chat_members
+from . import chat_config, chat_members, trivia_service
 
 logger = logging.getLogger("tox.router")
 
@@ -53,6 +53,21 @@ def replying_to_the_bot(message: IncomingMessage, db: Session, settings: Setting
             and chat_config.value(db, settings, message.chat_key, "CLAUDE_ON_REPLY"))
 
 
+def _trivia_answer(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply] | None:
+    """A message that is just a letter answers the trivia round this chat has open -- typed on its own or as a reply
+    to the bot's question -- so nobody has to remember the prefix mid-game. None when it isn't one, and the message
+    goes on its way: outside a round a letter is just a letter, and in the personal mode the bot writes as the owner,
+    where a stray "b" must never become a move in a game."""
+    if message.personal:
+        return None
+    letter = trivia_service.answer_letter(message.text)
+    if letter is None or not trivia_service.round_is_open(db, message.chat_key):
+        return None
+    chat_members.record_user(db, message)
+    prefix = settings.command_prefixes_list[0]
+    return [Reply(text=text) for text in trivia_service.submit_answer(db, message, letter, settings, prefix)]
+
+
 def _butt_in(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
     """Nobody is talking to the bot: now and then it says something of its own anyway (commands/claude.py's
     `interject`, CLAUDE_INTERJECT_CHANCE), and the rest of the time this is where an ordinary message stops."""
@@ -74,6 +89,11 @@ def _butt_in(message: IncomingMessage, db: Session, settings: Settings) -> list[
 def handle_message(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
     prefixes = [PERSONAL_PREFIX] if message.personal else settings.command_prefixes_list
     parsed = parse_command(message.text, prefixes)
+    if parsed is None:
+        # Before anything else reads it: a bare "b" is an answer, not a question for Claude.
+        answered = _trivia_answer(message, db, settings)
+        if answered is not None:
+            return answered
     implicit = parsed is None and replying_to_the_bot(message, db, settings)
     if parsed is None and not implicit:
         return _butt_in(message, db, settings)
