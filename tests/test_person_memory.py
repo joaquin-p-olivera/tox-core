@@ -146,3 +146,23 @@ def test_the_switch_takes_off_and_on_as_well_as_si_and_no(send, db_session):
     assert send("!memory")[0].startswith("En este chat tengo la memoria apagada")
     send("!config memory on", **admin)
     assert send("!memory")[0] == "Todavía no me acuerdo de nada tuyo en este chat."
+
+
+def test_the_personal_mode_is_never_learned_from(client, db_session, settings, monkeypatch):
+    """There the bot writes as the owner, and the other side is one person who never asked for any of this."""
+    monkeypatch.setattr(claude_command, "session_factory",
+                        sessionmaker(bind=db_session.get_bind(), autoflush=False, expire_on_commit=False))
+    monkeypatch.setattr(claude_runner, "execute_public", lambda *a, **k: claude_runner.ClaudeResult(
+        "Ahí va.\n[memoria] Ana: vive en Salto", None, None))
+
+    body = {"platform": "whatsapp", "chat_id": "un-contacto", "user_id": "u9", "user_name": "Ana",
+            "text": ".b c algo", "is_group": False, "personal": True}
+    reply = client.post("/api/v1/messages", headers=HEADERS, json=body).json()["replies"][0]
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        job = client.get(f"/api/v1/jobs/{reply['job']}", headers=HEADERS).json()
+        if job["status"] == "done":
+            break
+        time.sleep(0.02)
+    assert job["replies"][0]["text"] == "Ahí va."  # the line is still taken off
+    assert db_session.scalars(select(PersonNote)).first() is None  # ...and nothing was kept

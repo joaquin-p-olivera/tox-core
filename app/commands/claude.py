@@ -83,7 +83,9 @@ def _learn(context: claude_context.Context, message, settings, text: str, *, lea
     happens whether or not this chat is learning: a marker that slipped into an answer must never reach the chat,
     wherever it came from."""
     clean, learned = person_memory.strip(text)
-    if not learning or not learned:
+    # The personal mode is never learned from, whatever the caller thinks: there the bot writes as the owner and
+    # the other side of the chat is one person who never asked for any of this. The lines are still taken off.
+    if not learning or not learned or message.personal:
         return clean
     people = {person.name: f"{message.platform}:{person.user_id}" for person in context.people if person.name}
     try:
@@ -196,9 +198,10 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
                                     question=question)
     # Decided before asking, not after: an answer that is going to be heard is asked for short and without tags
     speak = not as_text and random.random() < _setting(ctx, "CLAUDE_AUDIO_CHANCE")
-    # Read here, in the request: the answer comes back in another thread. The full-access mode never learns --
-    # it is doing work on a machine, not chatting, and its prompt is not asked for any of this.
-    learning = not full_access and bool(_setting(ctx, "CLAUDE_MEMORY"))
+    # Read here, in the request: the answer comes back in another thread. The full-access mode never learns -- it
+    # is doing work on a machine, not chatting -- and neither does the personal mode, where the bot writes as the
+    # owner in somebody else's chat.
+    learning = not full_access and not message.personal and bool(_setting(ctx, "CLAUDE_MEMORY"))
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
 
     def done(text: str) -> None:

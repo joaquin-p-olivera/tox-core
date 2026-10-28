@@ -235,8 +235,9 @@ def gather(db: Session, settings: Settings, message: IncomingMessage, *, with_hi
         profile = profile.without_people_details()  # the names and the plain facts stay: see Profile.people
     context = Context(people=named, asker=asker, history_key=key if enabled else None, profile=profile,
                       recent=saved)
-    if with_history and chat_config.value(db, settings, message.chat_key, "CLAUDE_MEMORY"):
-        # Only where the conversation is read at all: the full-access mode neither reads notes nor writes them.
+    if with_history and not message.personal and chat_config.value(db, settings, message.chat_key, "CLAUDE_MEMORY"):
+        # Only where the conversation is read at all: the full-access mode neither reads notes nor writes them, and
+        # the personal mode is left out of this the way it is left out of everything else the bot does on its own.
         by_key = {f"{message.platform}:{person.user_id}": person.name for person in named if person.name}
         found = person_memory.notes_for(db, message.chat_key, list(by_key))
         context.notes = {by_key[user_key]: notes for user_key, notes in found.items() if user_key in by_key}
