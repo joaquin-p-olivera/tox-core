@@ -7,7 +7,7 @@ from ..commands import CommandContext, get_command
 from ..commands.claude import interject
 from ..config import Settings
 from ..schemas import IncomingMessage, Reply
-from . import chat_config, chat_members, trivia_service
+from . import afk, chat_config, chat_members, trivia_service
 
 logger = logging.getLogger("tox.router")
 
@@ -86,9 +86,40 @@ def _butt_in(message: IncomingMessage, db: Session, settings: Settings) -> list[
     return [remark] if remark is not None else []
 
 
+AFK_COMMANDS = ("afk", "ausente")  # saying you are away must not count as being back
+
+
+def _afk_notices(message: IncomingMessage, db: Session, token: str | None) -> list[Reply]:
+    """What the away list has to say about this message, before anything else answers it: whoever was away and just
+    wrote is back, and whoever was tagged and is away gets answered for. Never in the personal mode, where the bot
+    writes as the owner and a chat with a third party is none of its business."""
+    if message.personal:
+        return []
+    notices: list[Reply] = []
+    if token not in AFK_COMMANDS:
+        came_back = afk.clear(db, message.user_key)
+        if came_back is not None:
+            notices.append(Reply(text=afk.back_line(came_back)))
+
+    looked_for = [person.user_id for person in (message.mentioned or [])]
+    if message.quoted is not None and message.quoted.user_id and not message.quoted.is_bot:
+        looked_for.append(message.quoted.user_id)
+    away = [row for row in afk.of(db, [f"{message.platform}:{user_id}" for user_id in looked_for])
+            if row.user_key != message.user_key]
+    if away:
+        notices.append(Reply(text="\n".join(afk.away_line(row) for row in away)))
+    return notices
+
+
 def handle_message(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
     prefixes = [PERSONAL_PREFIX] if message.personal else settings.command_prefixes_list
     parsed = parse_command(message.text, prefixes)
+    notices = _afk_notices(message, db, parsed[1] if parsed else None)
+    return notices + _answer(message, db, settings, prefixes, parsed)
+
+
+def _answer(message: IncomingMessage, db: Session, settings: Settings, prefixes: list[str],
+            parsed: tuple[str, str, str] | None) -> list[Reply]:
     if parsed is None:
         # Before anything else reads it: a bare "b" is an answer, not a question for Claude.
         answered = _trivia_answer(message, db, settings)

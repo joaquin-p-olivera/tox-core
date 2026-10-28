@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `!afk [motivo]` (alias `ausente`): somebody says they are away and the bot answers for them. Whoever tags them, or replies to one of their messages, is told they are afk, since when and why. Being away is about the person and not about one chat, so there is a single row each (`afk_users`) and the answer is the same in every chat the bot is in. It ends on its own -- the first message they send, anywhere, deletes the row and that chat is told they are back, before whatever else their message asked for -- because nobody remembers to turn a command like this off. Saying `!afk` again moves it instead of counting as being back, and the personal mode never touches the list, where the bot writes as the owner and a chat with a third party is none of its business.
+
 ## [1.0.0] - 27 Oct 2026
 
 ### Changed

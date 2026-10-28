@@ -121,6 +121,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | Command                                | Aliases                    | Description                                               |
 | -------------------------------------- | -------------------------- | --------------------------------------------------------- |
 | `ayuda [comando]`                      | `help`, `comandos`         | Lists commands or explains one                            |
+| `afk [motivo]`                         | `ausente`                  | Says you are away: whoever tags you or replies to you is told, until you write again |
 | `novedades`                            | `cambios`                  | What was last added to Tox (`-probar`, admins: what is about to be announced) |
 | `id`                                   |                            | Shows the platform/chat/user IDs and your role            |
 | `mute`                                 |                            | Toggle: stop (or resume) being tagged by the bot in this chat |
