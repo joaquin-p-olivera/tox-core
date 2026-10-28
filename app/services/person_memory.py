@@ -92,8 +92,9 @@ respuestas, hayas aprendido algo o no.
       para lo que es de ESTE grupo y no debe salir de acá: una joda interna, un apodo que solo se usa acá, algo que
       se dijo entre esta gente.
   Si dudás entre las dos, usá la segunda: lo que queda acá no molesta a nadie. Solo cosas duraderas: nada de lo que
-  la persona está haciendo ahora, ni de lo que ya sabés, ni cosas del momento. El Nombre tiene que ser uno de los
-  integrantes del grupo.
+  la persona está haciendo ahora ni cosas del momento. Si el dato ya está en "Lo que fuiste sabiendo de cada uno
+  charlando", no lo repitas. Lo que sepas por la descripción del grupo NO cuenta como sabido: eso es contexto, no
+  una nota, así que si sale en la charla guardalo igual. El Nombre tiene que ser uno de los integrantes del grupo.
 - Si no aprendiste nada, que es lo más común, escribí exactamente esta línea y nada más:
   [memoria] -
 Estas líneas se borran antes de que el chat vea la respuesta, así que nadie las lee y NO cuentan para el máximo de
