@@ -75,6 +75,9 @@ class Context:
     quoted: tuple[str, str] | None = None  # (who wrote it, text)
     taggable: list[Person] = field(default_factory=list)  # decided up front: the answer is finished off the request
     history_key: str | None = None  # the chat's key in the saved history, when it is turned on: exchanges are kept there
+    # The messages the transcript was written from, kept so a caller can count them without reading them again
+    # (services/tact.py decides on these whether a remark of its own is welcome).
+    recent: list[chat_history.Saved] = field(default_factory=list)
     # (label, transcript) of another chat this one may read, and only when the question asked for it: see
     # services/chat_sources.py. Empty in every other answer, which is most of them.
     sources: list[tuple[str, str]] = field(default_factory=list)
@@ -216,7 +219,8 @@ def gather(db: Session, settings: Settings, message: IncomingMessage, *, with_hi
     profile = profile_of(settings, message)
     if not with_profile_people:
         profile = profile.without_people_details()  # the names and the plain facts stay: see Profile.people
-    context = Context(people=named, asker=asker, history_key=key if enabled else None, profile=profile)
+    context = Context(people=named, asker=asker, history_key=key if enabled else None, profile=profile,
+                      recent=saved)
     if message.is_group:
         muted = chat_members.muted_ids(db, message.chat_key)
         context.taggable = [p for p in named if p.present and not (p.ids & muted)]

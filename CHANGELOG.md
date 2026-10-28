@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- When Tox says something nobody asked for, five rules now decide it in code **before** Claude is called (`services/tact.py`, `CLAUDE_INTERJECT_FROM_HOUR`, `CLAUDE_INTERJECT_UNTIL_HOUR`, `CLAUDE_INTERJECT_MAX_SHARE`, `CLAUDE_INTERJECT_GIVE_UP_AFTER`). A dice roll and a cooldown keep a remark rare; they do not keep it welcome. It now says nothing outside the hours it talks in (9 to 1, read in `TIMEZONE`, wrapping midnight because that is when a chat is most alive); nothing once two of its remarks in a row went unanswered, until somebody talks to it again -- a command, a reply to it, or its name in the text; nothing once it has written more than twice what the average person in that chat has in the recent window, which also keeps it out of a chat that has been asleep for hours; nothing while the group is talking about something serious, by a short word list that is deliberately crude and wrong in the direction that is cheap (a false positive costs one remark nobody would have missed, a false negative costs a joke about somebody's grandmother); and nothing while a trivia round is open, where the answers *are* the conversation. Each refusal is logged with its reason, and the rules read the conversation `claude_context.gather` had already read (`Context.recent`), so none of this costs a second query. Being ignored is remembered in this process only, like the cooldown it sits next to: a restart forgets it and the worst that follows is one remark.
+
 ## [1.0.0] - 27 Oct 2026
 
 ### Changed

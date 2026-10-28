@@ -7,7 +7,7 @@ from ..commands import CommandContext, get_command
 from ..commands.claude import interject
 from ..config import Settings
 from ..schemas import IncomingMessage, Reply
-from . import chat_config, chat_members, trivia_service
+from . import chat_config, chat_members, tact, trivia_service
 
 logger = logging.getLogger("tox.router")
 
@@ -86,9 +86,22 @@ def _butt_in(message: IncomingMessage, db: Session, settings: Settings) -> list[
     return [remark] if remark is not None else []
 
 
+def _talked_to_the_bot(message: IncomingMessage, db: Session, settings: Settings,
+                       parsed: tuple[str, str, str] | None) -> bool:
+    """Whether this message is aimed at the bot: a command, a reply to one of its messages, or its name in the
+    text. It is what ends a streak of remarks nobody picked up (services/tact.py)."""
+    if message.personal or not message.is_group:
+        return False
+    return (parsed is not None
+            or (message.quoted is not None and message.quoted.is_bot)
+            or tact.spoken_to(message.text))
+
+
 def handle_message(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
     prefixes = [PERSONAL_PREFIX] if message.personal else settings.command_prefixes_list
     parsed = parse_command(message.text, prefixes)
+    if _talked_to_the_bot(message, db, settings, parsed):
+        tact.answered(message.chat_key)
     if parsed is None:
         # Before anything else reads it: a bare "b" is an answer, not a question for Claude.
         answered = _trivia_answer(message, db, settings)
