@@ -18,16 +18,22 @@ def memory(ctx: CommandContext) -> str:
     message = ctx.message
     asked = ctx.raw_args.strip().lstrip("-").lower()
     if asked in FORGET:
-        gone = person_memory.forget(ctx.db, message.chat_key, message.user_key)
+        # Everywhere, not just here: asking to be forgotten means forgotten.
+        gone = person_memory.forget(ctx.db, message.user_key)
         if not gone:
             return "No me acuerdo de nada tuyo, así que no hay nada que olvidar."
-        return f"🧽 Listo, me olvidé de {gone} cosa{'s' if gone > 1 else ''} tuya{'s' if gone > 1 else ''}."
+        return (f"🧽 Listo, me olvidé de {gone} cosa{'s' if gone > 1 else ''} tuya{'s' if gone > 1 else ''}, "
+                "en todos los chats.")
 
     if not chat_config.value(ctx.db, ctx.settings, message.chat_key, "CLAUDE_MEMORY"):
         return "En este chat tengo la memoria apagada, así que no guardo nada de nadie."
-    notes = person_memory.of_person(ctx.db, message.chat_key, message.user_key)
-    if not notes:
-        return "Todavía no me acuerdo de nada tuyo en este chat."
-    lines = "\n".join(f"· {note.text}" for note in notes)
-    return (f"🧠 Lo que sé de {message.display_name} en este chat:\n{lines}\n\n"
-            f"Si querés que me olvide: {ctx.prefix}memory forget")
+    everywhere, here = person_memory.of_person(ctx.db, message.chat_key, message.user_key)
+    if not everywhere and not here:
+        return "Todavía no me acuerdo de nada tuyo."
+    blocks = [f"🧠 Lo que sé de {message.display_name}:"]
+    if everywhere:
+        blocks.append("*De vos, en cualquier chat:*\n" + "\n".join(f"· {note.text}" for note in everywhere))
+    if here:
+        blocks.append("*Solo en este chat:*\n" + "\n".join(f"· {note.text}" for note in here))
+    blocks.append(f"Si querés que me olvide de todo: {ctx.prefix}memory forget")
+    return "\n\n".join(blocks)

@@ -823,14 +823,21 @@ hourly pools so a busy group can't use up the admins' questions.
   with `[memoria] Nombre: dato` lines, which are taken off before the chat sees a word of it and stored. The
   stripping is deliberately greedy (any line starting with the marker goes, parsed or not), because the one
   failure that matters is a marker reaching the chat.
-  A note belongs to **one chat** — the chat is part of the key, so nothing crosses between groups and nothing said
-  in the personal mode is kept; only the **no-access mode** learns, since the admins' session is doing work on a
-  machine, not chatting; a name has to be **somebody who is there** or the note is dropped, so Claude cannot invent
-  a person to remember things about; and **each person owns theirs** (`!memory`, `!memory forget`, no admin
-  needed), which is the only reason a bot is allowed to keep notes about people at all. A chat turns it off with
-  `!config memory off`; `CLAUDE_MEMORY_MAX_NOTES` (20) and `CLAUDE_MEMORY_MAX_CHARS` (120) bound it, and the notes
-  that never came up again are the first to go. They are read back as what they are: data that came out of a
-  conversation, in the untrusted block, never in the owner's own description of the chat.
+  **Two kinds, because people are not the same thing as groups.** `[memoria global] Nombre: dato` is what somebody
+  *is* — their job, their city, what they are into — true in every chat they are in, and read in all of them;
+  `[memoria] Nombre: dato` belongs to the group it was learned in and never leaves it, which is where an inside
+  joke, a nickname only used there or something said among those people goes. Claude picks, and is told to pick the
+  second when in doubt. Each kind has its own ceiling, so what a group knows about somebody cannot crowd out what
+  is true about them.
+  Nothing said in the **personal mode** is kept or read, like everything else the bot does on its own; only the
+  **no-access mode** learns, since the admins' session is doing work on a machine, not chatting; a name has to be
+  **somebody who is there** or the note is dropped, so Claude cannot invent a person to remember things about; and
+  **each person owns theirs** — `!memory` shows the two kinds apart and `!memory forget` deletes every note about
+  them **in every chat**, with no admin needed, because asking to be forgotten means forgotten and not forgotten in
+  the room it was asked in. A chat turns the whole thing off with `!config memory off`;
+  `CLAUDE_MEMORY_MAX_NOTES` (20) and `CLAUDE_MEMORY_MAX_CHARS` (120) bound it, and the notes that never came up
+  again are the first to go. They are read back as what they are: data that came out of a conversation, in the
+  untrusted block, never in the owner's own description of the chat.
 - **`-no`: that reply was not for Tox.** Starting a reply to one of its messages with `-no` (or `--no`) answers nothing: in a group
   people reply to what the bot said to talk to *each other*, and until now every one of those got an answer nobody asked for. Nothing
   is sent, nothing is reacted to and **Claude is never called**, so it costs nothing and uses no question of the hour. It is read only

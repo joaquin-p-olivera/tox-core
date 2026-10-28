@@ -97,8 +97,8 @@ class Context:
             data.append("Integrantes del grupo: " + ", ".join(names[:MAX_MEMBERS]))
         if self.notes:
             lines = [f"- {name}: " + "; ".join(notes) for name, notes in self.notes.items() if notes]
-            data.append("Lo que fuiste sabiendo de cada uno en este chat (lo aprendiste charlando; si algo ya no "
-                        "es cierto, hacele caso a la charla de ahora):\n" + "\n".join(lines))
+            data.append("Lo que fuiste sabiendo de cada uno charlando (si algo ya no es cierto, hacele caso a la "
+                        "charla de ahora):\n" + "\n".join(lines))
         if self.transcript:
             data.append("Conversación reciente (con la hora de cada mensaje):\n" + self.transcript)
         if self.quoted:
