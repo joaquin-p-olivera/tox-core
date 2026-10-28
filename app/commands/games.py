@@ -18,6 +18,16 @@ def trivia(ctx: CommandContext) -> list[str]:
     return trivia_service.start_round(ctx.db, ctx.message, ctx.settings, ctx.prefix, category)
 
 
+@command(
+    "banderas",
+    description="Trivia de banderas: ¿de qué país es esta bandera?",
+    aliases=("bandera",),
+    category=CATEGORY,
+)
+def flags_round(ctx: CommandContext) -> list[str]:
+    return trivia_service.start_round(ctx.db, ctx.message, ctx.settings, ctx.prefix, trivia_service.flags.CATEGORY)
+
+
 # "a".."d" are shortcuts: "!b" is the same as "!responder b". A plain "b" with no prefix at all works too,
 # while a round is open: services/command_router.py routes it here.
 @command(
