@@ -326,6 +326,9 @@ One open question per chat; everybody in the chat competes.
   next poll for pending alerts (`trivia_service.queue_due`, like reminders), so nobody has to type for it.
 - **The round that ends starts the next one**, whether somebody won or the time ran out — as long as at least one
   person answered. A question nobody answered ends the streak, so a chat that moved on is left alone.
+- **A streak keeps the category it was asked for** (`trivia_chains`): `!trivia ciencia` or `!banderas` is asking
+  the *chat* to play that, so the rounds that follow on their own stay in it until the streak ends. A plain
+  `!trivia` asks for anything again.
 - Answer positions are shuffled per round; recently asked questions aren't repeated.
 - Claiming a round is an atomic `UPDATE`, so two simultaneous correct answers can't both win.
 

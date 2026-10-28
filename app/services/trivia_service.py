@@ -17,7 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import Settings
-from ..models import PendingAlert, Score, TriviaAttempt, TriviaRound
+from ..models import PendingAlert, Score, TriviaAttempt, TriviaChain, TriviaRound
 from ..models.trivia_round import STATUS_EXPIRED, STATUS_OPEN, STATUS_WON
 from ..schemas import IncomingMessage
 from ..utils import utcnow
@@ -149,6 +149,7 @@ def start_round(db: Session, message: IncomingMessage, settings: Settings, prefi
         if announcement:
             replies.append(announcement)
 
+    _play(db, message.chat_key, category)
     replies.append(_ask(db, message.chat_key, settings, category))
     return replies
 
@@ -174,6 +175,28 @@ def _ask(db: Session, chat_key: str, settings: Settings, category: str | None = 
     return _format_question(_build_question(raw, rnd.id), timeout)
 
 
+def _playing(db: Session, chat_key: str) -> str | None:
+    """The category this chat's streak is playing, or None when it takes questions from everything."""
+    row = db.get(TriviaChain, chat_key)
+    return row.category if row is not None else None
+
+
+def _play(db: Session, chat_key: str, category: str | None) -> None:
+    """Writes down what the streak that starts here is playing. A round asked for without a category starts a free
+    streak, so the row goes: a chat that was on banderas and types `!trivia` is asking for anything again."""
+    row = db.get(TriviaChain, chat_key)
+    if category is None:
+        if row is not None:
+            db.delete(row)
+            db.commit()
+        return
+    if row is None:
+        db.add(TriviaChain(chat_key=chat_key, category=category))
+    else:
+        row.category = category
+    db.commit()
+
+
 def _answered(db: Session, round_id: int) -> bool:
     """Whether anybody tried this round at all: what tells a chat that is playing from one that moved on."""
     return bool(db.scalar(select(func.count()).select_from(TriviaAttempt).where(TriviaAttempt.round_id == round_id)))
@@ -191,7 +214,8 @@ def submit_answer(db: Session, message: IncomingMessage, letter: str, settings: 
         if announcement is None:
             return ["¡Llegaste tarde!", f"Empezá otra con {prefix}trivia"]
         if _answered(db, rnd.id):
-            return [announcement, _ask(db, message.chat_key, settings)]
+            return [announcement, _ask(db, message.chat_key, settings, _playing(db, message.chat_key))]
+        _play(db, message.chat_key, None)  # the streak is over: the next one starts wherever it wants
         return [announcement, f"Empezá otra con {prefix}trivia"]
 
     question = _question_for_round(rnd)
@@ -236,7 +260,7 @@ def submit_answer(db: Session, message: IncomingMessage, letter: str, settings: 
 
     # The chat is playing: the next question goes out with the announcement, no one has to ask for it.
     return [f"🎉 ¡{name} acertó! {_reveal(question)}\n+{points} pts (total: {score.points})",
-            _ask(db, message.chat_key, settings)]
+            _ask(db, message.chat_key, settings, _playing(db, message.chat_key))]
 
 
 def answer_letter(text: str) -> str | None:
@@ -267,7 +291,9 @@ def queue_due(db: Session, settings: Settings) -> int:
             continue  # somebody's message closed it first, and took the announcement with it
         texts = [announcement]
         if answered:
-            texts.append(_ask(db, rnd.chat_key, settings))
+            texts.append(_ask(db, rnd.chat_key, settings, _playing(db, rnd.chat_key)))
+        else:
+            _play(db, rnd.chat_key, None)  # nobody answered: the streak ends, and so does its category
         platform, _, chat_id = rnd.chat_key.partition(":")
         for text in texts:
             db.add(PendingAlert(platform=platform, chat_id=chat_id, text=text))
