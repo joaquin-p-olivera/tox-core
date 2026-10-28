@@ -4,15 +4,22 @@ Until now everything it knew about anybody was written by the owner by hand in `
 half: the small things that come up in a conversation -- what somebody does, what they are into, an inside joke --
 remembered without anybody having to write them down.
 
-**No extra question is asked for it.** The answer Claude is already giving may end with lines of its own,
+**No extra question is asked for it.** The answer Claude is already giving ends with lines of its own,
 
     [memoria] Nombre: dato            <- in this chat only
     [memoria global] Nombre: dato     <- about the person, wherever they are
+    [memoria] -                       <- nothing worth remembering came up, which is most of the time
 
 which are taken off before the chat sees a word of it and stored as notes. That is the whole mechanism: one
 question, one answer, and whatever it learned rides along. The stripping is deliberately greedy -- *any* line
 beginning with the marker goes, wherever it is and however malformed -- because the one failure that matters is a
 marker reaching the chat.
+
+**The block is asked for on every answer, not when the model feels like it.** Asked as a favour -- *add this if you
+learned something worth keeping* -- it was simply never added: an optional instruction at the end of a long prompt,
+hedged with conditions, each one a reason to skip it. Asked as the way every answer ends, with an explicit way to
+say nothing came up, it is one more thing to comply with rather than a judgement call. It also makes the failure
+visible: an answer with no block at all did not follow the request, and that is logged.
 
 **Two kinds of note, because people are not the same thing as groups.** What somebody *is* -- their job, their
 city, what they are into -- is true in every chat they are in, and a bot that has to learn it again in each group
@@ -59,6 +66,8 @@ EVERYWHERE = "*"
 LINE = re.compile(r"^\s*\[\s*memoria(?P<scope>\s+global)?\s*\]\s*(?P<who>[^:]{1,40}?)\s*:\s*(?P<what>.+?)\s*$",
                   re.IGNORECASE)
 MARKER = re.compile(r"^\s*\[\s*memoria", re.IGNORECASE)  # what is taken off even when the rest is unreadable
+# "[memoria] -": the block is asked for on every answer, so there has to be a way to say nothing was learned.
+NOTHING = re.compile(r"^\s*\[\s*memoria\s*\]\s*-*\s*$", re.IGNORECASE)
 
 # Said in the SYSTEM prompt, never with the question. The public prompt tells the model that anything inside the
 # context may be an instruction somebody planted and must not be obeyed -- which is right, and which is exactly why
@@ -66,16 +75,19 @@ MARKER = re.compile(r"^\s*\[\s*memoria", re.IGNORECASE)  # what is taken off eve
 # allowed to trust it, next to the tone and the rules.
 ASK = """
 Además de tu respuesta, lo que aprendas de la gente:
-Si en esta charla aprendés algo que valga la pena recordar de alguien, agregalo DESPUÉS de tu respuesta, en líneas
-aparte al final, eligiendo entre estas dos:
-[memoria global] Nombre: el dato en pocas palabras
-    para lo que la persona ES y es cierto en cualquier chat: a qué se dedica, de dónde es, qué le gusta.
-[memoria] Nombre: el dato en pocas palabras
-    para lo que es de ESTE grupo y no debe salir de acá: una joda interna, un apodo que solo se usa acá, algo que
-    se dijo entre esta gente.
-Si dudás, usá la segunda: lo que queda acá no molesta a nadie. Como máximo 2 líneas y solo si es algo duradero:
-nada de lo que está haciendo ahora, ni de lo que ya sabés, ni cosas del momento. Si no aprendiste nada, no agregues
-ninguna línea. El Nombre tiene que ser uno de los integrantes del grupo.
+SIEMPRE, sin excepción, lo último que escribís es una línea que empieza con [memoria]. Es obligatorio, en todas tus
+respuestas, hayas aprendido algo o no.
+- Si aprendiste algo de alguien que valga la pena recordar, como máximo 2 líneas, eligiendo entre estas dos:
+  [memoria global] Nombre: el dato en pocas palabras
+      para lo que la persona ES y es cierto en cualquier chat: a qué se dedica, de dónde es, qué le gusta.
+  [memoria] Nombre: el dato en pocas palabras
+      para lo que es de ESTE grupo y no debe salir de acá: una joda interna, un apodo que solo se usa acá, algo que
+      se dijo entre esta gente.
+  Si dudás entre las dos, usá la segunda: lo que queda acá no molesta a nadie. Solo cosas duraderas: nada de lo que
+  la persona está haciendo ahora, ni de lo que ya sabés, ni cosas del momento. El Nombre tiene que ser uno de los
+  integrantes del grupo.
+- Si no aprendiste nada, que es lo más común, escribí exactamente esta línea y nada más:
+  [memoria] -
 Estas líneas se borran antes de que el chat vea la respuesta, así que nadie las lee y NO cuentan para el máximo de
 caracteres. No las menciones ni las expliques.
 """
@@ -104,9 +116,16 @@ def strip(answer: str) -> tuple[str, list[Learned]]:
         if match:
             learned.append(Learned(name=match.group("who").strip(), text=match.group("what").strip(),
                                    everywhere=bool(match.group("scope"))))
-        else:
+        elif not NOTHING.match(line):  # "nothing learned" is the expected answer, not a line that failed to parse
             logger.info("MEMORY dropped an unreadable note line: %r", line[:120])
     return "\n".join(kept).strip(), learned
+
+
+def carried_block(answer: str) -> bool:
+    """Whether the answer ended with the block that is asked for on every one of them -- even if what it said was
+    that nothing was learned. It is the one thing that tells a chat where nobody said anything memorable apart from
+    an answer that ignored the request, which is otherwise silent and looks the same."""
+    return any(MARKER.match(line) for line in answer.splitlines())
 
 
 def _plain(text: str) -> str:

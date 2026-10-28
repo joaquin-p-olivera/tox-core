@@ -49,6 +49,23 @@ def test_a_marker_in_the_middle_goes_too():
     assert clean == "Una.\nDos." and learned == [note("Bob", "toca la guitarra")]
 
 
+def test_the_line_that_says_nothing_was_learned_leaves_no_note():
+    clean, learned = person_memory.strip("Todo bien.\n[memoria] -")
+    assert clean == "Todo bien." and learned == []
+
+
+def test_saying_nothing_was_learned_is_not_an_unreadable_line(caplog):
+    with caplog.at_level("INFO", logger="tox.memory"):
+        person_memory.strip("Dale.\n[memoria] -")
+    assert "unreadable" not in caplog.text
+
+
+def test_an_answer_that_carried_the_block_can_be_told_from_one_that_did_not():
+    assert person_memory.carried_block("Dale.\n[memoria] -")
+    assert person_memory.carried_block("Dale.\n[memoria] Alice: es veterinaria")
+    assert not person_memory.carried_block("Dale, ahí va la respuesta y nada más.")
+
+
 # --- storing them ---
 
 def test_a_note_is_stored_against_the_person_who_is_there(db_session):
@@ -156,6 +173,23 @@ def test_what_it_learns_never_reaches_the_chat(client, db_session, settings, mon
     assert body["replies"][0]["text"] == "Ahí va la respuesta."  # the line is gone
     everywhere, here = person_memory.of_person(db_session, CHAT, "whatsapp:u1")
     assert [row.text for row in everywhere + here] == ["es de Peñarol"]  # ...and it was kept
+
+
+def test_an_answer_that_ignored_the_request_says_so_in_the_log(client, db_session, settings, monkeypatch, caplog):
+    """The block is asked for on every answer, so one without it is the model not complying -- not a quiet chat."""
+    monkeypatch.setattr(claude_command, "session_factory",
+                        sessionmaker(bind=db_session.get_bind(), autoflush=False, expire_on_commit=False))
+    monkeypatch.setattr(claude_runner, "execute_public", lambda *a, **k: claude_runner.ClaudeResult(
+        "Ahí va la respuesta, y nada más.", None, None))
+
+    with caplog.at_level("INFO", logger="tox.claude"):
+        (reply,) = raw(client, "!claude algo")
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            if client.get(f"/api/v1/jobs/{reply['job']}", headers=HEADERS).json()["status"] == "done":
+                break
+            time.sleep(0.02)
+    assert "without the note block" in caplog.text
 
 
 def test_the_prompt_carries_what_is_known(db_session, settings):
