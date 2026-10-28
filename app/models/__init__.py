@@ -1,3 +1,4 @@
+from .afk_user import AfkUser
 from .alert_state import AlertState
 from .birthday import Birthday
 from .blacklisted_user import BlacklistedUser
@@ -20,6 +21,6 @@ from .score import Score
 from .trivia_round import TriviaAttempt, TriviaRound
 
 __all__ = [
-    "AlertState", "Birthday", "BlacklistedUser", "CensoredUser", "ChatAlias", "ChatContextSource", "ChatSetting", "ChatUser", "ClaudeQuery", "CountdownState", "HistoryChat", "HostSample", "LastAudio", "MutedUser", "NewsState", "PendingAlert", "PendingBan", "Reminder", "Score",
+    "AfkUser", "AlertState", "Birthday", "BlacklistedUser", "CensoredUser", "ChatAlias", "ChatContextSource", "ChatSetting", "ChatUser", "ClaudeQuery", "CountdownState", "HistoryChat", "HostSample", "LastAudio", "MutedUser", "NewsState", "PendingAlert", "PendingBan", "Reminder", "Score",
     "TriviaAttempt", "TriviaRound",
 ]
