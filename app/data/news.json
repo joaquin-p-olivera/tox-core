@@ -1,0 +1,20 @@
+[
+  {
+    "id": "2026-10-27-trivia",
+    "title": "La trivia",
+    "versions": {
+      "whatsapp-bot": "1.0.0",
+      "api-core": "1.0.0"
+    },
+    "text": "🧠 Ahora se responde con la letra sola: escribí *a*, *b*, *c* o *d* sin el *!*, o respondé al mensaje de la pregunta. El *!a* de siempre sigue andando.\n\n⏱️ Cada pregunta dura 30 segundos (antes 60).\n\n🔁 Cuando una ronda termina, sale sola la siguiente: gane alguien o se acabe el tiempo. Si nadie contesta, ahí se corta.\n\n➕ 72 preguntas nuevas (144 en total), un poco más difíciles: ciencia, historia, cultura, videojuegos, geografía, deportes y Uruguay."
+  },
+  {
+    "id": "2026-10-27-youtube",
+    "title": "YouTube",
+    "versions": {
+      "whatsapp-bot": "1.0.0",
+      "api-core": "1.0.0"
+    },
+    "text": "🎬 *!yt <link>* manda el video de un link de YouTube al grupo, y *!ytm <link>* manda solo el audio.\n\nTambién funciona respondiendo a un mensaje que tenga el link, sin pegarlo de nuevo.\n\nHasta 8 minutos. Si el video es muy pesado le bajo la calidad para que entre; si ni así entra, te aviso."
+  }
+]

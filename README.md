@@ -121,6 +121,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | Command                                | Aliases                    | Description                                               |
 | -------------------------------------- | -------------------------- | --------------------------------------------------------- |
 | `ayuda [comando]`                      | `help`, `comandos`         | Lists commands or explains one                            |
+| `novedades`                            | `cambios`                  | What was last added to Tox (`-probar`, admins: what is about to be announced) |
 | `id`                                   |                            | Shows the platform/chat/user IDs and your role            |
 | `mute`                                 |                            | Toggle: stop (or resume) being tagged by the bot in this chat |
 | `github <repo> [-r \| -i]`             | `gh`                       | **Admin only.** Open PRs (`-r`, default) or issues (`-i`) of one of your configured GitHub repos |
@@ -252,6 +253,35 @@ matches any of them.
   even if they never wrote to the bot.
 - **Telegram:** bots can't list members, so only people who have already sent a command to the bot in that chat can be picked.
 - The sender is never picked. In a private chat, or if nobody else is known, the bot says so instead.
+
+### Release notes (`app/data/news.json`, `!novedades`)
+
+When a feature ships, the chats are told about it on their own. A note is written by hand, in Spanish, for the
+group to read: the CHANGELOG is in English, technical and long, and nobody in a chat wants to read that one commit
+at a time. The entry ships in the same commit as the feature it announces, so what is said and what was built
+cannot drift apart.
+
+```json
+{"id": "2026-10-27-youtube", "title": "YouTube",
+ "versions": {"whatsapp-bot": "1.0.0", "api-core": "1.0.0"},
+ "text": "🎬 *!yt <link>* manda el video..."}
+```
+
+- Nothing is scheduled: each poll the bots make for pending alerts queues whatever the file gained
+  (`news.queue_due`), so a deploy and a restart are all it takes. It goes to the same chats the alerts and the
+  countdown go to (`ALERT_WHATSAPP_GROUP_JIDS`, `ALERT_TELEGRAM_CHAT_IDS`).
+- What is remembered is the id of the newest entry already queued (`news_states`), not when it went out: a restart
+  announces what is new and never the same thing twice. **The first run on a machine announces nothing** — with no
+  row there is no telling an entry that was missed from the whole history of the file — so it writes down where the
+  file stands and what is added after that is the first thing announced. (A marker that is not in the file any
+  more means "announce from the start", which is how a machine that has announced nothing is told to catch up.)
+- At most `MAX_AT_ONCE` (3) go out together, so several deploys without a poll in between do not become a wall of
+  text, and an entry missing its id or its text is skipped and logged instead of being sent half-written.
+- `!novedades` reads the latest one on demand; `!novedades -probar` (admins) shows exactly what is about to be
+  announced and to how many chats, before a group reads it.
+- The versions are written in the entry, not read off the apps: the API cannot see the bot's `package.json` (it is
+  another repo), and a number copied into a setting drifts from the release it was meant to name. Only the app that
+  changed needs a line.
 
 ### YouTube (`!yt`, `!ytm`)
 

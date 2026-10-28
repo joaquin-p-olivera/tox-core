@@ -4,7 +4,10 @@ PAYLOAD = {"platform": "whatsapp", "chat_id": "g", "user_id": "u", "text": "!uui
 
 
 def test_health(client):
-    assert client.get("/health").json() == {"status": "ok"}
+    from app import __version__
+
+    # The version is there so a deploy can be told apart from the one before it without opening a shell.
+    assert client.get("/health").json() == {"status": "ok", "version": __version__}
 
 
 def test_rejects_missing_api_key(client):

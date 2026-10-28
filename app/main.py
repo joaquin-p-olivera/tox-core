@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from . import __version__
 from .config import get_settings
 from .database import SessionLocal, init_db
 from .services import remote_browser
@@ -97,12 +98,12 @@ async def lifespan(app: FastAPI):
     remote_browser.shutdown()  # closes the browser of !web if one is open
 
 
-app = FastAPI(title="Tox API", lifespan=lifespan)
+app = FastAPI(title="Tox API", version=__version__, lifespan=lifespan)
 
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "version": __version__}
 
 
 app.include_router(messages.router)

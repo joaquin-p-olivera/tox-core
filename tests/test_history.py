@@ -188,7 +188,11 @@ def test_nothing_saved_and_a_bad_period(client):
     assert personal(client, ".b res -yesterday")[0]["text"].startswith("Uso: .b res")
 
 
-def test_past_the_limit_the_oldest_messages_are_deleted_first(client, settings):
+def test_past_the_limit_the_oldest_messages_are_deleted_first(client, settings, monkeypatch):
+    # The automatic trim inside `store` runs at most once a minute, and `chat_history._last_trim` is a module
+    # global that starts at 0: whether it fires here depended on whether another test trimmed in the last minute.
+    # This test trims by hand, so the automatic one is taken out of the way.
+    monkeypatch.setattr(chat_history, "_trim_when_due", lambda settings: None)
     object.__setattr__(settings, "HISTORY_MAX_MB", 1)
     personal(client, ".b h -on")
     filler = "x" * 900
