@@ -205,7 +205,6 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
 
     def done(text: str) -> None:
-        text = _learn(context, message, settings, text, learning=learning)
         if not text.startswith(FAILED_REACTION):
             # (in the history, when it is on). A reply to the bot is not a command, so the bot already saved it.
             claude_context.remember(settings, context, message, text, job_id, save_question=not ctx.implicit)
@@ -213,8 +212,9 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
 
     try:
         claude_runner.start(
-            message.chat_key, context.prompt(question, speak=speak, learn=learning), new_conversation, settings,
-            on_done=done, full_access=full_access, tone=_setting(ctx, "CLAUDE_TONE"),
+            message.chat_key, context.prompt(question, speak=speak), new_conversation, settings,
+            on_done=done, full_access=full_access, tone=_setting(ctx, "CLAUDE_TONE"), learn=learning,
+            refine=lambda raw: _learn(context, message, settings, raw, learning=learning),
         )
     except claude_runner.Busy:
         jobs.discard(job_id)
@@ -284,7 +284,6 @@ def interject(ctx: CommandContext) -> Reply | None:
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
 
     def done(text: str) -> None:
-        text = _learn(context, message, settings, text, learning=learning)
         if text.startswith(FAILED_REACTION) or not text.strip() or PASS_ANSWER.match(text.strip()):
             jobs.finish(job_id, [])  # nothing is sent to the chat, and nobody is told why
             return
@@ -293,8 +292,9 @@ def interject(ctx: CommandContext) -> Reply | None:
         jobs.finish(job_id, [Reply(text=tagged + SIGNATURE, mentions=mentions)])
 
     try:
-        claude_runner.start(message.chat_key, context.interjection(learn=learning), False, settings, on_done=done,
-                            full_access=False, tone=_setting(ctx, "CLAUDE_TONE"))
+        claude_runner.start(message.chat_key, context.interjection(), False, settings, on_done=done,
+                            full_access=False, tone=_setting(ctx, "CLAUDE_TONE"), learn=learning,
+                            refine=lambda raw: _learn(context, message, settings, raw, learning=learning))
     except claude_runner.Busy:
         jobs.discard(job_id)
         return None

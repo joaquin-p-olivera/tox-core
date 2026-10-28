@@ -121,23 +121,19 @@ class Context:
                           f"otras respuestas. La gente de ahí no está en este chat: no la etiquetes.\n" + transcript)
         return blocks
 
-    def prompt(self, question: str, *, speak: bool = False, learn: bool = False) -> str:
+    def prompt(self, question: str, *, speak: bool = False) -> str:
         """The question with everything that is known around it. `speak`: the answer is going to be read out loud, so
-        it has to fit in a voice note and work without anything written. `learn`: it may end the answer with notes
-        about the people here (services/person_memory.py), which are taken off before the chat sees it."""
+        it has to fit in a voice note and work without anything written. Nothing asked OF the model goes in here:
+        whatever travels with the question is, as far as the model is told, something somebody could have planted
+        (see PUBLIC_SYSTEM_PROMPT) -- which is why the notes are asked for in the system prompt instead."""
         blocks = self._blocks()
         asked = question if not blocks else "\n\n".join(blocks) + f"\n\nPregunta de {self.asker}: {question}"
-        if speak:
-            asked += SPOKEN_NOTE
-        return asked + "\n\n" + person_memory.ASK if learn else asked
+        return asked + SPOKEN_NOTE if speak else asked
 
-    def interjection(self, *, learn: bool = False) -> str:
+    def interjection(self) -> str:
         """What is asked when nobody asked anything: Tox read the conversation and is dropping a remark of its own
         (commands/claude.py's `interject`). `asker` is whoever wrote the message that got it talking."""
-        blocks = [*self._blocks(), INTERJECT_NOTE.format(asker=self.asker)]
-        if learn:
-            blocks.append(person_memory.ASK)
-        return "\n\n".join(blocks)
+        return "\n\n".join([*self._blocks(), INTERJECT_NOTE.format(asker=self.asker)])
 
 
 def _clean(text: str, limit: int) -> str:

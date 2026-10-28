@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.commands import claude as claude_command
-from app.services import chat_history, claude_runner, jobs
+from app.services import chat_history, claude_runner, discretion, jobs
 from tests.conftest import API_KEY
 
 HEADERS = {"X-API-Key": API_KEY}
@@ -34,7 +34,8 @@ def fake_claude(settings, tmp_path, monkeypatch):
         return claude_runner.ClaudeResult(seen["answer"], None, 0.01)
 
     monkeypatch.setattr(claude_runner, "execute", lambda question, session, settings_, tone=None: reply(question))
-    monkeypatch.setattr(claude_runner, "execute_public", lambda question, settings_, tone=None: reply(question))
+    monkeypatch.setattr(claude_runner, "execute_public",
+                        lambda question, settings_, tone=None, learn=False: reply(question))
     return seen
 
 
@@ -180,9 +181,15 @@ def test_the_question_of_a_reply_is_not_saved_twice_in_the_history(client, fake_
 
 @pytest.fixture
 def always_butts_in(settings):
-    """The dice always says "say something", and the cooldown of earlier tests is forgotten."""
+    """The dice always says "say something", and nothing else of what decides it is left to chance: the cooldown of
+    earlier tests is forgotten, the hours are the whole day (START == END) so these tests do not depend on what time
+    they are run at, and where it stands with this chat starts clean. What holds it back has its own file
+    (tests/test_discretion.py)."""
     object.__setattr__(settings, "CLAUDE_INTERJECT_CHANCE", 1)
+    object.__setattr__(settings, "CLAUDE_INTERJECT_START_HOUR", 0)
+    object.__setattr__(settings, "CLAUDE_INTERJECT_END_HOUR", 0)
     claude_command._spoke_in.clear()
+    discretion.reset()
     return settings
 
 

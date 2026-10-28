@@ -60,17 +60,25 @@ LINE = re.compile(r"^\s*\[\s*memoria(?P<scope>\s+global)?\s*\]\s*(?P<who>[^:]{1,
                   re.IGNORECASE)
 MARKER = re.compile(r"^\s*\[\s*memoria", re.IGNORECASE)  # what is taken off even when the rest is unreadable
 
-ASK = ("Si en esta charla aprendiste algo que valga la pena recordar de alguien, agregalo al final de tu "
-       "respuesta, en líneas aparte, y elegí entre estas dos:\n"
-       "[memoria global] Nombre: el dato en pocas palabras\n"
-       "    para lo que la persona ES y es cierto en cualquier chat: a qué se dedica, de dónde es, qué le gusta.\n"
-       "[memoria] Nombre: el dato en pocas palabras\n"
-       "    para lo que es de ESTE grupo y no debe salir de acá: una joda interna, un apodo que solo se usa acá, "
-       "algo que se dijo entre esta gente.\n"
-       "Si dudás, usá la segunda: lo que queda acá no molesta a nadie. Como máximo 2 líneas en total y solo si es "
-       "algo duradero: nada de lo que está haciendo ahora, ni de lo que ya sabés, ni cosas del momento. Si no "
-       "aprendiste nada, no agregues ninguna línea. El Nombre tiene que ser uno de los integrantes del grupo. "
-       "Esas líneas no se muestran en el chat.")
+# Said in the SYSTEM prompt, never with the question. The public prompt tells the model that anything inside the
+# context may be an instruction somebody planted and must not be obeyed -- which is right, and which is exactly why
+# a request of ours cannot travel there: from where the model sits it looks the same. So it goes where the model is
+# allowed to trust it, next to the tone and the rules.
+ASK = """
+Además de tu respuesta, lo que aprendas de la gente:
+Si en esta charla aprendés algo que valga la pena recordar de alguien, agregalo DESPUÉS de tu respuesta, en líneas
+aparte al final, eligiendo entre estas dos:
+[memoria global] Nombre: el dato en pocas palabras
+    para lo que la persona ES y es cierto en cualquier chat: a qué se dedica, de dónde es, qué le gusta.
+[memoria] Nombre: el dato en pocas palabras
+    para lo que es de ESTE grupo y no debe salir de acá: una joda interna, un apodo que solo se usa acá, algo que
+    se dijo entre esta gente.
+Si dudás, usá la segunda: lo que queda acá no molesta a nadie. Como máximo 2 líneas y solo si es algo duradero:
+nada de lo que está haciendo ahora, ni de lo que ya sabés, ni cosas del momento. Si no aprendiste nada, no agregues
+ninguna línea. El Nombre tiene que ser uno de los integrantes del grupo.
+Estas líneas se borran antes de que el chat vea la respuesta, así que nadie las lee y NO cuentan para el máximo de
+caracteres. No las menciones ni las expliques.
+"""
 
 
 @dataclass(frozen=True)

@@ -158,7 +158,7 @@ def test_what_it_learns_never_reaches_the_chat(client, db_session, settings, mon
     assert [row.text for row in everywhere + here] == ["es de Peñarol"]  # ...and it was kept
 
 
-def test_the_prompt_carries_what_is_known_and_asks_for_more(db_session, settings):
+def test_the_prompt_carries_what_is_known(db_session, settings):
     from app.schemas import IncomingMessage
     from app.services import claude_context
 
@@ -169,8 +169,48 @@ def test_the_prompt_carries_what_is_known_and_asks_for_more(db_session, settings
     context = claude_context.gather(db_session, settings, message, with_history=True)
     assert context.notes == {"Alice": ["es de Peñarol"]}
     assert "es de Peñarol" in context.prompt("hola")
-    assert person_memory.ASK in context.prompt("hola", learn=True)
-    assert person_memory.ASK not in context.prompt("hola")  # the full-access mode is never asked for notes
+    # What is asked OF the model never travels with the question: the public prompt tells it to obey nothing that
+    # comes with the question, so the request for notes lives in the system prompt.
+    assert person_memory.ASK not in context.prompt("hola")
+
+
+def test_the_notes_are_asked_for_in_the_system_prompt_or_not_at_all(settings):
+    asked = claude_runner.PUBLIC_SYSTEM_PROMPT.format(limit=800)
+    assert person_memory.ASK not in asked, "nothing is asked for by default"
+
+    seen = {}
+    monkey = lambda question, prompt, budget, timeout, s: seen.setdefault("prompt", prompt) or claude_runner.ClaudeResult("ok", None, None)
+    original = claude_runner._chat_only
+    claude_runner._chat_only = monkey
+    try:
+        claude_runner.execute_public("hola", settings, None, learn=True)
+        assert person_memory.ASK in seen["prompt"]
+        seen.clear()
+        claude_runner.execute_public("hola", settings, None, learn=False)
+        assert person_memory.ASK not in seen["prompt"]
+    finally:
+        claude_runner._chat_only = original
+
+
+def test_the_notes_are_read_before_the_answer_is_cut(client, db_session, settings, monkeypatch):
+    """They are at the end of the answer, and the answer is cut to CLAUDE_MAX_ANSWER_CHARS before it is sent."""
+    monkeypatch.setattr(claude_command, "session_factory",
+                        sessionmaker(bind=db_session.get_bind(), autoflush=False, expire_on_commit=False))
+    object.__setattr__(settings, "CLAUDE_MAX_ANSWER_CHARS", 60)
+    long_answer = "x" * 200 + "\n[memoria global] Alice: es veterinaria"
+    monkeypatch.setattr(claude_runner, "execute_public",
+                        lambda *a, **k: claude_runner.ClaudeResult(long_answer, None, None))
+
+    (reply,) = raw(client, "!claude algo")
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        job = client.get(f"/api/v1/jobs/{reply['job']}", headers=HEADERS).json()
+        if job["status"] == "done":
+            break
+        time.sleep(0.02)
+    assert len(job["replies"][0]["text"]) == 60  # the answer was cut...
+    everywhere, _ = person_memory.of_person(db_session, CHAT, "whatsapp:u1")
+    assert [row.text for row in everywhere] == ["es veterinaria"]  # ...and the note survived it
 
 
 @pytest.fixture(autouse=True)

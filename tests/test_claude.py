@@ -118,7 +118,7 @@ def test_somebody_is_told_so_only_when_the_waiting_line_is_full_too(client, sett
 def test_the_no_access_questions_run_side_by_side(client, monkeypatch):
     both_running = threading.Barrier(2, timeout=5)  # only passes if two questions are inside at the same time
 
-    def together(question, settings_, tone=None):
+    def together(question, settings_, tone=None, learn=False):
         both_running.wait()
         return claude_runner.ClaudeResult("ok", None, None)
 
@@ -160,7 +160,7 @@ PERSON = {"user": "friend@lid", "sender_is_group_admin": False}
 def public(monkeypatch):
     calls = []
 
-    def fake_public(question, settings_, tone=None):
+    def fake_public(question, settings_, tone=None, learn=False):
         calls.append(question)
         return claude_runner.ClaudeResult("Escribile a alguien@ejemplo.com", "never-kept", 0.01)
 

@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Callable
 
 from ..config import Settings
-from . import redaction
+from . import person_memory, redaction
 
 logger = logging.getLogger("tox.claude")
 
@@ -255,10 +255,14 @@ def _chat_only(question: str, system_prompt: str, budget: float, timeout: int, s
     return _result(done, _parse(done.stdout), budget)
 
 
-def execute_public(question: str, settings: Settings, tone: str | None = None) -> ClaudeResult:
-    """Answers a question from someone without access to the PC: see the module docstring. Never resumes anything."""
+def execute_public(question: str, settings: Settings, tone: str | None = None, learn: bool = False) -> ClaudeResult:
+    """Answers a question from someone without access to the PC: see the module docstring. Never resumes anything.
+    `learn`: it may end the answer with notes about the people of the chat (services/person_memory.py), asked for
+    here and not with the question -- this prompt tells it to obey nothing that comes with the question."""
     prompt = PUBLIC_SYSTEM_PROMPT.format(limit=settings.CLAUDE_MAX_ANSWER_CHARS)
     prompt += tone_prompt(settings, tone)
+    if learn:
+        prompt += person_memory.ASK
     return _chat_only(question, prompt,
                       settings.CLAUDE_PUBLIC_MAX_BUDGET_USD,
                       min(settings.CLAUDE_TIMEOUT_SECONDS, PUBLIC_TIMEOUT_SECONDS), settings)
@@ -294,7 +298,8 @@ def sanitize(text: str, settings: Settings, *, full_access: bool = True, limit: 
 
 
 def start(chat_key: str, question: str, new_conversation: bool, settings: Settings,
-          on_done: Callable[[str], None], *, full_access: bool = True, tone: str | None = None) -> None:
+          on_done: Callable[[str], None], *, full_access: bool = True, tone: str | None = None,
+          learn: bool = False, refine: Callable[[str], str] | None = None) -> None:
     """Starts answering in a background thread and calls `on_done(text)` with what to send (an answer or an error
     message). The question waits its turn when others are running; raises Busy, without starting anything, only when
     the line is full too. Without `full_access` the question is answered by `execute_public` and no conversation is kept
@@ -314,10 +319,13 @@ def start(chat_key: str, question: str, new_conversation: bool, settings: Settin
                     if result.session_id:
                         _sessions[chat_key] = result.session_id
                 else:
-                    result = execute_public(question, settings, tone)
+                    result = execute_public(question, settings, tone, learn=learn)
                 logger.info("CLAUDE answered (%s chars, cost %s USD%s)", len(result.text), result.cost_usd,
                             "" if full_access else ", no PC access")
-                text = sanitize(result.text, settings, full_access=full_access) or "(Claude no devolvió texto)"
+                # Before anything is cut: what the answer carries besides the answer (the notes of
+                # services/person_memory.py) is at the end of it, and the cut below would take it with it.
+                raw = refine(result.text) if refine is not None else result.text
+                text = sanitize(raw, settings, full_access=full_access) or "(Claude no devolvió texto)"
             except ClaudeError as error:
                 text = f"⚠️ {error}"
             except Exception:  # whatever happens, the chat must get an answer and the lock must be released
