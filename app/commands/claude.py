@@ -83,10 +83,13 @@ def _learn(context: claude_context.Context, message, settings, text: str, *, lea
     happens whether or not this chat is learning: a marker that slipped into an answer must never reach the chat,
     wherever it came from."""
     clean, learned = person_memory.strip(text)
-    # The block is asked for on every answer, so an answer without one did not follow the request -- worth a line in
-    # the log, because the alternative (it learned nothing) looks exactly the same from the outside.
-    if learning and not message.personal and not person_memory.carried_block(text):
-        logger.info("MEMORY the answer in %s came back without the note block", message.chat_key)
+    # Every answer that was asked for the block leaves exactly one line about it, so what happened is read and not
+    # deduced from a silence: nothing came up, it was ignored, or (below) something was kept.
+    if learning and not message.personal:
+        if not person_memory.carried_block(text):
+            logger.info("MEMORY the answer in %s came back without the note block", message.chat_key)
+        elif not learned:
+            logger.info("MEMORY nothing worth keeping came up in %s", message.chat_key)
     # The personal mode is never learned from, whatever the caller thinks: there the bot writes as the owner and
     # the other side of the chat is one person who never asked for any of this. The lines are still taken off.
     if not learning or not learned or message.personal:

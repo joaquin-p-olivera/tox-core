@@ -175,6 +175,24 @@ def test_what_it_learns_never_reaches_the_chat(client, db_session, settings, mon
     assert [row.text for row in everywhere + here] == ["es de Peñarol"]  # ...and it was kept
 
 
+def test_an_answer_that_learned_nothing_says_so_too(client, db_session, settings, monkeypatch, caplog):
+    """The common case, and it has to be readable: a silence would look exactly like learning being off."""
+    monkeypatch.setattr(claude_command, "session_factory",
+                        sessionmaker(bind=db_session.get_bind(), autoflush=False, expire_on_commit=False))
+    monkeypatch.setattr(claude_runner, "execute_public", lambda *a, **k: claude_runner.ClaudeResult(
+        "Ahí va la respuesta.\n[memoria] -", None, None))
+
+    with caplog.at_level("INFO", logger="tox.claude"):
+        (reply,) = raw(client, "!claude algo")
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            if client.get(f"/api/v1/jobs/{reply['job']}", headers=HEADERS).json()["status"] == "done":
+                break
+            time.sleep(0.02)
+    assert "nothing worth keeping came up" in caplog.text
+    assert "without the note block" not in caplog.text  # it did follow the request
+
+
 def test_an_answer_that_ignored_the_request_says_so_in_the_log(client, db_session, settings, monkeypatch, caplog):
     """The block is asked for on every answer, so one without it is the model not complying -- not a quiet chat."""
     monkeypatch.setattr(claude_command, "session_factory",
