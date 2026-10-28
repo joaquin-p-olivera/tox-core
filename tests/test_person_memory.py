@@ -79,6 +79,35 @@ def test_a_note_about_somebody_who_is_not_there_is_dropped(db_session):
     assert db_session.scalars(select(PersonNote)).first() is None
 
 
+def test_a_display_name_is_not_what_somebody_is_called(db_session):
+    """The model reads "Leandro" in the conversation; WhatsApp says "Leandro 1899". Real groups are full of this,
+    and matching the whole string would drop almost every note."""
+    people = {"Leandro 1899": "whatsapp:u1", "Joaquín.": "whatsapp:u2", "line🧃🐛": "whatsapp:u3"}
+    stored = person_memory.remember(db_session, CHAT, [note("Leandro", "es veterinario"),
+                                                       note("Joaquín", "vive en Salto"),
+                                                       note("line", "toca la guitarra")], people, **LIMITS)
+    assert stored == 3
+    assert {row.user_key for row in db_session.scalars(select(PersonNote))} == {
+        "whatsapp:u1", "whatsapp:u2", "whatsapp:u3"}
+
+
+def test_a_name_two_people_could_answer_to_is_dropped(db_session):
+    """A fact filed under the wrong person is worse than one that was dropped."""
+    people = {"Ana María": "whatsapp:u1", "Ana Laura": "whatsapp:u2"}
+    assert person_memory.remember(db_session, CHAT, [note("Ana", "es de Salto")], people, **LIMITS) == 0
+    # ...but her whole name is still her
+    assert person_memory.remember(db_session, CHAT, [note("Ana Laura", "es de Salto")], people, **LIMITS) == 1
+
+
+def test_a_number_two_people_share_is_not_a_name(db_session):
+    """"Leandro 1899" and "Pedro 1899" are not the same person, and "1899" is nobody."""
+    people = {"Leandro 1899": "whatsapp:u1", "Pedro 1899": "whatsapp:u2"}
+    assert person_memory.remember(db_session, CHAT, [note("1899", "algo")], people, **LIMITS) == 0
+    assert person_memory.remember(db_session, CHAT, [note("Pedro", "juega al fútbol")], people, **LIMITS) == 1
+    (row,) = db_session.scalars(select(PersonNote))
+    assert row.user_key == "whatsapp:u2"
+
+
 def test_the_same_note_twice_is_counted_not_doubled(db_session):
     person_memory.remember(db_session, CHAT, [note("Alice", "es de Peñarol")], PEOPLE, **LIMITS)
     assert person_memory.remember(db_session, CHAT, [note("Alice", "Es  de  Peñarol")], PEOPLE, **LIMITS) == 0

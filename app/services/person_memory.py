@@ -37,7 +37,10 @@ What keeps this honest:
   it. A private chat is the other thing -- one person driving the machine, with no group to know -- and nothing is
   kept there.
 - **A name has to be somebody who is there.** Notes are resolved against the people of that chat and dropped when
-  they are not about one of them, so Claude cannot invent a person to remember things about.
+  they are not about one of them, so Claude cannot invent a person to remember things about. The matching is loose
+  in one direction only: "Leandro" is the member WhatsApp calls "Leandro 1899", because that is what the model
+  reads in the conversation -- but never when two members could be meant, since a fact filed under the wrong
+  person is worse than one that was dropped.
 - **Each person owns theirs.** `!memory` is what Tox knows about you here and `!memory forget` deletes it, with
   no admin needed: that is the only reason a bot is allowed to keep notes about people at all.
 - A chat can turn it off entirely (`!config memory off`), and then nothing is stored or read there.
@@ -135,6 +138,36 @@ def _plain(text: str) -> str:
     return "".join(c for c in lowered if unicodedata.category(c) != "Mn")
 
 
+def _words(name: str) -> frozenset[str]:
+    """The words of a name, without the decoration people put in theirs: "Leandro 1899", "Joaquín.", "line🧃🐛"."""
+    return frozenset(word for word in re.split(r"[^0-9a-z]+", _plain(name)) if word)
+
+
+def _resolve(name: str, people: dict[str, str]) -> tuple[str | None, str]:
+    """Which member of the chat the model meant, or None and why not, for the log.
+
+    What somebody is called in a chat is not their display name: the model reads the conversation and writes
+    "Leandro", while WhatsApp says "Leandro 1899". Matching the whole string would drop almost every note in a real
+    group. So a name matches when one is contained in the other word for word -- and only when exactly one person
+    can be meant, because a thing filed under the wrong person is worse than one that was dropped."""
+    written = _words(name)
+    if not written:
+        return None, "it is not a name"
+    found = {key for member, key in people.items() if _words(member) == written}
+    if len(found) != 1:
+        # Nobody by that exact name, or two people with it: try the loose way, both directions.
+        found = {key for member, key in people.items()
+                 # A shared word that is only digits says nothing: "Leandro 1899" and "Pedro 1899" are not the same
+                 # person, and "1899" is not a name.
+                 if _words(member) and (_words(member) <= written or written <= _words(member))
+                 and any(not word.isdigit() for word in _words(member) & written)}
+    if len(found) == 1:
+        return found.pop(), ""
+    if found:
+        return None, f"{len(found)} people in {name[:40]!r} could be meant"
+    return None, "nobody in the chat is called that"
+
+
 def _same_note(one: str, other: str) -> bool:
     return _plain(one) == _plain(other)
 
@@ -146,13 +179,12 @@ def remember(db: Session, chat_key: str, learned: list[Learned], people: dict[st
     this chat's, and each bucket has its own `max_notes`: what the group knows about somebody cannot crowd out what
     is true about them. A note that is already there is only counted again, and past the ceiling the least
     confirmed and oldest ones go. Returns how many were stored."""
-    by_name = {_plain(name): key for name, key in people.items() if name}
     stored = 0
     for note in learned:
         name, text = note.name, note.text
-        user_key = by_name.get(_plain(name))
+        user_key, why = _resolve(name, {n: key for n, key in people.items() if n})
         if user_key is None:
-            logger.info("MEMORY dropped a note about %r, who is not in %s", name[:40], chat_key)
+            logger.info("MEMORY dropped a note about %r in %s: %s", name[:40], chat_key, why)
             continue
         text = " ".join(text.split())[:max_chars]
         if not text:
