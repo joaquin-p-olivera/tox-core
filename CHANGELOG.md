@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- What Tox remembers about the people of a chat from talking to them (`services/person_memory.py`, `person_notes`, `!memoria`, `!config memoria`, `CLAUDE_MEMORY`, `CLAUDE_MEMORY_MAX_NOTES`, `CLAUDE_MEMORY_MAX_CHARS`). Until now everything it knew about anybody was written by the owner by hand in `CHATS_FILE`; this is the other half, the small things that come up in a conversation. **No extra question is asked for it**: the answer Claude is already giving may end with `[memoria] Nombre: dato` lines, which are taken off before the chat sees a word of it and stored as notes -- one question, one answer, and whatever it learned rides along. The stripping is deliberately greedy, since any line starting with the marker goes, parsed or not: the one failure that matters is a marker reaching the chat. A note belongs to one chat, because the chat is part of the key, so nothing crosses between groups and nothing said in the personal mode is kept; only the no-access mode learns, as the admins' full-access session is doing work on a machine and is not asked for any of this; a name has to be somebody who is in that chat or the note is dropped, so Claude cannot invent a person to remember things about; and each person reads their own with `!memoria` and deletes them with `!memoria olvidame`, with no admin needed, which is the only reason a bot is allowed to keep notes about people at all. A chat turns it off for itself with `!config memoria no`, the two limits bound how much is kept per person, and the notes that never came up again are the first to be dropped. They are read back into the prompt as what they are -- data that came out of a conversation, in the untrusted block, never in the owner's own description of the chat -- and the note is written through a session of its own, because the answer arrives in a thread where the request's session is long closed.
+
 ## [1.0.0] - 27 Oct 2026
 
 ### Changed

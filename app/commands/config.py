@@ -40,6 +40,7 @@ OPTIONS: tuple[Option, ...] = (
     Option("espera", "CLAUDE_INTERJECT_COOLDOWN_MINUTES", "cuánto se calla después de hablar", "number", "min"),
     Option("perfiles", "CLAUDE_PROFILE_PEOPLE_CHANCE", "cada cuánto sabe quién es cada uno", "chance"),
     Option("respuestas", "CLAUDE_ON_REPLY", "contesta si le respondés un mensaje", "yesno"),
+    Option("memoria", "CLAUDE_MEMORY", "se acuerda de cosas de cada uno", "yesno"),
     Option("audio", "CLAUDE_AUDIO_CHANCE", "cada cuánto contesta con audio", "chance"),
     Option("contexto", "CLAUDE_CONTEXT_MESSAGES", "cuántos mensajes de la charla lee", "number", "mensajes"),
     Option("horas", "CLAUDE_CONTEXT_HOURS", "de cuántas horas atrás los lee", "number", "h"),

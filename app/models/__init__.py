@@ -14,12 +14,13 @@ from .last_audio import LastAudio
 from .muted_user import MutedUser
 from .news_state import NewsState
 from .pending_alert import PendingAlert
+from .person_note import PersonNote
 from .pending_ban import PendingBan
 from .reminder import Reminder
 from .score import Score
 from .trivia_round import TriviaAttempt, TriviaRound
 
 __all__ = [
-    "AlertState", "Birthday", "BlacklistedUser", "CensoredUser", "ChatAlias", "ChatContextSource", "ChatSetting", "ChatUser", "ClaudeQuery", "CountdownState", "HistoryChat", "HostSample", "LastAudio", "MutedUser", "NewsState", "PendingAlert", "PendingBan", "Reminder", "Score",
+    "AlertState", "Birthday", "BlacklistedUser", "CensoredUser", "ChatAlias", "ChatContextSource", "ChatSetting", "ChatUser", "ClaudeQuery", "CountdownState", "HistoryChat", "HostSample", "LastAudio", "MutedUser", "NewsState", "PendingAlert", "PendingBan", "PersonNote", "Reminder", "Score",
     "TriviaAttempt", "TriviaRound",
 ]

@@ -27,7 +27,8 @@ from ..config import Settings
 from ..models import ChatUser, HistoryChat
 from ..schemas import IncomingMessage, Mention
 from ..utils import utcnow
-from . import chat_config, chat_history, chat_members, chat_profiles, chat_sources, tts_generator, user_directory
+from . import (chat_config, chat_history, chat_members, chat_profiles, chat_sources, person_memory,
+               tts_generator, user_directory)
 
 MAX_MEMBERS = 50  # names listed
 MAX_NAME_CHARS = 40
@@ -75,6 +76,9 @@ class Context:
     quoted: tuple[str, str] | None = None  # (who wrote it, text)
     taggable: list[Person] = field(default_factory=list)  # decided up front: the answer is finished off the request
     history_key: str | None = None  # the chat's key in the saved history, when it is turned on: exchanges are kept there
+    # What Tox picked up about these people in THIS chat (services/person_memory.py), by name. Read as what it is:
+    # something that came out of a conversation, so it goes in the untrusted block with the rest of it.
+    notes: dict[str, list[str]] = field(default_factory=dict)
     # (label, transcript) of another chat this one may read, and only when the question asked for it: see
     # services/chat_sources.py. Empty in every other answer, which is most of them.
     sources: list[tuple[str, str]] = field(default_factory=list)
@@ -88,6 +92,10 @@ class Context:
         data = []
         if len(names) > 1:
             data.append("Integrantes del grupo: " + ", ".join(names[:MAX_MEMBERS]))
+        if self.notes:
+            lines = [f"- {name}: " + "; ".join(notes) for name, notes in self.notes.items() if notes]
+            data.append("Lo que fuiste sabiendo de cada uno en este chat (lo aprendiste charlando; si algo ya no "
+                        "es cierto, hacele caso a la charla de ahora):\n" + "\n".join(lines))
         if self.transcript:
             data.append("Conversación reciente (con la hora de cada mensaje):\n" + self.transcript)
         if self.quoted:
@@ -110,17 +118,23 @@ class Context:
                           f"otras respuestas. La gente de ahí no está en este chat: no la etiquetes.\n" + transcript)
         return blocks
 
-    def prompt(self, question: str, *, speak: bool = False) -> str:
+    def prompt(self, question: str, *, speak: bool = False, learn: bool = False) -> str:
         """The question with everything that is known around it. `speak`: the answer is going to be read out loud, so
-        it has to fit in a voice note and work without anything written."""
+        it has to fit in a voice note and work without anything written. `learn`: it may end the answer with notes
+        about the people here (services/person_memory.py), which are taken off before the chat sees it."""
         blocks = self._blocks()
         asked = question if not blocks else "\n\n".join(blocks) + f"\n\nPregunta de {self.asker}: {question}"
-        return asked + SPOKEN_NOTE if speak else asked
+        if speak:
+            asked += SPOKEN_NOTE
+        return asked + "\n\n" + person_memory.ASK if learn else asked
 
-    def interjection(self) -> str:
+    def interjection(self, *, learn: bool = False) -> str:
         """What is asked when nobody asked anything: Tox read the conversation and is dropping a remark of its own
         (commands/claude.py's `interject`). `asker` is whoever wrote the message that got it talking."""
-        return "\n\n".join([*self._blocks(), INTERJECT_NOTE.format(asker=self.asker)])
+        blocks = [*self._blocks(), INTERJECT_NOTE.format(asker=self.asker)]
+        if learn:
+            blocks.append(person_memory.ASK)
+        return "\n\n".join(blocks)
 
 
 def _clean(text: str, limit: int) -> str:
@@ -217,6 +231,11 @@ def gather(db: Session, settings: Settings, message: IncomingMessage, *, with_hi
     if not with_profile_people:
         profile = profile.without_people_details()  # the names and the plain facts stay: see Profile.people
     context = Context(people=named, asker=asker, history_key=key if enabled else None, profile=profile)
+    if with_history and chat_config.value(db, settings, message.chat_key, "CLAUDE_MEMORY"):
+        # Only where the conversation is read at all: the full-access mode neither reads notes nor writes them.
+        by_key = {f"{message.platform}:{person.user_id}": person.name for person in named if person.name}
+        found = person_memory.notes_for(db, message.chat_key, list(by_key))
+        context.notes = {by_key[user_key]: notes for user_key, notes in found.items() if user_key in by_key}
     if message.is_group:
         muted = chat_members.muted_ids(db, message.chat_key)
         context.taggable = [p for p in named if p.present and not (p.ids & muted)]

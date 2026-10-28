@@ -17,6 +17,9 @@ def isolated(settings, tmp_path, monkeypatch):
     work = tmp_path / "dev"
     (work / "tox").mkdir(parents=True)
     object.__setattr__(settings, "CLAUDE_WORKDIR", str(work))
+    # What it remembers about people adds a block of its own to the prompt, which these tests pin the shape
+    # of: that one has its own file (tests/test_person_memory.py).
+    object.__setattr__(settings, "CLAUDE_MEMORY", False)
     claude_runner.forget_sessions()
     jobs.clear()
     calls = []

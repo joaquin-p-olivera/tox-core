@@ -121,6 +121,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | Command                                | Aliases                    | Description                                               |
 | -------------------------------------- | -------------------------- | --------------------------------------------------------- |
 | `ayuda [comando]`                      | `help`, `comandos`         | Lists commands or explains one                            |
+| `memoria`                              |                            | What Tox remembers about you in this chat (`olvidame` forgets it all) |
 | `novedades`                            | `cambios`                  | What was last added to Tox (`-probar`, admins: what is about to be announced) |
 | `id`                                   |                            | Shows the platform/chat/user IDs and your role            |
 | `mute`                                 |                            | Toggle: stop (or resume) being tagged by the bot in this chat |
@@ -795,6 +796,20 @@ hourly pools so a busy group can't use up the admins' questions.
   (replying to a voice note counts too, even though there is no text to quote). The same limits and modes apply; it never works
   in the personal mode, where the bot writes as the owner and a reply to it is their own chat. The WhatsApp bot only forwards the
   message when WhatsApp says the quoted one is the bot's: in a private chat it sometimes doesn't, and then the command is needed.
+- **What it remembers about each person** (`services/person_memory.py`, `person_notes`, `!memoria`): the small
+  things that come up while talking -- what somebody does, what they are into, an inside joke -- kept without
+  anybody writing them down. **No extra question is asked for it**: the answer Claude is already giving may end
+  with `[memoria] Nombre: dato` lines, which are taken off before the chat sees a word of it and stored. The
+  stripping is deliberately greedy (any line starting with the marker goes, parsed or not), because the one
+  failure that matters is a marker reaching the chat.
+  A note belongs to **one chat** — the chat is part of the key, so nothing crosses between groups and nothing said
+  in the personal mode is kept; only the **no-access mode** learns, since the admins' session is doing work on a
+  machine, not chatting; a name has to be **somebody who is there** or the note is dropped, so Claude cannot invent
+  a person to remember things about; and **each person owns theirs** (`!memoria`, `!memoria olvidame`, no admin
+  needed), which is the only reason a bot is allowed to keep notes about people at all. A chat turns it off with
+  `!config memoria no`; `CLAUDE_MEMORY_MAX_NOTES` (20) and `CLAUDE_MEMORY_MAX_CHARS` (120) bound it, and the notes
+  that never came up again are the first to go. They are read back as what they are: data that came out of a
+  conversation, in the untrusted block, never in the owner's own description of the chat.
 - **`-no`: that reply was not for Tox.** Starting a reply to one of its messages with `-no` (or `--no`) answers nothing: in a group
   people reply to what the bot said to talk to *each other*, and until now every one of those got an answer nobody asked for. Nothing
   is sent, nothing is reacted to and **Claude is never called**, so it costs nothing and uses no question of the hour. It is read only
