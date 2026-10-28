@@ -76,7 +76,7 @@ class Context:
     taggable: list[Person] = field(default_factory=list)  # decided up front: the answer is finished off the request
     history_key: str | None = None  # the chat's key in the saved history, when it is turned on: exchanges are kept there
     # The messages the transcript was written from, kept so a caller can count them without reading them again
-    # (services/tact.py decides on these whether a remark of its own is welcome).
+    # (services/discretion.py decides on these whether a remark of its own is welcome).
     recent: list[chat_history.Saved] = field(default_factory=list)
     # (label, transcript) of another chat this one may read, and only when the question asked for it: see
     # services/chat_sources.py. Empty in every other answer, which is most of them.

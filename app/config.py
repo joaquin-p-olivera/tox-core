@@ -70,15 +70,16 @@ class Settings(BaseSettings):
     # "tranqui" (playful and joking, but it teases nobody) or "normal" (just friendly, no tone added at all). The
     # spicy ones keep a few hard limits (see TONE_PROMPTS). A chat may be given its own with !config.
     CLAUDE_TONE: Literal["normal", "tranqui", "picante", "salado"] = "salado"
-    # When Tox may say something nobody asked for, on top of the dice and the cooldown above (services/tact.py).
-    # The hours are read in TIMEZONE and the window wraps midnight (9 to 1 = from nine in the morning to one at
-    # night); FROM == UNTIL means every hour. MAX_SHARE is how many times the average person's messages in the
-    # chat's recent window it may have written before it keeps quiet, and GIVE_UP_AFTER how many remarks of its own
-    # may go unanswered in a row before it stops until somebody talks to it (0 = never give up).
-    CLAUDE_INTERJECT_FROM_HOUR: int = Field(default=9, ge=0, le=23)
-    CLAUDE_INTERJECT_UNTIL_HOUR: int = Field(default=1, ge=0, le=23)
-    CLAUDE_INTERJECT_MAX_SHARE: float = Field(default=2.0, ge=0.1, le=100)
-    CLAUDE_INTERJECT_GIVE_UP_AFTER: int = Field(default=2, ge=0, le=20)
+    # When Tox may say something nobody asked for, on top of the dice and the cooldown above
+    # (services/discretion.py). The hours are read in TIMEZONE and the window runs past midnight (9 to 1 = from
+    # nine in the morning to one at night); START == END means every hour. SHARE_LIMIT is how many times the
+    # average person's messages in the chat's recent window it may have written before it keeps quiet, and
+    # PATIENCE how many remarks of its own may go unanswered in a row before it stops until somebody talks to
+    # it (0 = it never gives up).
+    CLAUDE_INTERJECT_START_HOUR: int = Field(default=9, ge=0, le=23)
+    CLAUDE_INTERJECT_END_HOUR: int = Field(default=1, ge=0, le=23)
+    CLAUDE_INTERJECT_SHARE_LIMIT: float = Field(default=2.0, ge=0.1, le=100)
+    CLAUDE_INTERJECT_PATIENCE: int = Field(default=2, ge=0, le=20)
     CLAUDE_PARALLEL: int = Field(default=2, ge=1, le=8)
     CLAUDE_QUEUE_MAX: int = Field(default=5, ge=0, le=50)
     CLAUDE_MAX_ANSWER_CHARS: int = Field(default=800, ge=100, le=3000)
