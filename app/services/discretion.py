@@ -67,7 +67,7 @@ class Moment:
 
 def within_hours(now_utc: datetime, timezone_name: str, start_hour: int, end_hour: int) -> bool:
     """Whether the clock in `timezone_name` is inside the window it talks in. The window runs past midnight when
-    `end_hour` is the smaller of the two: 9 to 1 is "from nine in the morning to one at night"."""
+    `end_hour` is the smaller of the two: 7 to 2 is "from seven in the morning to two at night"."""
     if start_hour == end_hour:
         return True  # a window of the whole day: no hour is ever the wrong hour
     hour = now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(timezone_name)).hour

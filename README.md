@@ -807,7 +807,7 @@ hourly pools so a busy group can't use up the admins' questions.
 - **When it speaks on its own** (`services/discretion.py`): besides the dice and the cooldown, a table of
   objections, each one a small function over a snapshot of the chat, walked *before* Claude is called — so a remark
   that should not happen costs nothing, and no prompt can talk any of them out of it. It keeps quiet outside
-  `CLAUDE_INTERJECT_START_HOUR`–`CLAUDE_INTERJECT_END_HOUR` (9 to 1, read in `TIMEZONE`, running past midnight
+  `CLAUDE_INTERJECT_START_HOUR`–`CLAUDE_INTERJECT_END_HOUR` (7 to 2, read in `TIMEZONE`, running past midnight
   because that is when a chat is most alive); once `CLAUDE_INTERJECT_PATIENCE` (2) of its remarks went unanswered
   in a row, until somebody talks to it again (a command, a reply to it, or its name); once it has written more than
   `CLAUDE_INTERJECT_SHARE_LIMIT` (2) times what the average person there has in the chat's recent window, which
