@@ -262,6 +262,48 @@ def test_the_switch_takes_off_and_on_as_well_as_si_and_no(send, db_session):
     assert send("!memory")[0] == "Todavía no me acuerdo de nada tuyo."
 
 
+def test_the_admins_own_questions_are_learned_from_in_a_group(client, db_session, settings, monkeypatch):
+    """A group is people talking, and an admin is one of them: their questions are how Tox gets to know THEM. What
+    they may do to the PC has nothing to do with it."""
+    monkeypatch.setattr(claude_command, "session_factory",
+                        sessionmaker(bind=db_session.get_bind(), autoflush=False, expire_on_commit=False))
+    seen = {}
+
+    def fake_execute(question, session_id, settings_, tone=None, learn=False):
+        seen["learn"] = learn
+        return claude_runner.ClaudeResult("Ahí va.\n[memoria global] Joaquín: vive en Salto", None, None)
+
+    monkeypatch.setattr(claude_runner, "execute", fake_execute)
+    members = [{"user_id": "admin1@lid", "user_name": "Joaquín"}]
+    (reply,) = raw(client, "!claude algo", user="admin1@lid", name="Joaquín", participants=members,
+                   sender_is_group_admin=True)
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        if client.get(f"/api/v1/jobs/{reply['job']}", headers=HEADERS).json()["status"] == "done":
+            break
+        time.sleep(0.02)
+    assert seen["learn"] is True  # the full-access prompt was asked for the notes too
+    everywhere, _ = person_memory.of_person(db_session, CHAT, "whatsapp:admin1@lid")
+    assert [row.text for row in everywhere] == ["vive en Salto"]
+
+
+def test_a_private_chat_is_not_a_group_and_keeps_nothing(client, db_session, settings, monkeypatch):
+    """One person driving the machine, with no group to know: there is nobody there to remember things about."""
+    monkeypatch.setattr(claude_command, "session_factory",
+                        sessionmaker(bind=db_session.get_bind(), autoflush=False, expire_on_commit=False))
+    monkeypatch.setattr(claude_runner, "execute", lambda *a, **k: claude_runner.ClaudeResult(
+        "Ahí va.\n[memoria global] Joaquín: vive en Salto", None, None))
+
+    (reply,) = raw(client, "!claude algo", user="admin1@lid", name="Joaquín", chat="admin1@lid", is_group=False,
+                   sender_is_group_admin=True)
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        if client.get(f"/api/v1/jobs/{reply['job']}", headers=HEADERS).json()["status"] == "done":
+            break
+        time.sleep(0.02)
+    assert db_session.scalars(select(PersonNote)).all() == []
+
+
 def test_the_personal_mode_is_never_learned_from(client, db_session, settings, monkeypatch):
     """There the bot writes as the owner, and the other side is one person who never asked for any of this."""
     monkeypatch.setattr(claude_command, "session_factory",

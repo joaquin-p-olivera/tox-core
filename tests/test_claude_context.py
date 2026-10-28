@@ -33,7 +33,7 @@ def fake_claude(settings, tmp_path, monkeypatch):
         seen["prompts"].append(question)
         return claude_runner.ClaudeResult(seen["answer"], None, 0.01)
 
-    monkeypatch.setattr(claude_runner, "execute", lambda question, session, settings_, tone=None: reply(question))
+    monkeypatch.setattr(claude_runner, "execute", lambda question, session, settings_, tone=None, **k: reply(question))
     monkeypatch.setattr(claude_runner, "execute_public",
                         lambda question, settings_, tone=None, learn=False: reply(question))
     return seen
@@ -272,7 +272,7 @@ def test_the_cooldown_of_this_chat_wins_over_the_general_one(client, fake_claude
 def test_a_remark_never_gets_access_to_the_pc_whoever_was_talking(client, fake_claude, always_butts_in, monkeypatch):
     """The message that gets it talking is nobody's question: an admin writing in the group must not hand it the CLI."""
     full_access = []
-    monkeypatch.setattr(claude_runner, "execute", lambda *a: full_access.append(a) or claude_runner.ClaudeResult("no", None, 0.0))
+    monkeypatch.setattr(claude_runner, "execute", lambda *a, **k: full_access.append(a) or claude_runner.ClaudeResult("no", None, 0.0))
     post(client, "!h -on", **{"user_id": "admin1@lid", "name": "Owner", "admin": True})
     save(client, 1, "u2", "Bob", "qué calor")
     (reply,) = chatter(client, "sí, terrible", user_id="admin1@lid", name="Owner", admin=True)

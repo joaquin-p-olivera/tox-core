@@ -208,10 +208,11 @@ def _parse(output: str) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
-def _admin_prompt(settings: Settings, tone: str | None = None) -> str:
+def _admin_prompt(settings: Settings, tone: str | None = None, learn: bool = False) -> str:
     prompt = SYSTEM_PROMPT.format(limit=settings.CLAUDE_MAX_ANSWER_CHARS)
     tone_text = tone_prompt(settings, tone)
-    return prompt + tone_text + ADMIN_TONE_NOTE if tone_text else prompt
+    prompt = prompt + tone_text + ADMIN_TONE_NOTE if tone_text else prompt
+    return prompt + person_memory.ASK if learn else prompt
 
 
 def tone_prompt(settings: Settings, tone: str | None = None) -> str:
@@ -226,14 +227,17 @@ tiene que ser correcta y completa aunque la digas con ese tono, y las reglas ant
 """
 
 
-def execute(question: str, session_id: str | None, settings: Settings, tone: str | None = None) -> ClaudeResult:
-    """Runs one question. Raises ClaudeError (with a chat-safe message) when it can't be answered."""
+def execute(question: str, session_id: str | None, settings: Settings, tone: str | None = None,
+            learn: bool = False) -> ClaudeResult:
+    """Runs one question. Raises ClaudeError (with a chat-safe message) when it can't be answered. `learn`: the
+    answer ends with notes about the people of the chat (services/person_memory.py), asked for here and not with
+    the question."""
     cwd = workdir(settings)
     if not cwd.is_dir():
         raise ClaudeError(f"No existe la carpeta de trabajo ({settings.CLAUDE_WORKDIR}).")
     argv = [_binary(settings), "-p", "--output-format", "json", "--permission-mode", "bypassPermissions",
             "--max-budget-usd", f"{settings.CLAUDE_MAX_BUDGET_USD:g}",
-            "--append-system-prompt", _admin_prompt(settings, tone)]
+            "--append-system-prompt", _admin_prompt(settings, tone, learn)]
     done = _run([*argv, *(["--resume", session_id] if session_id else [])], question, cwd, settings.CLAUDE_TIMEOUT_SECONDS)
     data = _parse(done.stdout)
     if session_id and (data is None or data.get("is_error")):
@@ -315,7 +319,7 @@ def start(chat_key: str, question: str, new_conversation: bool, settings: Settin
         try:
             try:
                 if full_access:
-                    result = execute(question, session_id, settings, tone)
+                    result = execute(question, session_id, settings, tone, learn=learn)
                     if result.session_id:
                         _sessions[chat_key] = result.session_id
                 else:

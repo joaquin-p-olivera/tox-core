@@ -202,10 +202,12 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
                                     question=question)
     # Decided before asking, not after: an answer that is going to be heard is asked for short and without tags
     speak = not as_text and random.random() < _setting(ctx, "CLAUDE_AUDIO_CHANCE")
-    # Read here, in the request: the answer comes back in another thread. The full-access mode never learns -- it
-    # is doing work on a machine, not chatting -- and neither does the personal mode, where the bot writes as the
-    # owner in somebody else's chat.
-    learning = not full_access and not message.personal and bool(_setting(ctx, "CLAUDE_MEMORY"))
+    # Read here, in the request: the answer comes back in another thread. What decides this is the chat, not who is
+    # asking: a group is a conversation between people, and the admins are people in it like anybody else -- their
+    # own questions are how the bot gets to know THEM. A private chat is the other thing: one person driving the
+    # machine, with no group to know. The personal mode never learns, there the bot writes as the owner in
+    # somebody else's chat.
+    learning = message.is_group and not message.personal and bool(_setting(ctx, "CLAUDE_MEMORY"))
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
 
     def done(text: str) -> None:

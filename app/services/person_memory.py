@@ -32,8 +32,10 @@ What keeps this honest:
 
 - **A note about a group stays in that group.** The chat is part of the key, and nothing said in the personal mode
   is kept at all. Only a note about the person themselves is read elsewhere, which is the point of the two kinds.
-- **Only the no-access mode learns.** The admins' full-access session is doing work on a machine, not chatting, and
-  its prompt is not asked for any of this.
+- **Only a group learns.** A group is a conversation between people, and the admins are people in it like anybody
+  else: their own questions are how Tox gets to know *them*, which is why the access level has nothing to do with
+  it. A private chat is the other thing -- one person driving the machine, with no group to know -- and nothing is
+  kept there.
 - **A name has to be somebody who is there.** Notes are resolved against the people of that chat and dropped when
   they are not about one of them, so Claude cannot invent a person to remember things about.
 - **Each person owns theirs.** `!memory` is what Tox knows about you here and `!memory forget` deletes it, with
