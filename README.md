@@ -804,6 +804,18 @@ hourly pools so a busy group can't use up the admins' questions.
   (replying to a voice note counts too, even though there is no text to quote). The same limits and modes apply; it never works
   in the personal mode, where the bot writes as the owner and a reply to it is their own chat. The WhatsApp bot only forwards the
   message when WhatsApp says the quoted one is the bot's: in a private chat it sometimes doesn't, and then the command is needed.
+- **When it speaks on its own** (`services/discretion.py`): besides the dice and the cooldown, a table of
+  objections, each one a small function over a snapshot of the chat, walked *before* Claude is called — so a remark
+  that should not happen costs nothing, and no prompt can talk any of them out of it. It keeps quiet outside
+  `CLAUDE_INTERJECT_START_HOUR`–`CLAUDE_INTERJECT_END_HOUR` (9 to 1, read in `TIMEZONE`, running past midnight
+  because that is when a chat is most alive); once `CLAUDE_INTERJECT_PATIENCE` (2) of its remarks went unanswered
+  in a row, until somebody talks to it again (a command, a reply to it, or its name); once it has written more than
+  `CLAUDE_INTERJECT_SHARE_LIMIT` (2) times what the average person there has in the chat's recent window, which
+  also keeps it out of a chat that has been asleep; while the group is talking about something heavy (a short word
+  list — a death, an illness, an accident — blunt on purpose and wrong in the cheap direction: mistaking a joke for
+  bad news costs one remark nobody would have missed); and while a trivia round is open, where the answers *are*
+  the conversation. The objection that fired is what gets logged. Where it stands with a chat is remembered in this
+  process only, like the cooldown it sits beside.
 - **`-no`: that reply was not for Tox.** Starting a reply to one of its messages with `-no` (or `--no`) answers nothing: in a group
   people reply to what the bot said to talk to *each other*, and until now every one of those got an answer nobody asked for. Nothing
   is sent, nothing is reacted to and **Claude is never called**, so it costs nothing and uses no question of the hour. It is read only
