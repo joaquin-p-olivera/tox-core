@@ -175,6 +175,44 @@ def test_memory_shows_both_kinds_apart(send, db_session):
     assert "en el otro grupo" not in shown  # another group's notes are not yours to read here
 
 
+def test_anybody_can_ask_about_anybody_in_the_chat(send, db_session):
+    """These are notes about the people of a chat, taken from what was said in front of all of them."""
+    person_memory.remember(db_session, CHAT, [note("Bob", "toca la guitarra")], PEOPLE, **LIMITS)
+    person_memory.remember(db_session, CHAT, [note("Bob", "es de Durazno", everywhere=True)], PEOPLE, **LIMITS)
+
+    shown = send("!memory Bob", participants=[{"user_id": "u1", "user_name": "Alice"},
+                                              {"user_id": "u2", "user_name": "Bob"}])[0]
+    assert shown.startswith("🧠 Lo que sé de Bob:")
+    assert "*De Bob, en cualquier chat:*" in shown and "· es de Durazno" in shown
+    assert "Solo en este chat:" in shown and "· toca la guitarra" in shown
+    assert "memory forget" not in shown  # it is not Alice's memory to wipe
+
+
+def test_a_name_is_read_generously_but_asks_when_it_is_not_sure(send, db_session):
+    """"Lean" is "Leandro 1899": somebody asking about a person in the room is not a fact being filed."""
+    members = [{"user_id": "u1", "user_name": "Alice"}, {"user_id": "u2", "user_name": "Leandro 1899"},
+               {"user_id": "u3", "user_name": "Leticia"}]
+    person_memory.remember(db_session, CHAT, [person_memory.Learned(name="Leandro 1899", text="tiene una tienda")],
+                           {"Leandro 1899": "whatsapp:u2"}, **LIMITS)
+
+    for written in ("Leandro", "lean", "LEANDRO 1899"):
+        assert "· tiene una tienda" in send(f"!memory {written}", participants=members)[0], written
+    assert send("!memory le", participants=members)[0] == "¿Cuál de todos? Puede ser Leandro 1899, Leticia."
+    assert "No conozco a nadie así" in send("!memory Pedro", participants=members)[0]
+
+
+def test_asking_about_somebody_the_bot_knows_nothing_of(send, db_session):
+    members = [{"user_id": "u1", "user_name": "Alice"}, {"user_id": "u2", "user_name": "Bob"}]
+    assert send("!memory Bob", participants=members)[0] == "Todavía no me acuerdo de nada de Bob."
+    assert send("!memory")[0] == "Todavía no me acuerdo de nada tuyo."
+
+
+def test_a_mention_is_who_is_being_asked_about(send, db_session):
+    person_memory.remember(db_session, CHAT, [note("Bob", "toca la guitarra")], PEOPLE, **LIMITS)
+    shown = send("!memory @u2", mentioned=[{"user_id": "u2", "user_name": "Bob"}])[0]
+    assert shown.startswith("🧠 Lo que sé de Bob:") and "· toca la guitarra" in shown
+
+
 def test_forgetting_is_held_with_the_admins_for_now(send, db_session):
     """Reading your own notes is the point of the command; wiping them is held back while the feature is new."""
     person_memory.remember(db_session, CHAT, [note("Alice", "le dicen Ali")], PEOPLE, **LIMITS)

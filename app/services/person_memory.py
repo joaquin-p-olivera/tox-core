@@ -176,6 +176,25 @@ def _same_note(one: str, other: str) -> bool:
     return _plain(one) == _plain(other)
 
 
+def whos_meant(written: str, people: dict[str, str]) -> tuple[str | None, list[str]]:
+    """Which member somebody typed the name of: (their user_key, the names it could have been).
+
+    Read generously, because this is a person asking about somebody in the room and not a fact being filed: "Lean"
+    and "leandro" are both "Leandro 1899". Exact first, then word for word, then the beginning of a name -- and when
+    more than one person answers to it, nobody is returned and the names are, so the chat can be asked which one."""
+    key, _ = _resolve(written, people)
+    if key is not None:
+        return key, []
+    start = _plain(written).strip()
+    if not start:
+        return None, []
+    matches = {name: user_key for name, user_key in people.items()
+               if any(word.startswith(start) for word in _words(name)) or _plain(name).startswith(start)}
+    if len({*matches.values()}) == 1:
+        return next(iter(matches.values())), []
+    return None, sorted(matches)
+
+
 def remember(db: Session, chat_key: str, learned: list[Learned], people: dict[str, str],
              *, max_notes: int, max_chars: int) -> int:
     """Stores what an answer learned. `people` maps a name, as Claude wrote it, to that person's user_key; a name
