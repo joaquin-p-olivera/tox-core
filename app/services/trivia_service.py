@@ -21,6 +21,7 @@ from ..models import PendingAlert, Score, TriviaAttempt, TriviaRound
 from ..models.trivia_round import STATUS_EXPIRED, STATUS_OPEN, STATUS_WON
 from ..schemas import IncomingMessage
 from ..utils import utcnow
+from . import flags
 from .content import load_json
 
 LETTERS = "ABCD"
@@ -42,6 +43,7 @@ class Question:
 
 # Category keys are typed by users, so they're plain lowercase; labels are what the chat sees.
 CATEGORY_LABELS = {
+    "banderas": "Banderas",
     "geografia": "Geografía",
     "ciencia": "Ciencia",
     "historia": "Historia",
@@ -53,7 +55,17 @@ CATEGORY_LABELS = {
 
 
 def categories() -> list[str]:
-    return sorted({q["category"] for q in load_json("trivia_questions.json")})
+    """Every category that can be asked for, the written ones and the flags, which are made up as they are asked."""
+    return sorted({q["category"] for q in load_json("trivia_questions.json")} | {flags.CATEGORY})
+
+
+def _pool(category: str | None) -> list[dict]:
+    """What a round may be drawn from. A flag is a seed rather than a question: it is written out once the round
+    exists (see `_build_question`), because the wrong answers are drawn with the round id."""
+    if category == flags.CATEGORY:
+        return flags.seeds()
+    written = [q for q in load_json("trivia_questions.json") if not category or q["category"] == category]
+    return written + (flags.seeds() if category is None else [])
 
 
 def normalize_category(value: str) -> str:
@@ -63,6 +75,8 @@ def normalize_category(value: str) -> str:
 
 
 def _build_question(raw: dict, round_id: int) -> Question:
+    if flags.is_flag(raw["id"]):
+        raw = flags.question(raw["id"], round_id)
     # Shuffle per round (seeded by the round id) so the correct letter isn't predictable,
     # while staying reproducible without storing the order.
     order = list(range(len(raw["choices"])))
@@ -77,6 +91,8 @@ def _build_question(raw: dict, round_id: int) -> Question:
 
 
 def _question_for_round(rnd: TriviaRound) -> Question:
+    if flags.is_flag(rnd.question_id):
+        return _build_question({"id": rnd.question_id}, rnd.id)
     raw = next(q for q in load_json("trivia_questions.json") if q["id"] == rnd.question_id)
     return _build_question(raw, rnd.id)
 
@@ -145,7 +161,7 @@ def _ask(db: Session, chat_key: str, settings: Settings, category: str | None = 
         .order_by(TriviaRound.id.desc())
         .limit(RECENT_QUESTIONS_TO_AVOID)
     ))
-    pool = [q for q in load_json("trivia_questions.json") if not category or q["category"] == category]
+    pool = _pool(category)
     fresh = [q for q in pool if q["id"] not in recent] or pool  # tiny pool: allow repeats
     raw = random.choice(fresh)
 

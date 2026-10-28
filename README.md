@@ -140,6 +140,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `vi`                                   | `gta6`                     | A card with how long is left until Grand Theft Auto VI, over a random picture of the game (see below); the same one the countdown sends on its own |
 | `trivia [categoría]`                   | `preguntas`                | Starts a multiplayer trivia question                      |
 | `responder <A-D>`                      | `a`, `b`, `c`, `d`         | Answers the open question (a plain `b`, no prefix, works) |
+| `banderas`                             | `bandera`                  | Flags round of the trivia: which country is this flag? |
 | `ranking`                              | `top`, `puntajes`          | Per-chat trivia leaderboard                               |
 | `uuid`                                 |                            | Random UUID v4                                            |
 | `base64 codificar\|decodificar <texto>` | `b64`                      | Base64 helper                                             |
@@ -310,8 +311,13 @@ for it. Both answer with a ⏳ and send the file when it is there (the job syste
 
 One open question per chat; everybody in the chat competes.
 
-- `!trivia` posts a question with options A–D (144 questions). Optional category: `geografia`, `ciencia`, `historia`,
-  `cultura`, `deportes`, `uruguay`, `juegos` (accents and case don't matter).
+- `!trivia` posts a question with options A–D (144 written questions). Optional category: `geografia`, `ciencia`,
+  `historia`, `cultura`, `deportes`, `uruguay`, `juegos`, `banderas` (accents and case don't matter).
+- **`!banderas`** asks which country a flag belongs to. These questions are not written down: they are made out of
+  `flags.json` (a country, its continent), and the flag is not stored either — a flag emoji *is* its ISO code
+  written with the two regional indicator letters, so there is no picture to ship or lose. The three wrong answers
+  come from the same continent whenever there are enough of them, which is what makes it hard; they are drawn with
+  the round id as the seed, so a round always shows the same question with nothing but that id stored.
 - Each player gets **one attempt** per question. A plain `a`, `b`, `c` or `d` with **no prefix** answers while a
   question is open — typed on its own or as a reply to the bot's question — and `!a`…`!d` still work. Outside a
   round a letter is just a letter, and the personal mode never reads one as an answer.

@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `!banderas` (alias `bandera`), a flags round of the trivia: which country a flag belongs to. It is a category of the trivia and not a game of its own, so it already answers to a bare letter, chains into the next question and pays into the same per-chat ranking. The questions are not written down -- they are made out of `app/data/flags.json`, one line per country with its continent -- and the flag is not stored either: a flag emoji *is* its ISO code written with the two regional indicator letters, so there is no picture to ship, resize or lose. The three wrong answers are drawn from the same continent whenever there are enough of them, which is what makes it hard (picking Uruguay out of Uruguay, Japan, Kenya and Norway is no question at all), and they are drawn with the round id as the seed, so a round always shows the same question with nothing but that id stored. `!trivia banderas` asks for it by name.
+
 ## [1.0.0] - 27 Oct 2026
 
 ### Changed
