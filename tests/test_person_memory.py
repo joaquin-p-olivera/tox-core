@@ -162,7 +162,7 @@ def test_each_kind_has_its_own_ceiling(db_session):
 
 # --- what the chat can do about it ---
 
-def test_memory_shows_both_kinds_and_forgets_everywhere(send, db_session):
+def test_memory_shows_both_kinds_apart(send, db_session):
     assert send("!memory")[0] == "Todavía no me acuerdo de nada tuyo."
     person_memory.remember(db_session, CHAT, [note("Alice", "le dicen Ali")], PEOPLE, **LIMITS)
     person_memory.remember(db_session, CHAT, [note("Alice", "es de Peñarol", everywhere=True)], PEOPLE, **LIMITS)
@@ -174,8 +174,24 @@ def test_memory_shows_both_kinds_and_forgets_everywhere(send, db_session):
     assert "Solo en este chat:" in shown and "· le dicen Ali" in shown
     assert "en el otro grupo" not in shown  # another group's notes are not yours to read here
 
-    assert send("!memory forget")[0] == "🧽 Listo, me olvidé de 3 cosas tuyas, en todos los chats."
-    assert send("!memory")[0] == "Todavía no me acuerdo de nada tuyo."
+
+def test_forgetting_is_held_with_the_admins_for_now(send, db_session):
+    """Reading your own notes is the point of the command; wiping them is held back while the feature is new."""
+    person_memory.remember(db_session, CHAT, [note("Alice", "le dicen Ali")], PEOPLE, **LIMITS)
+
+    turned_down = send("!memory forget")[0]
+    assert "solo para los admins" in turned_down
+    assert db_session.scalars(select(PersonNote)).first() is not None  # nothing was deleted
+    assert "memory forget" not in send("!memory")[0]  # nor is it offered to somebody who would be turned down
+
+    # An admin forgets their own, and is the only one offered it
+    admin = {"user": "admin1@lid", "name": "Joaquín", "sender_is_group_admin": True}
+    person_memory.remember(db_session, CHAT, [note("Joaquín", "algo suyo")],
+                           {"Joaquín": "whatsapp:admin1@lid"}, **LIMITS)
+    assert "memory forget" in send("!memory", **admin)[0]
+    assert send("!memory forget", **admin)[0] == "🧽 Listo, me olvidé de 1 cosa tuya, en todos los chats."
+    # ...and only their own: Alice's note is still there
+    assert [row.user_key for row in db_session.scalars(select(PersonNote))] == ["whatsapp:u1"]
 
 
 def test_a_chat_can_turn_it_off(send, db_session):

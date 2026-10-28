@@ -1,4 +1,10 @@
-"""`!memory`: what Tox picked up about you in this chat, and `!memory forget` to make it forget."""
+"""`!memory`: what Tox picked up about you in this chat, and `!memory forget` to make it forget.
+
+`forget` is for the admins for now. Anybody reading their own notes is the point of the command, but wiping them is
+held back while the feature is new: what it learns is still being watched, and a note that disappears cannot be
+looked at to see why it was kept. It is a restriction on a promise, not a change of mind about it -- see the
+module docstring of services/person_memory.py.
+"""
 
 from ..services import chat_config, person_memory
 from .registry import CommandContext, command
@@ -11,13 +17,16 @@ FORGET = ("forget", "forgetme", "forget-me")
 @command(
     "memory",
     description="Qué cosas tuyas se acuerda Tox en este chat",
-    usage="memory   (forget: borra todo lo tuyo)",
+    usage="memory   (forget: borra todo lo tuyo, solo admins)",
     category=CATEGORY,
 )
 def memory(ctx: CommandContext) -> str:
     message = ctx.message
     asked = ctx.raw_args.strip().lstrip("-").lower()
     if asked in FORGET:
+        if not ctx.is_admin:
+            return ("Por ahora borrar la memoria es solo para los admins, mientras la feature es nueva. "
+                    "Con *!memory* ves todo lo que sé de vos, y si querés que me olvide de algo, pedíselo a un admin.")
         # Everywhere, not just here: asking to be forgotten means forgotten.
         gone = person_memory.forget(ctx.db, message.user_key)
         if not gone:
@@ -35,5 +44,6 @@ def memory(ctx: CommandContext) -> str:
         blocks.append("*De vos, en cualquier chat:*\n" + "\n".join(f"· {note.text}" for note in everywhere))
     if here:
         blocks.append("*Solo en este chat:*\n" + "\n".join(f"· {note.text}" for note in here))
-    blocks.append(f"Si querés que me olvide de todo: {ctx.prefix}memory forget")
+    if ctx.is_admin:  # not offered to somebody who would be turned down
+        blocks.append(f"Si querés que me olvide de todo: {ctx.prefix}memory forget")
     return "\n\n".join(blocks)

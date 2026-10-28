@@ -41,8 +41,11 @@ What keeps this honest:
   in one direction only: "Leandro" is the member WhatsApp calls "Leandro 1899", because that is what the model
   reads in the conversation -- but never when two members could be meant, since a fact filed under the wrong
   person is worse than one that was dropped.
-- **Each person owns theirs.** `!memory` is what Tox knows about you here and `!memory forget` deletes it, with
-  no admin needed: that is the only reason a bot is allowed to keep notes about people at all.
+- **Each person reads theirs.** `!memory` is what Tox knows about you here, for anybody who asks. Deleting it
+  (`!memory forget`) is held with the admins while the feature is new -- what it learns is still being watched, and
+  a note that is gone cannot be looked at to see why it was kept. This is the part to give back first: a bot that
+  keeps notes about people and will not let them be deleted by the person they are about is relying on the owner's
+  good manners, which is not the same as a rule.
 - A chat can turn it off entirely (`!config memory off`), and then nothing is stored or read there.
 
 Notes are read back into the prompt as what they are: data that came out of a conversation, in the untrusted block
