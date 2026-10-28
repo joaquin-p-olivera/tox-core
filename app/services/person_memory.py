@@ -1,4 +1,4 @@
-"""What Tox picks up about the people of a chat while it talks to them (`person_notes`, `!memoria`).
+"""What Tox picks up about the people of a chat while it talks to them (`person_notes`, `!memory`).
 
 Until now everything it knew about anybody was written by the owner by hand in `CHATS_FILE`. This is the other
 half: the small things that come up in a conversation -- what somebody does, what they are into, an inside joke --
@@ -21,9 +21,9 @@ What keeps this honest:
   its prompt is not asked for any of this.
 - **A name has to be somebody who is there.** Notes are resolved against the people of that chat and dropped when
   they are not about one of them, so Claude cannot invent a person to remember things about.
-- **Each person owns theirs.** `!memoria` is what Tox knows about you here and `!memoria olvidame` deletes it, with
+- **Each person owns theirs.** `!memory` is what Tox knows about you here and `!memory forget` deletes it, with
   no admin needed: that is the only reason a bot is allowed to keep notes about people at all.
-- A chat can turn it off entirely (`!config memoria no`), and then nothing is stored or read there.
+- A chat can turn it off entirely (`!config memory off`), and then nothing is stored or read there.
 
 Notes are read back into the prompt as what they are: data that came out of a conversation, in the untrusted block
 with the rest of it, never in the owner's own description of the chat.

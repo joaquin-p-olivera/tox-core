@@ -40,7 +40,7 @@ OPTIONS: tuple[Option, ...] = (
     Option("espera", "CLAUDE_INTERJECT_COOLDOWN_MINUTES", "cuánto se calla después de hablar", "number", "min"),
     Option("perfiles", "CLAUDE_PROFILE_PEOPLE_CHANCE", "cada cuánto sabe quién es cada uno", "chance"),
     Option("respuestas", "CLAUDE_ON_REPLY", "contesta si le respondés un mensaje", "yesno"),
-    Option("memoria", "CLAUDE_MEMORY", "se acuerda de cosas de cada uno", "yesno"),
+    Option("memory", "CLAUDE_MEMORY", "se acuerda de cosas de cada uno", "yesno"),
     Option("audio", "CLAUDE_AUDIO_CHANCE", "cada cuánto contesta con audio", "chance"),
     Option("contexto", "CLAUDE_CONTEXT_MESSAGES", "cuántos mensajes de la charla lee", "number", "mensajes"),
     Option("horas", "CLAUDE_CONTEXT_HOURS", "de cuántas horas atrás los lee", "number", "h"),
@@ -62,8 +62,8 @@ def _shown(option: Option, value) -> str:
 
 
 def _typed(option: Option, raw: str) -> str:
-    """What was typed, as chat_config can read it: a percentage is a share, and sí/no are booleans. Anything else is
-    handed over as it came and the setting's own rules decide."""
+    """What was typed, as chat_config can read it: a percentage is a share, and sí/no (or on/off) are booleans.
+    Anything else is handed over as it came and the setting's own rules decide."""
     raw = raw.strip()
     if option.kind == "chance" and raw.endswith("%"):
         try:
@@ -75,7 +75,8 @@ def _typed(option: Option, raw: str) -> str:
     if option.kind == "choice":
         return raw.lower()
     if option.kind == "yesno":
-        return {"sí": "true", "si": "true", "no": "false"}.get(raw.lower(), raw)
+        return {"sí": "true", "si": "true", "on": "true",
+                "no": "false", "off": "false"}.get(raw.lower(), raw)
     return raw.replace(",", ".") if option.kind == "chance" else raw
 
 

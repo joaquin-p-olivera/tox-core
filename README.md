@@ -121,7 +121,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | Command                                | Aliases                    | Description                                               |
 | -------------------------------------- | -------------------------- | --------------------------------------------------------- |
 | `ayuda [comando]`                      | `help`, `comandos`         | Lists commands or explains one                            |
-| `memoria`                              |                            | What Tox remembers about you in this chat (`olvidame` forgets it all) |
+| `memory`                               |                            | What Tox remembers about you in this chat (`olvidame` forgets it all) |
 | `novedades`                            | `cambios`                  | What was last added to Tox (`-probar`, admins: what is about to be announced) |
 | `id`                                   |                            | Shows the platform/chat/user IDs and your role            |
 | `mute`                                 |                            | Toggle: stop (or resume) being tagged by the bot in this chat |
@@ -141,6 +141,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `vi`                                   | `gta6`                     | A card with how long is left until Grand Theft Auto VI, over a random picture of the game (see below); the same one the countdown sends on its own |
 | `trivia [categoría]`                   | `preguntas`                | Starts a multiplayer trivia question                      |
 | `responder <A-D>`                      | `a`, `b`, `c`, `d`         | Answers the open question (a plain `b`, no prefix, works) |
+| `banderas`                             | `bandera`                  | Flags round of the trivia: which country is this flag? |
 | `ranking`                              | `top`, `puntajes`          | Per-chat trivia leaderboard                               |
 | `uuid`                                 |                            | Random UUID v4                                            |
 | `base64 codificar\|decodificar <texto>` | `b64`                      | Base64 helper                                             |
@@ -311,8 +312,13 @@ for it. Both answer with a ⏳ and send the file when it is there (the job syste
 
 One open question per chat; everybody in the chat competes.
 
-- `!trivia` posts a question with options A–D (144 questions). Optional category: `geografia`, `ciencia`, `historia`,
-  `cultura`, `deportes`, `uruguay`, `juegos` (accents and case don't matter).
+- `!trivia` posts a question with options A–D (144 written questions). Optional category: `geografia`, `ciencia`,
+  `historia`, `cultura`, `deportes`, `uruguay`, `juegos`, `banderas` (accents and case don't matter).
+- **`!banderas`** asks which country a flag belongs to. These questions are not written down: they are made out of
+  `flags.json` (a country, its continent), and the flag is not stored either — a flag emoji *is* its ISO code
+  written with the two regional indicator letters, so there is no picture to ship or lose. The three wrong answers
+  come from the same continent whenever there are enough of them, which is what makes it hard; they are drawn with
+  the round id as the seed, so a round always shows the same question with nothing but that id stored.
 - Each player gets **one attempt** per question. A plain `a`, `b`, `c` or `d` with **no prefix** answers while a
   question is open — typed on its own or as a reply to the bot's question — and `!a`…`!d` still work. Outside a
   round a letter is just a letter, and the personal mode never reads one as an answer.
@@ -321,6 +327,9 @@ One open question per chat; everybody in the chat competes.
   next poll for pending alerts (`trivia_service.queue_due`, like reminders), so nobody has to type for it.
 - **The round that ends starts the next one**, whether somebody won or the time ran out — as long as at least one
   person answered. A question nobody answered ends the streak, so a chat that moved on is left alone.
+- **A streak keeps the category it was asked for** (`trivia_chains`): `!trivia ciencia` or `!banderas` is asking
+  the *chat* to play that, so the rounds that follow on their own stay in it until the streak ends. A plain
+  `!trivia` asks for anything again.
 - Answer positions are shuffled per round; recently asked questions aren't repeated.
 - Claiming a round is an atomic `UPDATE`, so two simultaneous correct answers can't both win.
 
@@ -796,7 +805,19 @@ hourly pools so a busy group can't use up the admins' questions.
   (replying to a voice note counts too, even though there is no text to quote). The same limits and modes apply; it never works
   in the personal mode, where the bot writes as the owner and a reply to it is their own chat. The WhatsApp bot only forwards the
   message when WhatsApp says the quoted one is the bot's: in a private chat it sometimes doesn't, and then the command is needed.
-- **What it remembers about each person** (`services/person_memory.py`, `person_notes`, `!memoria`): the small
+- **When it speaks on its own** (`services/discretion.py`): besides the dice and the cooldown, a table of
+  objections, each one a small function over a snapshot of the chat, walked *before* Claude is called — so a remark
+  that should not happen costs nothing, and no prompt can talk any of them out of it. It keeps quiet outside
+  `CLAUDE_INTERJECT_START_HOUR`–`CLAUDE_INTERJECT_END_HOUR` (7 to 2, read in `TIMEZONE`, running past midnight
+  because that is when a chat is most alive); once `CLAUDE_INTERJECT_PATIENCE` (2) of its remarks went unanswered
+  in a row, until somebody talks to it again (a command, a reply to it, or its name); once it has written more than
+  `CLAUDE_INTERJECT_SHARE_LIMIT` (2) times what the average person there has in the chat's recent window, which
+  also keeps it out of a chat that has been asleep; while the group is talking about something heavy (a short word
+  list — a death, an illness, an accident — blunt on purpose and wrong in the cheap direction: mistaking a joke for
+  bad news costs one remark nobody would have missed); and while a trivia round is open, where the answers *are*
+  the conversation. The objection that fired is what gets logged. Where it stands with a chat is remembered in this
+  process only, like the cooldown it sits beside.
+- **What it remembers about each person** (`services/person_memory.py`, `person_notes`, `!memory`): the small
   things that come up while talking -- what somebody does, what they are into, an inside joke -- kept without
   anybody writing them down. **No extra question is asked for it**: the answer Claude is already giving may end
   with `[memoria] Nombre: dato` lines, which are taken off before the chat sees a word of it and stored. The
@@ -805,9 +826,9 @@ hourly pools so a busy group can't use up the admins' questions.
   A note belongs to **one chat** — the chat is part of the key, so nothing crosses between groups and nothing said
   in the personal mode is kept; only the **no-access mode** learns, since the admins' session is doing work on a
   machine, not chatting; a name has to be **somebody who is there** or the note is dropped, so Claude cannot invent
-  a person to remember things about; and **each person owns theirs** (`!memoria`, `!memoria olvidame`, no admin
+  a person to remember things about; and **each person owns theirs** (`!memory`, `!memory forget`, no admin
   needed), which is the only reason a bot is allowed to keep notes about people at all. A chat turns it off with
-  `!config memoria no`; `CLAUDE_MEMORY_MAX_NOTES` (20) and `CLAUDE_MEMORY_MAX_CHARS` (120) bound it, and the notes
+  `!config memory off`; `CLAUDE_MEMORY_MAX_NOTES` (20) and `CLAUDE_MEMORY_MAX_CHARS` (120) bound it, and the notes
   that never came up again are the first to go. They are read back as what they are: data that came out of a
   conversation, in the untrusted block, never in the owner's own description of the chat.
 - **`-no`: that reply was not for Tox.** Starting a reply to one of its messages with `-no` (or `--no`) answers nothing: in a group

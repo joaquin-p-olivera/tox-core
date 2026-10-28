@@ -12,7 +12,7 @@ class PersonNote(Base):
 
     The chat is part of the key, not a detail of it: what somebody says in one group stays in that group, so a note
     learned in one chat is never read in another and nothing said in a private chat is kept at all. Each person can
-    read their own notes and have them forgotten (`!memoria`), which is the only reason this is allowed to exist."""
+    read their own notes and have them forgotten (`!memory`), which is the only reason this is allowed to exist."""
 
     __tablename__ = "person_notes"
     __table_args__ = (Index("ix_person_notes_chat_user", "chat_key", "user_key"),)

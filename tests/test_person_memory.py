@@ -82,20 +82,20 @@ def test_notes_stay_in_the_chat_they_were_learned_in(db_session):
 
 # --- what the chat can do about it ---
 
-def test_memoria_shows_yours_and_forgets_it(send, db_session):
-    assert send("!memoria")[0] == "Todavía no me acuerdo de nada tuyo en este chat."
+def test_memory_shows_yours_and_forgets_it(send, db_session):
+    assert send("!memory")[0] == "Todavía no me acuerdo de nada tuyo en este chat."
     person_memory.remember(db_session, CHAT, [("Alice", "es de Peñarol")], PEOPLE, **LIMITS)
 
-    shown = send("!memoria")[0]
+    shown = send("!memory")[0]
     assert "Lo que sé de Alice" in shown and "· es de Peñarol" in shown
-    assert send("!memoria olvidame")[0].startswith("🧽 Listo, me olvidé de 1 cosa")
-    assert send("!memoria")[0] == "Todavía no me acuerdo de nada tuyo en este chat."
+    assert send("!memory forget")[0].startswith("🧽 Listo, me olvidé de 1 cosa")
+    assert send("!memory")[0] == "Todavía no me acuerdo de nada tuyo en este chat."
 
 
 def test_a_chat_can_turn_it_off(send, db_session):
     person_memory.remember(db_session, CHAT, [("Alice", "algo")], PEOPLE, **LIMITS)
-    assert send("!config memoria no", user="admin1@lid", sender_is_group_admin=True)
-    assert send("!memoria")[0].startswith("En este chat tengo la memoria apagada")
+    assert send("!config memory off", user="admin1@lid", sender_is_group_admin=True)
+    assert send("!memory")[0].startswith("En este chat tengo la memoria apagada")
 
 
 # --- end to end: what the chat sees and what is kept ---
@@ -137,3 +137,12 @@ def test_the_prompt_carries_what_is_known_and_asks_for_more(db_session, settings
 def no_real_cli(monkeypatch):
     monkeypatch.setattr(claude_runner, "execute",
                         lambda *a, **k: claude_runner.ClaudeResult("ok", None, None))
+
+
+def test_the_switch_takes_off_and_on_as_well_as_si_and_no(send, db_session):
+    """`!config memory off` is the way it is written; sí/no still work, like every other yes/no setting."""
+    admin = {"user": "admin1@lid", "sender_is_group_admin": True}
+    assert "no" in send("!config memory off", **admin)[0].lower()
+    assert send("!memory")[0].startswith("En este chat tengo la memoria apagada")
+    send("!config memory on", **admin)
+    assert send("!memory")[0] == "Todavía no me acuerdo de nada tuyo en este chat."

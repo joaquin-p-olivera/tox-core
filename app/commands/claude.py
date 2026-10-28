@@ -8,8 +8,8 @@ from sqlalchemy import select
 from ..database import SessionLocal
 from ..models import ClaudeQuery
 from ..schemas import Reply
-from ..services import (chat_config, chat_sources, claude_context, claude_runner, jobs, media_cache,
-                        person_memory, tts_generator)
+from ..services import (chat_config, chat_sources, claude_context, claude_runner, discretion, jobs,
+                        media_cache, person_memory, trivia_service, tts_generator)
 from ..utils import utcnow
 from .flags import normalize_flag
 from .registry import CommandContext, command
@@ -233,6 +233,25 @@ SIGNATURE = "\n> Tox"  # marks a remark nobody asked for, so it is never taken f
 _spoke_in: dict[str, datetime] = {}  # chat_key -> when Claude last said something there, asked or not
 
 
+def _keeping_it_to_itself(ctx: CommandContext, context: claude_context.Context) -> str | None:
+    """Why Tox should keep this remark to itself (services/discretion.py), or None when it may speak. Read off the
+    conversation that was gathered anyway, and before Claude is called: a remark that should not happen costs
+    nothing but this."""
+    settings, message = ctx.settings, ctx.message
+    return discretion.objection(discretion.Moment(
+        chat_key=message.chat_key,
+        now_utc=utcnow(),
+        timezone_name=settings.TIMEZONE,
+        start_hour=settings.CLAUDE_INTERJECT_START_HOUR,
+        end_hour=settings.CLAUDE_INTERJECT_END_HOUR,
+        patience=settings.CLAUDE_INTERJECT_PATIENCE,
+        share_limit=settings.CLAUDE_INTERJECT_SHARE_LIMIT,
+        bot_id=claude_context.BOT_ID,
+        recent=context.recent,
+        game_open=trivia_service.round_is_open(ctx.db, message.chat_key),
+    ))
+
+
 def interject(ctx: CommandContext) -> Reply | None:
     """A remark nobody asked for, on the message that happened to get Claude talking: it reads the conversation of the
     group and sends one message of its own. Always text (never a voice note) and always the no-access mode, whoever
@@ -254,6 +273,10 @@ def interject(ctx: CommandContext) -> Reply | None:
                                     with_profile_people=_knows_who_everybody_is(ctx))
     if context.history_key is None or not context.transcript:
         return None  # the history of this chat is off: there is nothing to read, and nobody asked to be read
+    quiet = _keeping_it_to_itself(ctx, context)
+    if quiet is not None:
+        logger.info("CLAUDE not butting in on %s: %s", message.chat_key, quiet)
+        return None
     learning = bool(_setting(ctx, "CLAUDE_MEMORY"))
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
 
@@ -275,5 +298,6 @@ def interject(ctx: CommandContext) -> Reply | None:
     ctx.db.add(ClaudeQuery(user_key=user_key, chat_key=message.chat_key))
     ctx.db.commit()
     _spoke_in[message.chat_key] = utcnow()
+    discretion.spoke_up(message.chat_key, utcnow())  # whether it was worth saying is decided by what follows
     logger.info("CLAUDE butting in on %s, after a message of %s", message.chat_key, message.user_key)
     return Reply(job=job_id)  # no reaction: the message it answers is not a command, and nobody is waiting

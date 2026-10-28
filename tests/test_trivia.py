@@ -3,7 +3,7 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import select
 
-from app.models import Score, TriviaRound
+from app.models import Score, TriviaChain, TriviaRound
 from app.services import trivia_service
 from app.utils import utcnow
 
@@ -207,6 +207,45 @@ def test_an_expired_round_answered_late_carries_the_streak_on(send, db_session):
     replies = send(f"!{correct_letter(db_session)}", user="u2", name="Bob")
     assert replies[0].startswith("⏰ ¡Se acabó el tiempo!") and replies[1].startswith("🧠 TRIVIA")
     assert current_round(db_session).id != expired.id
+
+
+def test_a_streak_asked_for_in_one_category_stays_in_it(send, db_session):
+    """Asking for a category is asking the chat to play it: the rounds that follow on their own keep it."""
+    send("!trivia ciencia")
+    assert db_session.get(TriviaChain, "whatsapp:g1").category == "ciencia"
+    next_question = send(correct_letter(db_session))[1]
+    assert "TRIVIA · Ciencia" in next_question
+
+
+def test_the_streak_of_a_timeout_keeps_the_category_too(send, db_session, client):
+    send("!banderas")
+    send(wrong_letter(db_session))  # somebody played, so the streak goes on
+    current_round(db_session).expires_at = utcnow() - timedelta(seconds=1)
+    db_session.commit()
+
+    alerts = client.get("/api/v1/alerts/pending", params={"platform": "whatsapp"},
+                        headers={"X-API-Key": "test-key"}).json()
+    assert "TRIVIA · Banderas" in alerts[1]["text"]
+
+
+def test_a_streak_nobody_answered_takes_its_category_with_it(send, db_session, client):
+    send("!banderas")
+    current_round(db_session).expires_at = utcnow() - timedelta(seconds=1)
+    db_session.commit()
+
+    client.get("/api/v1/alerts/pending", params={"platform": "whatsapp"}, headers={"X-API-Key": "test-key"})
+    assert db_session.get(TriviaChain, "whatsapp:g1") is None
+
+
+def test_trivia_with_no_category_asks_for_anything_again(send, db_session):
+    """A chat that was playing one category and types plain `!trivia` is asking for anything again."""
+    send("!trivia ciencia")
+    assert db_session.get(TriviaChain, "whatsapp:g1").category == "ciencia"
+    current_round(db_session).expires_at = utcnow() - timedelta(seconds=1)
+    db_session.commit()
+
+    send("!trivia")  # reveals the one that ran out and starts a streak of its own
+    assert db_session.get(TriviaChain, "whatsapp:g1") is None
 
 
 def test_category_filter(send, db_session):

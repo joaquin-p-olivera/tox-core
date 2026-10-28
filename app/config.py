@@ -70,8 +70,18 @@ class Settings(BaseSettings):
     # "tranqui" (playful and joking, but it teases nobody) or "normal" (just friendly, no tone added at all). The
     # spicy ones keep a few hard limits (see TONE_PROMPTS). A chat may be given its own with !config.
     CLAUDE_TONE: Literal["normal", "tranqui", "picante", "salado"] = "salado"
+    # When Tox may say something nobody asked for, on top of the dice and the cooldown above
+    # (services/discretion.py). The hours are read in TIMEZONE and the window runs past midnight (7 to 2 = from
+    # seven in the morning to two at night); START == END means every hour. SHARE_LIMIT is how many times the
+    # average person's messages in the chat's recent window it may have written before it keeps quiet, and
+    # PATIENCE how many remarks of its own may go unanswered in a row before it stops until somebody talks to
+    # it (0 = it never gives up).
+    CLAUDE_INTERJECT_START_HOUR: int = Field(default=7, ge=0, le=23)
+    CLAUDE_INTERJECT_END_HOUR: int = Field(default=2, ge=0, le=23)
+    CLAUDE_INTERJECT_SHARE_LIMIT: float = Field(default=2.0, ge=0.1, le=100)
+    CLAUDE_INTERJECT_PATIENCE: int = Field(default=2, ge=0, le=20)
     # What Tox remembers about the people of a chat from talking to them (services/person_memory.py): off turns it
-    # off everywhere (and a chat can turn it off for itself with !config memoria no), MAX_NOTES is how many it keeps
+    # off everywhere (and a chat can turn it off for itself with !config memory off), MAX_NOTES is how many it keeps
     # per person per chat before the least confirmed ones go, MAX_CHARS how long each note may be.
     CLAUDE_MEMORY: bool = True
     CLAUDE_MEMORY_MAX_NOTES: int = Field(default=20, ge=1, le=200)

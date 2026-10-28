@@ -1,16 +1,17 @@
-"""`!memoria`: what Tox picked up about you in this chat, and `!memoria olvidame` to make it forget."""
+"""`!memory`: what Tox picked up about you in this chat, and `!memory forget` to make it forget."""
 
 from ..services import chat_config, person_memory
 from .registry import CommandContext, command
 
 CATEGORY = "General"
-FORGET = ("olvidame", "olvidate", "borrar", "borra", "borrame")
+# The word is English like the command, and a couple of ways of saying it are taken all the same.
+FORGET = ("forget", "forgetme", "forget-me")
 
 
 @command(
-    "memoria",
+    "memory",
     description="Qué cosas tuyas se acuerda Tox en este chat",
-    usage="memoria   (olvidame: borra todo lo tuyo)",
+    usage="memory   (forget: borra todo lo tuyo)",
     category=CATEGORY,
 )
 def memory(ctx: CommandContext) -> str:
@@ -29,4 +30,4 @@ def memory(ctx: CommandContext) -> str:
         return "Todavía no me acuerdo de nada tuyo en este chat."
     lines = "\n".join(f"· {note.text}" for note in notes)
     return (f"🧠 Lo que sé de {message.display_name} en este chat:\n{lines}\n\n"
-            f"Si querés que me olvide: {ctx.prefix}memoria olvidame")
+            f"Si querés que me olvide: {ctx.prefix}memory forget")
