@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     CLAUDE_INTERJECT_END_HOUR: int = Field(default=2, ge=0, le=23)
     CLAUDE_INTERJECT_SHARE_LIMIT: float = Field(default=2.0, ge=0.1, le=100)
     CLAUDE_INTERJECT_PATIENCE: int = Field(default=2, ge=0, le=20)
+    # What Tox remembers about the people of a chat from talking to them (services/person_memory.py): off turns it
+    # off everywhere (and a chat can turn it off for itself with !config memory off), MAX_NOTES is how many it keeps
+    # per person per chat before the least confirmed ones go, MAX_CHARS how long each note may be.
+    CLAUDE_MEMORY: bool = True
+    CLAUDE_MEMORY_MAX_NOTES: int = Field(default=20, ge=1, le=200)
+    CLAUDE_MEMORY_MAX_CHARS: int = Field(default=120, ge=20, le=500)
     CLAUDE_PARALLEL: int = Field(default=2, ge=1, le=8)
     CLAUDE_QUEUE_MAX: int = Field(default=5, ge=0, le=50)
     CLAUDE_MAX_ANSWER_CHARS: int = Field(default=800, ge=100, le=3000)

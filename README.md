@@ -121,6 +121,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | Command                                | Aliases                    | Description                                               |
 | -------------------------------------- | -------------------------- | --------------------------------------------------------- |
 | `ayuda [comando]`                      | `help`, `comandos`         | Lists commands or explains one                            |
+| `memory`                               |                            | What Tox remembers about you in this chat (`olvidame` forgets it all) |
 | `novedades`                            | `cambios`                  | What was last added to Tox (`-probar`, admins: what is about to be announced) |
 | `id`                                   |                            | Shows the platform/chat/user IDs and your role            |
 | `mute`                                 |                            | Toggle: stop (or resume) being tagged by the bot in this chat |
@@ -816,6 +817,27 @@ hourly pools so a busy group can't use up the admins' questions.
   bad news costs one remark nobody would have missed); and while a trivia round is open, where the answers *are*
   the conversation. The objection that fired is what gets logged. Where it stands with a chat is remembered in this
   process only, like the cooldown it sits beside.
+- **What it remembers about each person** (`services/person_memory.py`, `person_notes`, `!memory`): the small
+  things that come up while talking -- what somebody does, what they are into, an inside joke -- kept without
+  anybody writing them down. **No extra question is asked for it**: the answer Claude is already giving may end
+  with `[memoria] Nombre: dato` lines, which are taken off before the chat sees a word of it and stored. The
+  stripping is deliberately greedy (any line starting with the marker goes, parsed or not), because the one
+  failure that matters is a marker reaching the chat.
+  **Two kinds, because people are not the same thing as groups.** `[memoria global] Nombre: dato` is what somebody
+  *is* — their job, their city, what they are into — true in every chat they are in, and read in all of them;
+  `[memoria] Nombre: dato` belongs to the group it was learned in and never leaves it, which is where an inside
+  joke, a nickname only used there or something said among those people goes. Claude picks, and is told to pick the
+  second when in doubt. Each kind has its own ceiling, so what a group knows about somebody cannot crowd out what
+  is true about them.
+  Nothing said in the **personal mode** is kept or read, like everything else the bot does on its own; only the
+  **no-access mode** learns, since the admins' session is doing work on a machine, not chatting; a name has to be
+  **somebody who is there** or the note is dropped, so Claude cannot invent a person to remember things about; and
+  **each person owns theirs** — `!memory` shows the two kinds apart and `!memory forget` deletes every note about
+  them **in every chat**, with no admin needed, because asking to be forgotten means forgotten and not forgotten in
+  the room it was asked in. A chat turns the whole thing off with `!config memory off`;
+  `CLAUDE_MEMORY_MAX_NOTES` (20) and `CLAUDE_MEMORY_MAX_CHARS` (120) bound it, and the notes that never came up
+  again are the first to go. They are read back as what they are: data that came out of a conversation, in the
+  untrusted block, never in the owner's own description of the chat.
 - **`-no`: that reply was not for Tox.** Starting a reply to one of its messages with `-no` (or `--no`) answers nothing: in a group
   people reply to what the bot said to talk to *each other*, and until now every one of those got an answer nobody asked for. Nothing
   is sent, nothing is reacted to and **Claude is never called**, so it costs nothing and uses no question of the hour. It is read only

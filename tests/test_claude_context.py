@@ -22,6 +22,9 @@ def fake_claude(settings, tmp_path, monkeypatch):
     object.__setattr__(settings, "CLAUDE_WORKDIR", str(tmp_path / "dev"))
     object.__setattr__(settings, "USERS_FILE", str(tmp_path / "users.json"))
     object.__setattr__(settings, "CHATS_FILE", str(tmp_path / "chats.json"))
+    # What it remembers about people adds a block of its own to the prompt, which these tests pin the shape
+    # of: that one has its own file (tests/test_person_memory.py).
+    object.__setattr__(settings, "CLAUDE_MEMORY", False)
     jobs.clear()
     claude_runner.forget_sessions()
     seen = {"prompts": [], "answer": "Listo."}
