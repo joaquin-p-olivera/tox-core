@@ -1,9 +1,10 @@
 """The GTA VI countdown as an image (services/gta_countdown.py): the artwork on top and a bar with what is left,
 in Vice City colours.
 
-Two cards count the same thing. The one the countdown sends on its own, and publishes as a story, carries the days
-alone: it goes out while nobody asked for it, where a running clock is noise and the day is the only number anybody
-reads. `!vi` is the other case -- somebody asked just now -- and there the hours, minutes and seconds are the point.
+Two cards count the same thing. The one the countdown sends while it is still one a day, in the chats and as a
+story, carries the days alone: it goes out while nobody asked for it, where a running clock is noise and the day is
+the only number anybody reads. Once it goes out more often than that the days repeat themselves and the clock comes
+back. `!vi` is the other case -- somebody asked just now -- and there the hours, minutes and seconds are the point.
 
 Pillow only, fully in memory, same rule as sticker_generator.py and table_image.py: nothing is ever written to disk.
 
@@ -286,7 +287,7 @@ def days_card(days: int, artwork_path: str | None = None) -> Image.Image:
     middle = (top + bottom) / 2
     words_font = _font(_REGULAR_CANDIDATES, DAYS_WORDS_SIZE)
     if days < 1:
-        # A guard, not a card anybody will see: the hourly stretch starts days before this, and takes the clock back.
+        # A guard, not a card anybody will see: the clock comes back days before this, and never leaves again.
         draw.text(((left + right) / 2, middle), f"{LAST_DAY_LINE} para {GAME}",
                   font=_font(_DAYS_CANDIDATES, 48), fill=COLOR_NUMBER, anchor="mm")
         return card

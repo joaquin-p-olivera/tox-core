@@ -10,7 +10,8 @@ from tests.test_mention import raw
 GROUPS = "1@g.us,2@g.us"
 BEFORE_RELEASE = datetime(2026, 10, 26, 21, 30, 0)  # 18:30 in Montevideo, 23 days to go
 MIDNIGHT = datetime(2026, 10, 27, 3, 0, 0)  # 00:00 in Montevideo
-HOURLY_DAY = datetime(2026, 11, 16, 15, 0, 0)  # 12:00 of one of the last four days
+SIX_HOURLY_DAY = datetime(2026, 11, 16, 15, 0, 0)  # 12:00 of the 16th, one of the slots every six hours
+HOURLY_DAY = datetime(2026, 11, 18, 15, 0, 0)  # 12:00 of the 18th, the day it goes out every hour
 
 
 @pytest.fixture
@@ -42,14 +43,17 @@ def test_the_one_a_day_message_counts_days_and_nothing_else():
     assert gta_countdown.day_message(datetime(2026, 11, 19, 3, 0, 0)) == "🌴 Bienvenidos a VICE CITY. 🌴"
 
 
-def test_the_hourly_stretch_brings_the_whole_clock_back(db_session, alerting):
-    """One date governs both: the day it starts going out every hour is the day the card counts hours again."""
+def test_going_out_more_than_once_a_day_brings_the_whole_clock_back(db_session, alerting):
+    """One table governs both: the day the messages stop being one a day is the day the card counts hours again."""
     gta_countdown.queue_due(db_session, alerting, BEFORE_RELEASE)
     gta_countdown.queue_due(db_session, alerting, MIDNIGHT)
     assert queued(db_session)[-1][1] == "🌴 23 días para Grand Theft Auto VI 🦩"
 
-    gta_countdown.queue_due(db_session, alerting, HOURLY_DAY)
+    gta_countdown.queue_due(db_session, alerting, SIX_HOURLY_DAY)
     assert queued(db_session)[-1][1] == "🌴 Falta 00:02:12:00:00 para Grand Theft Auto VI 🦩"
+
+    gta_countdown.queue_due(db_session, alerting, HOURLY_DAY)
+    assert queued(db_session)[-1][1] == "🌴 Falta 00:00:12:00:00 para Grand Theft Auto VI 🦩"
 
 
 def test_which_card_is_drawn_follows_the_same_line(settings, monkeypatch):
@@ -61,13 +65,17 @@ def test_which_card_is_drawn_follows_the_same_line(settings, monkeypatch):
 
     gta_countdown.card(settings, BEFORE_RELEASE, by_day=True)
     gta_countdown.card(settings, BEFORE_RELEASE)  # what `!vi` asks for: the default, whatever day it is
-    gta_countdown.card(settings, HOURLY_DAY, by_day=False)
+    gta_countdown.card(settings, SIX_HOURLY_DAY, by_day=False)
     assert drawn == [("days", 23), ("full", (23, 5, 30, 0)), ("full", (2, 12, 0, 0))]
 
 
-def test_the_day_the_cadence_changes_is_the_day_the_card_changes(settings):
-    assert gta_countdown.hourly(datetime(2026, 11, 15, 2, 0, 0), settings.TIMEZONE) is False  # 23:00 of the 14th
-    assert gta_countdown.hourly(datetime(2026, 11, 15, 3, 0, 0), settings.TIMEZONE) is True   # 00:00 of the 15th
+def test_the_days_the_cadence_changes_are_the_days_it_was_asked_to(settings):
+    """Read in Montevideo, where 00:00 is 03:00 UTC: one a day, then every six hours, then every hour."""
+    every = lambda when: gta_countdown.every(when, settings.TIMEZONE)
+    assert every(datetime(2026, 11, 15, 2, 0, 0)) == 24  # 23:00 of the 14th
+    assert every(datetime(2026, 11, 15, 3, 0, 0)) == 6   # 00:00 of the 15th
+    assert every(datetime(2026, 11, 18, 2, 0, 0)) == 6   # 23:00 of the 17th
+    assert every(datetime(2026, 11, 18, 3, 0, 0)) == 1   # 00:00 of the 18th
 
 
 def test_once_the_day_comes_it_welcomes_everybody_to_vice_city():
@@ -108,18 +116,44 @@ def test_a_day_the_api_spent_down_is_one_missed_message_not_a_burst(db_session, 
     assert queued(db_session)[-1][1] == "🌴 19 días para Grand Theft Auto VI 🦩"
 
 
-def test_over_the_last_four_days_it_goes_out_every_hour(db_session, alerting):
+def test_over_the_last_four_days_it_goes_out_every_six_hours(db_session, alerting):
+    """00:00, 06:00, 12:00 and 18:00 in Montevideo, and nothing in between."""
     gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 15, 3, 0, 0))  # the first poll of the window
 
-    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 15, 4, 0, 0)) == 2
-    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 15, 4, 59, 0)) == 0  # still that hour
-    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 15, 5, 0, 0)) == 2
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 15, 5, 0, 0)) == 0   # 02:00, same slot
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 15, 9, 0, 0)) == 2   # 06:00
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 15, 12, 30, 0)) == 0  # 09:30, same slot
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 15, 15, 0, 0)) == 2  # 12:00
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 15, 21, 0, 0)) == 2  # 18:00
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 16, 3, 0, 0)) == 2   # 00:00 of the 16th
+    assert len(queued(db_session)) == 8
+    assert queued(db_session)[-1][1] == "🌴 Falta 00:03:00:00:00 para Grand Theft Auto VI 🦩"
+
+
+def test_the_last_day_it_goes_out_every_hour(db_session, alerting):
+    gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 18, 3, 0, 0))  # the first poll of the last day
+
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 18, 4, 0, 0)) == 2
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 18, 4, 59, 0)) == 0  # still that hour
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 18, 5, 0, 0)) == 2
     assert gta_countdown.queue_due(db_session, alerting, HOURLY_DAY) == 2
     assert len(queued(db_session)) == 6
-    assert queued(db_session)[-1][1] == "🌴 Falta 00:02:12:00:00 para Grand Theft Auto VI 🦩"
+    assert queued(db_session)[-1][1] == "🌴 Falta 00:00:12:00:00 para Grand Theft Auto VI 🦩"
+
+
+def test_the_six_hourly_stretch_hands_over_to_the_hourly_one_at_midnight(db_session, alerting):
+    """The 18th at 00:00 is a slot in both cadences, so the handover owes nobody a message and repeats none."""
+    gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 17, 21, 0, 0))  # 18:00 of the 17th, the first
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 18, 2, 0, 0)) == 0  # 23:00, nothing due
+
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 18, 3, 0, 0)) == 2  # 00:00 of the 18th
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 18, 3, 30, 0)) == 0
+    assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 18, 4, 0, 0)) == 2  # 01:00, by the hour
+    assert len(queued(db_session)) == 4
 
 
 def test_the_day_before_the_window_is_still_one_a_day(db_session, alerting):
+    """Up to and including the 14th nothing changes: one message, at midnight, and the days alone on the card."""
     gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 14, 3, 0, 0))
     for hour in (4, 10, 20):  # 01:00, 07:00 and 17:00 in Montevideo, all of 14 November
         assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 14, hour, 0, 0)) == 0

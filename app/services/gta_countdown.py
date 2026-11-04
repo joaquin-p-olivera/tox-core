@@ -1,8 +1,9 @@
 """The countdown to Grand Theft Auto VI, sent on its own as a card (services/gta_card.py) to the same groups the
 alerts go to, and -- when it is set up (services/instagram.py) -- published as an Instagram story at the same moments (ALERT_WHATSAPP_GROUP_JIDS
-and ALERT_TELEGRAM_CHAT_IDS, see `alert_monitor.destinations`): once a day at midnight, and every hour over the last
-four days, when waiting by the day stops being fun. The day it comes out, one last message welcomes everybody to Vice
-City and the countdown is over for good -- `!vi` included.
+and ALERT_TELEGRAM_CHAT_IDS, see `alert_monitor.destinations`). It gets closer together as the day gets closer: once
+a day at midnight, every six hours over the last four days, and every hour on the last one, when waiting by the day
+stops being fun. The day it comes out, one last message welcomes everybody to Vice City and the countdown is over
+for good -- `!vi` included.
 
 Nothing runs in the background, the same way reminders work (services/reminders.py): the bots already poll for pending
 alerts on their own timer, and each poll first queues whatever is due (routers/alerts.py). What is remembered is the
@@ -10,11 +11,11 @@ scheduled moment whose message was queued (`CountdownState.last_slot`), not when
 this both catch up and not repeat itself: a poll after a restart still sends the slot nobody sent, and ten polls inside
 the same slot send one message. A whole day the API spent down is one missed message, never a burst of them.
 
-What it says follows the same line that decides how often it says it. While it goes out once a day nobody asked
+What it says follows the same table that decides how often it says it. While it goes out once a day nobody asked
 for it, and a clock running down to the second -- in a chat, or in a story that sits there until tomorrow -- is
-noise around the one number that means anything from that far away: those carry the days alone. From HOURLY_FROM
-on it goes out every hour, the days stop telling the message apart from the last one, and the full clock comes
-back. One date governs both, so the two can never drift. `!vi` is the other case altogether, somebody asking right
+noise around the one number that means anything from that far away: those carry the days alone. Once there is more
+than one a day the days stop telling one message from the next, so the full clock comes back for the rest of the
+way. CADENCE says both, so the two can never drift. `!vi` is the other case altogether, somebody asking right
 now, and there the hours, minutes and seconds are always the point.
 
 The release moment is a fact about the game, so it is written here as the local time it happens at in Uruguay and kept
@@ -45,7 +46,13 @@ RELEASE_ZONE = ZoneInfo("America/Montevideo")
 RELEASE_LOCAL = datetime(2026, 11, 19, 0, 0)
 # Naive UTC, like everything stored and like utcnow(): 2026-11-19 03:00Z
 RELEASE = RELEASE_LOCAL.replace(tzinfo=RELEASE_ZONE).astimezone(timezone.utc).replace(tzinfo=None)
-HOURLY_FROM = date(2026, 11, 15)  # from this day on, one message per hour instead of one per day
+# How many hours apart the messages go out, from each day on: the first row the day has reached wins, and before
+# any of them there is one a day. The same table decides which card is drawn (see the module docstring), so adding
+# a step here moves both at once.
+HOURLY_FROM = date(2026, 11, 18)
+SIX_HOURLY_FROM = date(2026, 11, 15)
+CADENCE = ((HOURLY_FROM, 1), (SIX_HOURLY_FROM, 6))
+DAILY = 24
 ARRIVED = "🌴 Bienvenidos a VICE CITY. 🌴"
 
 
@@ -153,19 +160,19 @@ def _publish_story(settings: Settings, now_utc: datetime, artwork: str | None, b
     threading.Thread(target=work, name="gta-story", daemon=True).start()
 
 
-def hourly(now_utc: datetime, timezone_name: str) -> bool:
-    """Whether this moment is in the stretch that goes out every hour, which is also the stretch that counts the
-    hours: see the module docstring. One date, so the cadence and the card can never say different things."""
-    return now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(timezone_name)).date() >= HOURLY_FROM
+def every(now_utc: datetime, timezone_name: str) -> int:
+    """How many hours apart the messages go out at this moment, read off CADENCE by the local day."""
+    today = now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(timezone_name)).date()
+    return next((hours for day, hours in CADENCE if today >= day), DAILY)
 
 
 def _slot(now_utc: datetime, timezone_name: str) -> datetime:
-    """The scheduled moment this instant belongs to: the top of the hour from HOURLY_FROM on, midnight before that.
-    Naive UTC, so it can be compared with what is stored."""
+    """The scheduled moment this instant belongs to: the local hour floored to the cadence, which for one a day is
+    midnight. Naive UTC, so it can be compared with what is stored."""
     local = now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(timezone_name))
-    if not hourly(now_utc, timezone_name):
-        local = local.replace(hour=0)
-    return local.replace(minute=0, second=0, microsecond=0).astimezone(timezone.utc).replace(tzinfo=None)
+    step = every(now_utc, timezone_name)
+    return local.replace(hour=local.hour // step * step, minute=0, second=0,
+                         microsecond=0).astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def queue_due(db: Session, settings: Settings, now_utc: datetime | None = None) -> int:
@@ -184,7 +191,7 @@ def queue_due(db: Session, settings: Settings, now_utc: datetime | None = None) 
         return 0
 
     slot = _slot(now_utc, settings.TIMEZONE)
-    by_day = not hourly(now_utc, settings.TIMEZONE)  # one a day: the days alone are what it says
+    by_day = every(now_utc, settings.TIMEZONE) == DAILY  # one a day: the days alone are what it says
     if arrived(now_utc):
         text, slot = ARRIVED, max(slot, RELEASE)
     elif state is None:
