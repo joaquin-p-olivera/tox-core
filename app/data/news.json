@@ -16,5 +16,13 @@
       "api-core": "1.0.0"
     },
     "text": "🎬 *!yt <link>* manda el video de un link de YouTube al grupo, y *!ytm <link>* manda solo el audio.\n\nTambién funciona respondiendo a un mensaje que tenga el link, sin pegarlo de nuevo.\n\nHasta 8 minutos. Si el video es muy pesado le bajo la calidad para que entre; si ni así entra, te aviso."
+  },
+  {
+    "id": "2026-11-04-1.1.0",
+    "title": "Memoria, AFK y la cuenta regresiva",
+    "versions": {
+      "api-core": "1.1.0"
+    },
+    "text": "🧠 Ahora me acuerdo de las cosas que van contando acá: a qué se dedica cada uno, de qué cuadro es, esas cosas. Con *!memory* ves todo lo que sé de vos, y *!memory <nombre>* lo que sé de otro. Si no lo quieren, con *!config memory off* lo apagan y listo.\n\n🌙 *!afk <motivo>* avisa que te vas un rato. Si alguien te arroba o responde un mensaje tuyo mientras no estás, contesto por vos y le digo desde cuándo. Se apaga solo apenas escribís de nuevo.\n\n🏁 *!banderas* es una ronda nueva de la trivia: qué país es cada bandera. Se responde con la letra sola, encadena con la siguiente y suma al mismo ranking de siempre.\n\n🌴 La cuenta regresiva de GTA VI ahora muestra los días que faltan y nada más. Y se va a ir acercando: desde el 15 de noviembre sale cada 6 horas, el 18 cada hora, y el 19 a las 00:00 va el último mensaje.\n\n💬 Cuando me meto solo en una charla ahora me fijo mejor: ni a cualquier hora, ni si me ignoraron dos veces seguidas, ni si ya hablé más que ustedes, ni mientras hay una trivia abierta."
   }
 ]
