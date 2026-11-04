@@ -1,5 +1,9 @@
-"""The GTA VI countdown as an image (services/gta_countdown.py): the artwork on top and a bar with the days, hours,
-minutes and seconds left, in Vice City colours.
+"""The GTA VI countdown as an image (services/gta_countdown.py): the artwork on top and a bar with what is left,
+in Vice City colours.
+
+Two cards count the same thing. The one the countdown sends on its own, and publishes as a story, carries the days
+alone: it goes out while nobody asked for it, where a running clock is noise and the day is the only number anybody
+reads. `!vi` is the other case -- somebody asked just now -- and there the hours, minutes and seconds are the point.
 
 Pillow only, fully in memory, same rule as sticker_generator.py and table_image.py: nothing is ever written to disk.
 
@@ -26,6 +30,11 @@ _BOLD_CANDIDATES = (
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
 )
+
+# The daily card says its one line in a serif instead of the bold sans every other text here uses: that card is all
+# bar and no numbers, and the plain sans left it reading like a placeholder. URW's P052 is Palatino, which ships with
+# the same base35 set as the rest of urw-base35; the bold chain is still behind it for a machine that has neither.
+_DAYS_CANDIDATES = ("/usr/share/fonts/opentype/urw-base35/P052-Bold.otf", *_BOLD_CANDIDATES)
 
 # Square on purpose: WhatsApp on iOS crops a preview taller than about 1:1, and a 720x898 card lost the numbers off
 # the bottom of the bubble (Android showed it whole). The bar keeps its own place under the picture, so what gives is
@@ -68,6 +77,15 @@ ARTWORK_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp")
 
 LABELS = ("días", "horas", "minutos", "segundos")
 ARRIVED_LINE = "BIENVENIDOS A VICE CITY"
+LAST_DAY_LINE = "Último día"
+GAME = "Grand Theft Auto VI"  # spelled once: the message (services/gta_countdown.py) reads it from here
+# The daily bar is a number and, beside it, what the number is counting to. The number is the whole card -- it is
+# read from a thumbnail, where anything else is texture -- so it takes the height the bar has, and the words sit in
+# two lines next to it rather than stretching the bar wider than the artwork.
+DAYS_SIZE = 112
+DAYS_WORDS_SIZE = 30
+DAYS_GAP = 26  # between the number and the words beside it
+DAYS_LEADING = 21  # half the distance between the two lines of words
 TITLE = "GRAND THEFT AUTO"
 
 
@@ -261,6 +279,31 @@ def countdown_card(days: int, hours: int, minutes: int, seconds: int, artwork_pa
     return card
 
 
+def days_card(days: int, artwork_path: str | None = None) -> Image.Image:
+    """The countdown with the days alone: the number big, and what it counts to beside it, under the same artwork."""
+    card, draw, bar = _card(artwork_path)
+    left, top, right, bottom = bar
+    middle = (top + bottom) / 2
+    words_font = _font(_REGULAR_CANDIDATES, DAYS_WORDS_SIZE)
+    if days < 1:
+        # A guard, not a card anybody will see: the hourly stretch starts days before this, and takes the clock back.
+        draw.text(((left + right) / 2, middle), f"{LAST_DAY_LINE} para {GAME}",
+                  font=_font(_DAYS_CANDIDATES, 48), fill=COLOR_NUMBER, anchor="mm")
+        return card
+
+    number, counted = str(days), f"día{'' if days == 1 else 's'} para"
+    number_font = _font(_DAYS_CANDIDATES, DAYS_SIZE)
+    number_width = draw.textlength(number, font=number_font)
+    words_width = max(draw.textlength(counted, font=words_font), draw.textlength(GAME, font=words_font))
+    x = (left + right) / 2 - (number_width + DAYS_GAP + words_width) / 2
+    # The number sits a little low on purpose: P052's digits have no descender and the two lines beside them do.
+    draw.text((x, middle + 6), number, font=number_font, fill=COLOR_NUMBER, anchor="lm")
+    x += number_width + DAYS_GAP
+    draw.text((x, middle - DAYS_LEADING), counted, font=words_font, fill=COLOR_LABEL, anchor="lm")
+    draw.text((x, middle + DAYS_LEADING), GAME, font=words_font, fill=COLOR_NUMBER, anchor="lm")
+    return card
+
+
 def arrived_card(artwork_path: str | None = None) -> Image.Image:
     """The one card that is not a countdown: the day it finally comes out."""
     card, draw, bar = _card(artwork_path)
@@ -273,6 +316,11 @@ def arrived_card(artwork_path: str | None = None) -> Image.Image:
 def render(days: int, hours: int, minutes: int, seconds: int, artwork_path: str | None = None) -> bytes:
     """The countdown card as a PNG, which is what goes to the chats."""
     return _png(countdown_card(days, hours, minutes, seconds, artwork_path))
+
+
+def render_days(days: int, artwork_path: str | None = None) -> bytes:
+    """The days-only card as a PNG: what the countdown sends to the chats by itself."""
+    return _png(days_card(days, artwork_path))
 
 
 def render_arrived(artwork_path: str | None = None) -> bytes:
@@ -293,6 +341,11 @@ def _story(card: Image.Image, artwork_path: str | None) -> bytes:
 def render_story(days: int, hours: int, minutes: int, seconds: int, artwork_path: str | None = None) -> bytes:
     """The countdown as a story: 1080x1920 JPEG, the shape and format a social network wants."""
     return _story(countdown_card(days, hours, minutes, seconds, artwork_path), artwork_path)
+
+
+def render_days_story(days: int, artwork_path: str | None = None) -> bytes:
+    """The days-only card as a story: the one the countdown publishes."""
+    return _story(days_card(days, artwork_path), artwork_path)
 
 
 def render_arrived_story(artwork_path: str | None = None) -> bytes:
