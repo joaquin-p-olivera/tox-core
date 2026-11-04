@@ -69,3 +69,25 @@ def test_how_long_ago_is_told_in_something_readable(db_session):
                             (timedelta(days=2, hours=3), "hace 2 días 3 h")):
         row.since = utcnow() - delta
         assert afk.since_text(row) == expected
+
+
+def test_the_bots_read_the_away_list_to_know_what_to_forward(client, db_session):
+    """A chat with the history off forwards nothing but commands, so the bot watches this list instead."""
+    db_session.add_all([AfkUser(user_key="whatsapp:u2", user_name="Bob", reason="comiendo"),
+                        AfkUser(user_key="whatsapp:u9", user_name="Ana", reason=""),
+                        AfkUser(user_key="telegram:u3", user_name="Cris", reason="")])
+    db_session.commit()
+
+    response = client.get("/api/v1/afk", params={"platform": "whatsapp"}, headers={"X-API-Key": "test-key"})
+    assert response.status_code == 200
+    assert response.json() == {"user_ids": ["u2", "u9"]}  # the platform in front is the API's business, not the bot's
+    assert client.get("/api/v1/afk", params={"platform": "telegram"},
+                      headers={"X-API-Key": "test-key"}).json() == {"user_ids": ["u3"]}
+
+
+def test_the_away_list_is_read_only_and_needs_the_key(client, db_session):
+    db_session.add(AfkUser(user_key="whatsapp:u2", user_name="Bob", reason=""))
+    db_session.commit()
+    assert client.get("/api/v1/afk", params={"platform": "whatsapp"}).status_code == 401
+    client.get("/api/v1/afk", params={"platform": "whatsapp"}, headers={"X-API-Key": "test-key"})
+    assert db_session.get(AfkUser, "whatsapp:u2") is not None  # reading it never consumes it

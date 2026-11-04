@@ -56,6 +56,16 @@ def of(db: Session, user_keys: list[str]) -> list[AfkUser]:
     return seen
 
 
+def away_ids(db: Session, platform: str) -> list[str]:
+    """The user ids away on this platform, without the platform in front: what a bot compares a sender or a
+    mentioned person against. The bot needs this because of what it does not forward -- in a chat with the history
+    off nothing but commands ever reaches the API, so an away person could neither be told about nor noticed
+    coming back (see routers/afk.py)."""
+    prefix = f"{platform}:"
+    return sorted(key[len(prefix):] for key in db.scalars(select(AfkUser.user_key))
+                  if key.startswith(prefix))
+
+
 def since_text(row: AfkUser) -> str:
     """"hace 2 h 15 min", or "hace un rato" under a minute: a number of seconds tells nobody anything."""
     minutes = int((utcnow() - row.since).total_seconds() // 60)
