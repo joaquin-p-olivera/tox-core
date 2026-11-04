@@ -1,14 +1,22 @@
 """The countdown to Grand Theft Auto VI, sent on its own as a card (services/gta_card.py) to the same groups the
 alerts go to, and -- when it is set up (services/instagram.py) -- published as an Instagram story at the same moments (ALERT_WHATSAPP_GROUP_JIDS
-and ALERT_TELEGRAM_CHAT_IDS, see `alert_monitor.destinations`): once a day at midnight, and every hour over the last
-four days, when waiting by the day stops being fun. The day it comes out, one last message welcomes everybody to Vice
-City and the countdown is over for good -- `!vi` included.
+and ALERT_TELEGRAM_CHAT_IDS, see `alert_monitor.destinations`). It gets closer together as the day gets closer: once
+a day at midnight, every six hours over the last four days, and every hour on the last one, when waiting by the day
+stops being fun. The day it comes out, one last message welcomes everybody to Vice City and the countdown is over
+for good -- `!vi` included.
 
 Nothing runs in the background, the same way reminders work (services/reminders.py): the bots already poll for pending
 alerts on their own timer, and each poll first queues whatever is due (routers/alerts.py). What is remembered is the
 scheduled moment whose message was queued (`CountdownState.last_slot`), not when it was queued, which is what makes
 this both catch up and not repeat itself: a poll after a restart still sends the slot nobody sent, and ten polls inside
 the same slot send one message. A whole day the API spent down is one missed message, never a burst of them.
+
+What it says follows the same table that decides how often it says it. While it goes out once a day nobody asked
+for it, and a clock running down to the second -- in a chat, or in a story that sits there until tomorrow -- is
+noise around the one number that means anything from that far away: those carry the days alone. Once there is more
+than one a day the days stop telling one message from the next, so the full clock comes back for the rest of the
+way. CADENCE says both, so the two can never drift. `!vi` is the other case altogether, somebody asking right
+now, and there the hours, minutes and seconds are always the point.
 
 The release moment is a fact about the game, so it is written here as the local time it happens at in Uruguay and kept
 as an absolute instant. The schedule around it (midnight, the top of each hour) is read in TIMEZONE, like every other
@@ -33,12 +41,18 @@ from .alert_monitor import destinations
 logger = logging.getLogger("tox.gta_countdown")
 
 KEY = "gta6"
-GAME = "Grand Theft Auto VI"
+GAME = gta_card.GAME
 RELEASE_ZONE = ZoneInfo("America/Montevideo")
 RELEASE_LOCAL = datetime(2026, 11, 19, 0, 0)
 # Naive UTC, like everything stored and like utcnow(): 2026-11-19 03:00Z
 RELEASE = RELEASE_LOCAL.replace(tzinfo=RELEASE_ZONE).astimezone(timezone.utc).replace(tzinfo=None)
-HOURLY_FROM = date(2026, 11, 15)  # from this day on, one message per hour instead of one per day
+# How many hours apart the messages go out, from each day on: the first row the day has reached wins, and before
+# any of them there is one a day. The same table decides which card is drawn (see the module docstring), so adding
+# a step here moves both at once.
+HOURLY_FROM = date(2026, 11, 18)
+SIX_HOURLY_FROM = date(2026, 11, 15)
+CADENCE = ((HOURLY_FROM, 1), (SIX_HOURLY_FROM, 6))
+DAILY = 24
 ARRIVED = "🌴 Bienvenidos a VICE CITY. 🌴"
 
 
@@ -73,6 +87,17 @@ def message(now_utc: datetime | None = None) -> str:
     return f"🌴 Falta {months:02d}:{days:02d}:{hours:02d}:{minutes:02d}:{seconds:02d} para {GAME} 🦩"
 
 
+def day_message(now_utc: datetime | None = None) -> str:
+    """What the countdown says on its own: the days left, or the welcome once the day is here."""
+    now_utc = now_utc or utcnow()
+    if arrived(now_utc):
+        return ARRIVED
+    days = _left(now_utc)[0]
+    if days < 1:
+        return f"🌴 Último día para {GAME} 🦩"
+    return f"🌴 {days} día{'' if days == 1 else 's'} para {GAME} 🦩"
+
+
 def _left(now_utc: datetime) -> tuple[int, int, int, int]:
     """Days, hours, minutes and seconds left. Plain days, months and all: that is what the card counts, where there
     is no room for a fifth number and nobody reads "0 meses" anyway."""
@@ -91,22 +116,29 @@ def _artwork(settings: Settings, now_utc: datetime) -> str | None:
     return str(random.choice(artworks)) if artworks else None
 
 
-def card(settings: Settings, now_utc: datetime | None = None, artwork: str | None = None) -> str | None:
+def card(settings: Settings, now_utc: datetime | None = None, artwork: str | None = None,
+         by_day: bool = False) -> str | None:
     """The message as an image, stored for the bot to download, or None when it cannot be drawn -- in which case the
     text is what goes out. Drawing must never be what keeps the countdown from being sent. Without an `artwork` one
     is picked here, which is what `!vi` wants; the countdown picks it once and passes it, so the card that goes to
-    the chats and the story that goes to Instagram show the same picture."""
+    the chats and the story that goes to Instagram show the same picture. `by_day`: the days alone, what the
+    countdown sends by itself -- the default is the full clock, which is what somebody who just asked wants."""
     now_utc = now_utc or utcnow()
     artwork = artwork or _artwork(settings, now_utc)
     try:
-        png = gta_card.render_arrived(artwork) if arrived(now_utc) else gta_card.render(*_left(now_utc), artwork)
+        if arrived(now_utc):
+            png = gta_card.render_arrived(artwork)
+        elif by_day:
+            png = gta_card.render_days(_left(now_utc)[0], artwork)
+        else:
+            png = gta_card.render(*_left(now_utc), artwork)
     except Exception:  # a broken font, an artwork that is not an image, anything: the text still goes out
         logger.exception("Could not draw the GTA VI card")
         return None
     return media_cache.store(png, gta_card.MIMETYPE, settings.MEDIA_CACHE_SECONDS)
 
 
-def _publish_story(settings: Settings, now_utc: datetime, artwork: str | None) -> None:
+def _publish_story(settings: Settings, now_utc: datetime, artwork: str | None, by_day: bool) -> None:
     """The same countdown as an Instagram story, in a thread of its own: this runs inside the bots' poll for pending
     alerts, and a slow network must not hold that request (or the chat message) up."""
     if not instagram.configured(settings):
@@ -114,8 +146,12 @@ def _publish_story(settings: Settings, now_utc: datetime, artwork: str | None) -
 
     def work() -> None:
         try:
-            jpeg = (gta_card.render_arrived_story(artwork) if arrived(now_utc)
-                    else gta_card.render_story(*_left(now_utc), artwork))
+            if arrived(now_utc):
+                jpeg = gta_card.render_arrived_story(artwork)
+            elif by_day:
+                jpeg = gta_card.render_days_story(_left(now_utc)[0], artwork)
+            else:
+                jpeg = gta_card.render_story(*_left(now_utc), artwork)
         except Exception:
             logger.exception("Could not draw the GTA VI story")
             return
@@ -124,13 +160,19 @@ def _publish_story(settings: Settings, now_utc: datetime, artwork: str | None) -
     threading.Thread(target=work, name="gta-story", daemon=True).start()
 
 
+def every(now_utc: datetime, timezone_name: str) -> int:
+    """How many hours apart the messages go out at this moment, read off CADENCE by the local day."""
+    today = now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(timezone_name)).date()
+    return next((hours for day, hours in CADENCE if today >= day), DAILY)
+
+
 def _slot(now_utc: datetime, timezone_name: str) -> datetime:
-    """The scheduled moment this instant belongs to: the top of the hour from HOURLY_FROM on, midnight before that.
-    Naive UTC, so it can be compared with what is stored."""
+    """The scheduled moment this instant belongs to: the local hour floored to the cadence, which for one a day is
+    midnight. Naive UTC, so it can be compared with what is stored."""
     local = now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(timezone_name))
-    if local.date() < HOURLY_FROM:
-        local = local.replace(hour=0)
-    return local.replace(minute=0, second=0, microsecond=0).astimezone(timezone.utc).replace(tzinfo=None)
+    step = every(now_utc, timezone_name)
+    return local.replace(hour=local.hour // step * step, minute=0, second=0,
+                         microsecond=0).astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def queue_due(db: Session, settings: Settings, now_utc: datetime | None = None) -> int:
@@ -149,6 +191,7 @@ def queue_due(db: Session, settings: Settings, now_utc: datetime | None = None) 
         return 0
 
     slot = _slot(now_utc, settings.TIMEZONE)
+    by_day = every(now_utc, settings.TIMEZONE) == DAILY  # one a day: the days alone are what it says
     if arrived(now_utc):
         text, slot = ARRIVED, max(slot, RELEASE)
     elif state is None:
@@ -159,13 +202,14 @@ def queue_due(db: Session, settings: Settings, now_utc: datetime | None = None) 
     elif state.last_slot >= slot:
         return 0
     else:
-        text = message(now_utc)
+        text = day_message(now_utc) if by_day else message(now_utc)
 
     artwork = _artwork(settings, now_utc)
-    image = card(settings, now_utc, artwork)  # the same one for every chat: the cache serves it as many times as asked
+    # The same one for every chat: the cache serves it as many times as asked
+    image = card(settings, now_utc, artwork, by_day=by_day)
     for platform, chat_id in where:
         db.add(PendingAlert(platform=platform, chat_id=chat_id, text=text, image=image))
-    _publish_story(settings, now_utc, artwork)
+    _publish_story(settings, now_utc, artwork, by_day)
     if state is None:
         db.add(CountdownState(key=KEY, last_slot=slot, finished=True))
     else:
