@@ -5,9 +5,11 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
+from ..database import SessionLocal
 from ..models import ClaudeQuery
 from ..schemas import Reply
-from ..services import chat_config, chat_sources, claude_context, claude_runner, jobs, media_cache, tts_generator
+from ..services import (chat_config, chat_sources, claude_context, claude_runner, discretion, jobs,
+                        media_cache, person_memory, trivia_service, tts_generator)
 from ..utils import utcnow
 from .flags import normalize_flag
 from .registry import CommandContext, command
@@ -69,6 +71,41 @@ def _limit_message(limit: int, oldest, what: str) -> str:
     """`oldest` is when the oldest question still inside the window was made: that is when a place frees up."""
     minutes = max(1, int((oldest + WINDOW - utcnow()).total_seconds() // 60) + 1)
     return f"Se alcanzó el límite de {limit} {what}. Probá de nuevo en unos {minutes} min."
+
+
+# An answer arrives in a thread of the runner's, where the request's session is long closed: what is learned
+# there is written through a session of its own. The tests put their own factory here.
+session_factory = SessionLocal
+
+
+def _learn(context: claude_context.Context, message, settings, text: str, *, learning: bool) -> str:
+    """Takes the memory lines off an answer and keeps what they said (services/person_memory.py). The stripping
+    happens whether or not this chat is learning: a marker that slipped into an answer must never reach the chat,
+    wherever it came from."""
+    clean, learned = person_memory.strip(text)
+    # Every answer that was asked for the block leaves exactly one line about it, so what happened is read and not
+    # deduced from a silence: nothing came up, it was ignored, or (below) something was kept.
+    if learning and not message.personal:
+        if not person_memory.carried_block(text):
+            logger.info("MEMORY the answer in %s came back without the note block", message.chat_key)
+        elif not learned:
+            logger.info("MEMORY nothing worth keeping came up in %s", message.chat_key)
+    # The personal mode is never learned from, whatever the caller thinks: there the bot writes as the owner and
+    # the other side of the chat is one person who never asked for any of this. The lines are still taken off.
+    if not learning or not learned or message.personal:
+        return clean
+    people = {person.name: f"{message.platform}:{person.user_id}" for person in context.people if person.name}
+    try:
+        with session_factory() as db:
+            stored = person_memory.remember(db, message.chat_key, learned, people,
+                                            max_notes=settings.CLAUDE_MEMORY_MAX_NOTES,
+                                            max_chars=settings.CLAUDE_MEMORY_MAX_CHARS)
+    except Exception:  # an answer must never be lost to a note
+        logger.exception("MEMORY could not store what it learned in %s", message.chat_key)
+        return clean
+    if stored:
+        logger.info("MEMORY learned %d thing(s) in %s", stored, message.chat_key)
+    return clean
 
 
 def _limit_reached(ctx: CommandContext, full_access: bool, user_key: str) -> str | None:
@@ -168,6 +205,12 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
                                     question=question)
     # Decided before asking, not after: an answer that is going to be heard is asked for short and without tags
     speak = not as_text and random.random() < _setting(ctx, "CLAUDE_AUDIO_CHANCE")
+    # Read here, in the request: the answer comes back in another thread. What decides this is the chat, not who is
+    # asking: a group is a conversation between people, and the admins are people in it like anybody else -- their
+    # own questions are how the bot gets to know THEM. A private chat is the other thing: one person driving the
+    # machine, with no group to know. The personal mode never learns, there the bot writes as the owner in
+    # somebody else's chat.
+    learning = message.is_group and not message.personal and bool(_setting(ctx, "CLAUDE_MEMORY"))
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
 
     def done(text: str) -> None:
@@ -179,7 +222,8 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
     try:
         claude_runner.start(
             message.chat_key, context.prompt(question, speak=speak), new_conversation, settings,
-            on_done=done, full_access=full_access, tone=_setting(ctx, "CLAUDE_TONE"),
+            on_done=done, full_access=full_access, tone=_setting(ctx, "CLAUDE_TONE"), learn=learning,
+            refine=lambda raw: _learn(context, message, settings, raw, learning=learning),
         )
     except claude_runner.Busy:
         jobs.discard(job_id)
@@ -199,6 +243,25 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
 PASS_ANSWER = re.compile(r"^[«\"\'(]*paso[.!…»\"\')]*$", re.IGNORECASE)  # Claude's way of saying "not worth it"
 SIGNATURE = "\n> Tox"  # marks a remark nobody asked for, so it is never taken for an answer to somebody
 _spoke_in: dict[str, datetime] = {}  # chat_key -> when Claude last said something there, asked or not
+
+
+def _keeping_it_to_itself(ctx: CommandContext, context: claude_context.Context) -> str | None:
+    """Why Tox should keep this remark to itself (services/discretion.py), or None when it may speak. Read off the
+    conversation that was gathered anyway, and before Claude is called: a remark that should not happen costs
+    nothing but this."""
+    settings, message = ctx.settings, ctx.message
+    return discretion.objection(discretion.Moment(
+        chat_key=message.chat_key,
+        now_utc=utcnow(),
+        timezone_name=settings.TIMEZONE,
+        start_hour=settings.CLAUDE_INTERJECT_START_HOUR,
+        end_hour=settings.CLAUDE_INTERJECT_END_HOUR,
+        patience=settings.CLAUDE_INTERJECT_PATIENCE,
+        share_limit=settings.CLAUDE_INTERJECT_SHARE_LIMIT,
+        bot_id=claude_context.BOT_ID,
+        recent=context.recent,
+        game_open=trivia_service.round_is_open(ctx.db, message.chat_key),
+    ))
 
 
 def interject(ctx: CommandContext) -> Reply | None:
@@ -222,6 +285,11 @@ def interject(ctx: CommandContext) -> Reply | None:
                                     with_profile_people=_knows_who_everybody_is(ctx))
     if context.history_key is None or not context.transcript:
         return None  # the history of this chat is off: there is nothing to read, and nobody asked to be read
+    quiet = _keeping_it_to_itself(ctx, context)
+    if quiet is not None:
+        logger.info("CLAUDE not butting in on %s: %s", message.chat_key, quiet)
+        return None
+    learning = bool(_setting(ctx, "CLAUDE_MEMORY"))
     job_id = jobs.create(settings.CLAUDE_TIMEOUT_SECONDS + 300)
 
     def done(text: str) -> None:
@@ -234,12 +302,14 @@ def interject(ctx: CommandContext) -> Reply | None:
 
     try:
         claude_runner.start(message.chat_key, context.interjection(), False, settings, on_done=done,
-                            full_access=False, tone=_setting(ctx, "CLAUDE_TONE"))
+                            full_access=False, tone=_setting(ctx, "CLAUDE_TONE"), learn=learning,
+                            refine=lambda raw: _learn(context, message, settings, raw, learning=learning))
     except claude_runner.Busy:
         jobs.discard(job_id)
         return None
     ctx.db.add(ClaudeQuery(user_key=user_key, chat_key=message.chat_key))
     ctx.db.commit()
     _spoke_in[message.chat_key] = utcnow()
+    discretion.spoke_up(message.chat_key, utcnow())  # whether it was worth saying is decided by what follows
     logger.info("CLAUDE butting in on %s, after a message of %s", message.chat_key, message.user_key)
     return Reply(job=job_id)  # no reaction: the message it answers is not a command, and nobody is waiting

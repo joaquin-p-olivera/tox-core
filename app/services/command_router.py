@@ -7,7 +7,7 @@ from ..commands import CommandContext, get_command
 from ..commands.claude import interject
 from ..config import Settings
 from ..schemas import IncomingMessage, Reply
-from . import afk, chat_config, chat_members, trivia_service
+from . import afk, chat_config, chat_members, discretion, trivia_service
 
 logger = logging.getLogger("tox.router")
 
@@ -111,10 +111,23 @@ def _afk_notices(message: IncomingMessage, db: Session, token: str | None) -> li
     return notices
 
 
+def _talked_to_the_bot(message: IncomingMessage, db: Session, settings: Settings,
+                       parsed: tuple[str, str, str] | None) -> bool:
+    """Whether this message is aimed at the bot: a command, a reply to one of its messages, or its name in the
+    text. It is what ends a run of remarks nobody picked up (services/discretion.py)."""
+    if message.personal or not message.is_group:
+        return False
+    return (parsed is not None
+            or (message.quoted is not None and message.quoted.is_bot)
+            or discretion.names_the_bot(message.text))
+
+
 def handle_message(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
     prefixes = [PERSONAL_PREFIX] if message.personal else settings.command_prefixes_list
     parsed = parse_command(message.text, prefixes)
     notices = _afk_notices(message, db, parsed[1] if parsed else None)
+    if _talked_to_the_bot(message, db, settings, parsed):
+        discretion.was_answered(message.chat_key)
     return notices + _answer(message, db, settings, prefixes, parsed)
 
 

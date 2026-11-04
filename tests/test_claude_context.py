@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.commands import claude as claude_command
-from app.services import chat_history, claude_runner, jobs
+from app.services import chat_history, claude_runner, discretion, jobs
 from tests.conftest import API_KEY
 
 HEADERS = {"X-API-Key": API_KEY}
@@ -22,6 +22,9 @@ def fake_claude(settings, tmp_path, monkeypatch):
     object.__setattr__(settings, "CLAUDE_WORKDIR", str(tmp_path / "dev"))
     object.__setattr__(settings, "USERS_FILE", str(tmp_path / "users.json"))
     object.__setattr__(settings, "CHATS_FILE", str(tmp_path / "chats.json"))
+    # What it remembers about people adds a block of its own to the prompt, which these tests pin the shape
+    # of: that one has its own file (tests/test_person_memory.py).
+    object.__setattr__(settings, "CLAUDE_MEMORY", False)
     jobs.clear()
     claude_runner.forget_sessions()
     seen = {"prompts": [], "answer": "Listo."}
@@ -30,8 +33,9 @@ def fake_claude(settings, tmp_path, monkeypatch):
         seen["prompts"].append(question)
         return claude_runner.ClaudeResult(seen["answer"], None, 0.01)
 
-    monkeypatch.setattr(claude_runner, "execute", lambda question, session, settings_, tone=None: reply(question))
-    monkeypatch.setattr(claude_runner, "execute_public", lambda question, settings_, tone=None: reply(question))
+    monkeypatch.setattr(claude_runner, "execute", lambda question, session, settings_, tone=None, **k: reply(question))
+    monkeypatch.setattr(claude_runner, "execute_public",
+                        lambda question, settings_, tone=None, learn=False: reply(question))
     return seen
 
 
@@ -177,9 +181,15 @@ def test_the_question_of_a_reply_is_not_saved_twice_in_the_history(client, fake_
 
 @pytest.fixture
 def always_butts_in(settings):
-    """The dice always says "say something", and the cooldown of earlier tests is forgotten."""
+    """The dice always says "say something", and nothing else of what decides it is left to chance: the cooldown of
+    earlier tests is forgotten, the hours are the whole day (START == END) so these tests do not depend on what time
+    they are run at, and where it stands with this chat starts clean. What holds it back has its own file
+    (tests/test_discretion.py)."""
     object.__setattr__(settings, "CLAUDE_INTERJECT_CHANCE", 1)
+    object.__setattr__(settings, "CLAUDE_INTERJECT_START_HOUR", 0)
+    object.__setattr__(settings, "CLAUDE_INTERJECT_END_HOUR", 0)
     claude_command._spoke_in.clear()
+    discretion.reset()
     return settings
 
 
@@ -262,7 +272,7 @@ def test_the_cooldown_of_this_chat_wins_over_the_general_one(client, fake_claude
 def test_a_remark_never_gets_access_to_the_pc_whoever_was_talking(client, fake_claude, always_butts_in, monkeypatch):
     """The message that gets it talking is nobody's question: an admin writing in the group must not hand it the CLI."""
     full_access = []
-    monkeypatch.setattr(claude_runner, "execute", lambda *a: full_access.append(a) or claude_runner.ClaudeResult("no", None, 0.0))
+    monkeypatch.setattr(claude_runner, "execute", lambda *a, **k: full_access.append(a) or claude_runner.ClaudeResult("no", None, 0.0))
     post(client, "!h -on", **{"user_id": "admin1@lid", "name": "Owner", "admin": True})
     save(client, 1, "u2", "Bob", "qué calor")
     (reply,) = chatter(client, "sí, terrible", user_id="admin1@lid", name="Owner", admin=True)

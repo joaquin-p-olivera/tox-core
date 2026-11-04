@@ -17,10 +17,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import Settings
-from ..models import PendingAlert, Score, TriviaAttempt, TriviaRound
+from ..models import PendingAlert, Score, TriviaAttempt, TriviaChain, TriviaRound
 from ..models.trivia_round import STATUS_EXPIRED, STATUS_OPEN, STATUS_WON
 from ..schemas import IncomingMessage
 from ..utils import utcnow
+from . import flags
 from .content import load_json
 
 LETTERS = "ABCD"
@@ -42,6 +43,7 @@ class Question:
 
 # Category keys are typed by users, so they're plain lowercase; labels are what the chat sees.
 CATEGORY_LABELS = {
+    "banderas": "Banderas",
     "geografia": "Geografía",
     "ciencia": "Ciencia",
     "historia": "Historia",
@@ -53,7 +55,17 @@ CATEGORY_LABELS = {
 
 
 def categories() -> list[str]:
-    return sorted({q["category"] for q in load_json("trivia_questions.json")})
+    """Every category that can be asked for, the written ones and the flags, which are made up as they are asked."""
+    return sorted({q["category"] for q in load_json("trivia_questions.json")} | {flags.CATEGORY})
+
+
+def _pool(category: str | None) -> list[dict]:
+    """What a round may be drawn from. A flag is a seed rather than a question: it is written out once the round
+    exists (see `_build_question`), because the wrong answers are drawn with the round id."""
+    if category == flags.CATEGORY:
+        return flags.seeds()
+    written = [q for q in load_json("trivia_questions.json") if not category or q["category"] == category]
+    return written + (flags.seeds() if category is None else [])
 
 
 def normalize_category(value: str) -> str:
@@ -63,6 +75,8 @@ def normalize_category(value: str) -> str:
 
 
 def _build_question(raw: dict, round_id: int) -> Question:
+    if flags.is_flag(raw["id"]):
+        raw = flags.question(raw["id"], round_id)
     # Shuffle per round (seeded by the round id) so the correct letter isn't predictable,
     # while staying reproducible without storing the order.
     order = list(range(len(raw["choices"])))
@@ -77,6 +91,8 @@ def _build_question(raw: dict, round_id: int) -> Question:
 
 
 def _question_for_round(rnd: TriviaRound) -> Question:
+    if flags.is_flag(rnd.question_id):
+        return _build_question({"id": rnd.question_id}, rnd.id)
     raw = next(q for q in load_json("trivia_questions.json") if q["id"] == rnd.question_id)
     return _build_question(raw, rnd.id)
 
@@ -133,6 +149,7 @@ def start_round(db: Session, message: IncomingMessage, settings: Settings, prefi
         if announcement:
             replies.append(announcement)
 
+    _play(db, message.chat_key, category)
     replies.append(_ask(db, message.chat_key, settings, category))
     return replies
 
@@ -145,7 +162,7 @@ def _ask(db: Session, chat_key: str, settings: Settings, category: str | None = 
         .order_by(TriviaRound.id.desc())
         .limit(RECENT_QUESTIONS_TO_AVOID)
     ))
-    pool = [q for q in load_json("trivia_questions.json") if not category or q["category"] == category]
+    pool = _pool(category)
     fresh = [q for q in pool if q["id"] not in recent] or pool  # tiny pool: allow repeats
     raw = random.choice(fresh)
 
@@ -156,6 +173,28 @@ def _ask(db: Session, chat_key: str, settings: Settings, category: str | None = 
     db.add(rnd)
     db.commit()
     return _format_question(_build_question(raw, rnd.id), timeout)
+
+
+def _playing(db: Session, chat_key: str) -> str | None:
+    """The category this chat's streak is playing, or None when it takes questions from everything."""
+    row = db.get(TriviaChain, chat_key)
+    return row.category if row is not None else None
+
+
+def _play(db: Session, chat_key: str, category: str | None) -> None:
+    """Writes down what the streak that starts here is playing. A round asked for without a category starts a free
+    streak, so the row goes: a chat that was on banderas and types `!trivia` is asking for anything again."""
+    row = db.get(TriviaChain, chat_key)
+    if category is None:
+        if row is not None:
+            db.delete(row)
+            db.commit()
+        return
+    if row is None:
+        db.add(TriviaChain(chat_key=chat_key, category=category))
+    else:
+        row.category = category
+    db.commit()
 
 
 def _answered(db: Session, round_id: int) -> bool:
@@ -175,7 +214,8 @@ def submit_answer(db: Session, message: IncomingMessage, letter: str, settings: 
         if announcement is None:
             return ["¡Llegaste tarde!", f"Empezá otra con {prefix}trivia"]
         if _answered(db, rnd.id):
-            return [announcement, _ask(db, message.chat_key, settings)]
+            return [announcement, _ask(db, message.chat_key, settings, _playing(db, message.chat_key))]
+        _play(db, message.chat_key, None)  # the streak is over: the next one starts wherever it wants
         return [announcement, f"Empezá otra con {prefix}trivia"]
 
     question = _question_for_round(rnd)
@@ -220,7 +260,7 @@ def submit_answer(db: Session, message: IncomingMessage, letter: str, settings: 
 
     # The chat is playing: the next question goes out with the announcement, no one has to ask for it.
     return [f"🎉 ¡{name} acertó! {_reveal(question)}\n+{points} pts (total: {score.points})",
-            _ask(db, message.chat_key, settings)]
+            _ask(db, message.chat_key, settings, _playing(db, message.chat_key))]
 
 
 def answer_letter(text: str) -> str | None:
@@ -251,7 +291,9 @@ def queue_due(db: Session, settings: Settings) -> int:
             continue  # somebody's message closed it first, and took the announcement with it
         texts = [announcement]
         if answered:
-            texts.append(_ask(db, rnd.chat_key, settings))
+            texts.append(_ask(db, rnd.chat_key, settings, _playing(db, rnd.chat_key)))
+        else:
+            _play(db, rnd.chat_key, None)  # nobody answered: the streak ends, and so does its category
         platform, _, chat_id = rnd.chat_key.partition(":")
         for text in texts:
             db.add(PendingAlert(platform=platform, chat_id=chat_id, text=text))

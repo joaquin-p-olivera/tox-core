@@ -17,11 +17,14 @@ def isolated(settings, tmp_path, monkeypatch):
     work = tmp_path / "dev"
     (work / "tox").mkdir(parents=True)
     object.__setattr__(settings, "CLAUDE_WORKDIR", str(work))
+    # What it remembers about people adds a block of its own to the prompt, which these tests pin the shape
+    # of: that one has its own file (tests/test_person_memory.py).
+    object.__setattr__(settings, "CLAUDE_MEMORY", False)
     claude_runner.forget_sessions()
     jobs.clear()
     calls = []
 
-    def fake_execute(question, session_id, settings_, tone=None):
+    def fake_execute(question, session_id, settings_, tone=None, learn=False):
         calls.append((question, session_id))
         return claude_runner.ClaudeResult("Todo bien.", "session-1", 0.12)
 
@@ -68,13 +71,13 @@ def test_the_flags_before_the_question_are_read_off_it_and_may_come_together(cli
 def test_the_answer_is_cut_and_scrubbed_even_if_the_model_ignores_the_prompt(client, settings, monkeypatch, tmp_path):
     (tmp_path / "dev" / "tox" / ".env").write_text("API_KEY=supersecretvalue123\nLOG_LEVEL=INFO\n")
     long = "x" * 1000 + " supersecretvalue123"
-    monkeypatch.setattr(claude_runner, "execute", lambda *a: claude_runner.ClaudeResult(long, None, None))
+    monkeypatch.setattr(claude_runner, "execute", lambda *a, **k: claude_runner.ClaudeResult(long, None, None))
     (reply,) = raw(client, "!claude dame el .env", **ADMIN)
     answer = wait_done(client, reply["job"])[0]
     assert len(answer["text"]) == 800 and answer["text"].endswith("…")
 
     monkeypatch.setattr(claude_runner, "execute",
-                        lambda *a: claude_runner.ClaudeResult("la clave es supersecretvalue123, ok", None, None))
+                        lambda *a, **k: claude_runner.ClaudeResult("la clave es supersecretvalue123, ok", None, None))
     (reply,) = raw(client, "!claude de nuevo", **ADMIN)
     assert wait_done(client, reply["job"])[0]["text"] == "la clave es ***, ok"
 
@@ -83,7 +86,7 @@ def test_admin_questions_go_one_by_one_and_the_next_waits_its_turn(client, monke
     release = threading.Event()
     order = []
 
-    def slow(question, session_id, settings_, tone=None):
+    def slow(question, session_id, settings_, tone=None, learn=False):
         order.append(question)
         release.wait(5)
         return claude_runner.ClaudeResult("ok", None, None)
@@ -103,7 +106,7 @@ def test_admin_questions_go_one_by_one_and_the_next_waits_its_turn(client, monke
 def test_somebody_is_told_so_only_when_the_waiting_line_is_full_too(client, settings, monkeypatch):
     object.__setattr__(settings, "CLAUDE_QUEUE_MAX", 0)
     release = threading.Event()
-    monkeypatch.setattr(claude_runner, "execute", lambda *a: release.wait(5) and claude_runner.ClaudeResult("ok", None, None))
+    monkeypatch.setattr(claude_runner, "execute", lambda *a, **k: release.wait(5) and claude_runner.ClaudeResult("ok", None, None))
     (first,) = raw(client, "!claude lenta", **ADMIN)
     assert "Hay muchas consultas" in raw(client, "!claude otra", **ADMIN)[0]["text"]
     release.set()
@@ -115,7 +118,7 @@ def test_somebody_is_told_so_only_when_the_waiting_line_is_full_too(client, sett
 def test_the_no_access_questions_run_side_by_side(client, monkeypatch):
     both_running = threading.Barrier(2, timeout=5)  # only passes if two questions are inside at the same time
 
-    def together(question, settings_, tone=None):
+    def together(question, settings_, tone=None, learn=False):
         both_running.wait()
         return claude_runner.ClaudeResult("ok", None, None)
 
@@ -140,7 +143,7 @@ def test_it_needs_a_question(client, isolated):
 
 
 def test_an_error_becomes_a_message_for_the_chat(client, monkeypatch):
-    def failing(*a):
+    def failing(*a, **k):
         raise claude_runner.ClaudeError("Claude tardó más de 10 min y lo corté.")
     monkeypatch.setattr(claude_runner, "execute", failing)
     (reply,) = raw(client, "!claude algo", **ADMIN)
@@ -157,7 +160,7 @@ PERSON = {"user": "friend@lid", "sender_is_group_admin": False}
 def public(monkeypatch):
     calls = []
 
-    def fake_public(question, settings_, tone=None):
+    def fake_public(question, settings_, tone=None, learn=False):
         calls.append(question)
         return claude_runner.ClaudeResult("Escribile a alguien@ejemplo.com", "never-kept", 0.01)
 
