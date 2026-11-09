@@ -285,6 +285,35 @@ def test_failed_units_and_a_pending_reboot_are_flagged():
     assert "🟠 Hay un reinicio pendiente (por actualizaciones)" in lines
 
 
+def test_the_backup_stamp_is_read():
+    assert hs.parse_backup("2026-09-21T04:00:12 3 1506718\n") == hs.Backup(
+        at=datetime(2026, 9, 21, 4, 0, 12), copies=3, size=1506718)
+    # A moment written with an offset is the same moment, kept in local time like every other one here
+    assert hs.parse_backup("2026-09-21T04:00:12+00:00 3 10").at.tzinfo is None
+    for unreadable in ("", "\n", "nada", "2026-09-21T04:00:12 3", "ayer 3 10", "2026-09-21T04:00:12 tres 10"):
+        assert hs.parse_backup(unreadable) is None
+
+
+def test_a_recent_backup_is_reported_and_a_late_one_is_flagged():
+    machine = healthy_machine()
+    machine.files[hs.BACKUP_STAMP] = f"{(NOW - timedelta(hours=7)).isoformat()} 3 1506718\n"
+    problems, lines = hs.describe(hs.read_snapshot(NOW, machine, sample_seconds=0), NOW)
+    assert problems == 0
+    assert "💾 Backup: 13:00:00 (hace 7 h) · 3 en la nube · 1.4 MB" in lines
+
+    machine.files[hs.BACKUP_STAMP] = f"{(NOW - timedelta(hours=hs.BACKUP_STALE_HOURS + 4)).isoformat()} 3 1506718\n"
+    problems, lines = hs.describe(hs.read_snapshot(NOW, machine, sample_seconds=0), NOW)
+    assert problems == 1
+    assert "🟠 Backup: 20/09 04:00:00 (hace 1 d 16 h) · 3 en la nube · 1.4 MB — atrasado" in lines
+
+
+def test_a_machine_with_no_backup_stamp_is_not_flagged_for_it():
+    # Whether a backup was ever set up at all is what the alert answers (scripts/backup.sh --check); a stamp
+    # that is not there is missing data, and this report leaves missing data out.
+    problems, lines = hs.describe(snapshot(), NOW)
+    assert problems == 0 and not any("Backup" in line for line in lines)
+
+
 def test_ignored_failed_units_do_not_count():
     commands = dict(healthy_machine().commands)
     commands[("systemctl", "--failed", "--no-legend", "--plain", "--no-pager")] = "casper-md5check.service l f f X\n"
