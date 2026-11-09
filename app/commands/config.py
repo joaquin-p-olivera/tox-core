@@ -36,6 +36,8 @@ class Option:
 
 OPTIONS: tuple[Option, ...] = (
     Option("tono", "CLAUDE_TONE", "cómo habla: salado, picante, tranqui o normal", "choice"),
+    Option("largo", "CLAUDE_PUBLIC_MAX_ANSWER_CHARS", "qué tan larga puede ser una respuesta", "number",
+           "caracteres"),
     Option("charla", "CLAUDE_INTERJECT_CHANCE", "cada cuántos mensajes se mete solo", "chance"),
     Option("espera", "CLAUDE_INTERJECT_COOLDOWN_MINUTES", "cuánto se calla después de hablar", "number", "min"),
     Option("perfiles", "CLAUDE_PROFILE_PEOPLE_CHANCE", "cada cuánto sabe quién es cada uno", "chance"),

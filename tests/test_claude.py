@@ -118,7 +118,7 @@ def test_somebody_is_told_so_only_when_the_waiting_line_is_full_too(client, sett
 def test_the_no_access_questions_run_side_by_side(client, monkeypatch):
     both_running = threading.Barrier(2, timeout=5)  # only passes if two questions are inside at the same time
 
-    def together(question, settings_, tone=None, learn=False):
+    def together(question, settings_, tone=None, learn=False, **k):
         both_running.wait()
         return claude_runner.ClaudeResult("ok", None, None)
 
@@ -160,7 +160,7 @@ PERSON = {"user": "friend@lid", "sender_is_group_admin": False}
 def public(monkeypatch):
     calls = []
 
-    def fake_public(question, settings_, tone=None, learn=False):
+    def fake_public(question, settings_, tone=None, learn=False, **k):
         calls.append(question)
         return claude_runner.ClaudeResult("Escribile a alguien@ejemplo.com", "never-kept", 0.01)
 
@@ -177,6 +177,40 @@ def test_anybody_can_ask_but_only_gets_the_no_access_mode(client, isolated, publ
     usage = raw(client, "!claude", **PERSON)[0]["text"]
     assert usage.startswith("Uso: !claude <pregunta>") and "-t" in usage  # -t is for everybody
     assert "-n" not in usage and "la PC" not in usage  # ... the admin extras are not
+
+
+def test_the_chat_answers_are_shorter_than_the_admins_and_each_mode_asks_for_its_own(client, settings, monkeypatch):
+    """Two numbers, not one: a report about the PC needs the room, a remark in a group does not. The number asked for
+    in the prompt is the number cut to, so the model being told 200 and the text being cut at 800 cannot happen."""
+    object.__setattr__(settings, "CLAUDE_MAX_ANSWER_CHARS", 500)
+    object.__setattr__(settings, "CLAUDE_PUBLIC_MAX_ANSWER_CHARS", 90)
+    assert claude_runner.answer_limit(settings, full_access=True) == 500
+    assert claude_runner.answer_limit(settings, full_access=False) == 90
+
+    asked = []
+    monkeypatch.setattr(claude_runner, "_chat_only",
+                        lambda question, prompt, budget, timeout, s: asked.append(prompt)
+                        or claude_runner.ClaudeResult("x" * 400, None, None))
+    monkeypatch.setattr(claude_runner, "execute", lambda *a, **k: claude_runner.ClaudeResult("x" * 400, None, None))
+
+    (reply,) = raw(client, "!claude algo", **PERSON)
+    assert len(wait_done(client, reply["job"])[0]["text"]) == 90
+    assert "Nunca pases de 90" in asked[0] and "500" not in asked[0]
+
+    (reply,) = raw(client, "!claude algo", **ADMIN)
+    assert len(wait_done(client, reply["job"])[0]["text"]) == 400  # under the admins' 500: nothing was cut
+
+
+def test_a_chat_that_asked_for_shorter_answers_gets_them(client, db_session, monkeypatch):
+    """!config largo is the chat's own value, and it has to reach both the prompt and the cut."""
+    from app.services import chat_config
+    chat_config.set_value(db_session, "whatsapp:g1", "CLAUDE_PUBLIC_MAX_ANSWER_CHARS", "90", "whatsapp:admin1@lid")
+    asked = []
+    monkeypatch.setattr(claude_runner, "_chat_only",
+                        lambda question, prompt, budget, timeout, s: asked.append(prompt)
+                        or claude_runner.ClaudeResult("y" * 300, None, None))
+    (reply,) = raw(client, "!claude algo", **PERSON)
+    assert len(wait_done(client, reply["job"])[0]["text"]) == 90 and "Nunca pases de 90" in asked[0]
 
 
 def test_a_listed_admin_who_is_not_admin_of_the_group_gets_the_no_access_mode(client, isolated, public):

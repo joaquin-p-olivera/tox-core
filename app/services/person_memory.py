@@ -8,12 +8,19 @@ remembered without anybody having to write them down.
 
     [memoria] Nombre: dato            <- in this chat only
     [memoria global] Nombre: dato     <- about the person, wherever they are
-    [memoria] -                       <- nothing worth remembering came up, which is most of the time
+    [memoria] -                       <- nothing worth remembering came up
 
 which are taken off before the chat sees a word of it and stored as notes. That is the whole mechanism: one
 question, one answer, and whatever it learned rides along. The stripping is deliberately greedy -- *any* line
 beginning with the marker goes, wherever it is and however malformed -- because the one failure that matters is a
 marker reaching the chat.
+
+**What counts as worth keeping was loosened once, from measurement.** The first wording got a note out of 7% of
+the answers (20 in a fortnight) and told the model, in so many words, that learning nothing "es lo más común" --
+a prior it duly obeyed. It also read as being about whoever was talking, while what the notes it did keep were
+almost all about was whoever the group was talking *about*: the one being teased, not the one asking. So the prior
+came out, "durable" became a test anybody can apply (does it still mean something in a week), and it now says
+plainly that what the group says about somebody is a note about that somebody.
 
 **The block is asked for on every answer, not when the model feels like it.** Asked as a favour -- *add this if you
 learned something worth keeping* -- it was simply never added: an optional instruction at the end of a long prompt,
@@ -36,6 +43,10 @@ What keeps this honest:
   else: their own questions are how Tox gets to know *them*, which is why the access level has nothing to do with
   it. A private chat is the other thing -- one person driving the machine, with no group to know -- and nothing is
   kept there.
+  An answer that was not given the latest messages (the full-access mode never is, nor is a chat with its history
+  off) is asked all the same: a question can carry a fact about whoever asked it, and for an admin, whose questions
+  are mostly in that mode, it is the only way anything is ever learned about them. It yields little, so the log
+  says which of the two an answer had to go on and the two can be counted apart.
 - **A name has to be somebody who is there.** Notes are resolved against the people of that chat and dropped when
   they are not about one of them, so Claude cannot invent a person to remember things about. The matching is loose
   in one direction only: "Leandro" is the member WhatsApp calls "Leandro 1899", because that is what the model
@@ -85,17 +96,23 @@ ASK = """
 Además de tu respuesta, lo que aprendas de la gente:
 SIEMPRE, sin excepción, lo último que escribís es una línea que empieza con [memoria]. Es obligatorio, en todas tus
 respuestas, hayas aprendido algo o no.
-- Si aprendiste algo de alguien que valga la pena recordar, como máximo 2 líneas, eligiendo entre estas dos:
+- Si en la conversación salió algo de alguien que valga la pena recordar, como máximo 2 líneas, eligiendo entre estas dos:
   [memoria global] Nombre: el dato en pocas palabras
-      para lo que la persona ES y es cierto en cualquier chat: a qué se dedica, de dónde es, qué le gusta.
+      para lo que la persona ES y es cierto en cualquier chat: a qué se dedica, de dónde es, qué le gusta, qué hace
+      cuando no está acá, algo que contó de su vida.
   [memoria] Nombre: el dato en pocas palabras
-      para lo que es de ESTE grupo y no debe salir de acá: una joda interna, un apodo que solo se usa acá, algo que
-      se dijo entre esta gente.
-  Si dudás entre las dos, usá la segunda: lo que queda acá no molesta a nadie. Solo cosas duraderas: nada de lo que
-  la persona está haciendo ahora ni cosas del momento. Si el dato ya está en "Lo que fuiste sabiendo de cada uno
-  charlando", no lo repitas. Lo que sepas por la descripción del grupo NO cuenta como sabido: eso es contexto, no
-  una nota, así que si sale en la charla guardalo igual. El Nombre tiene que ser uno de los integrantes del grupo.
-- Si no aprendiste nada, que es lo más común, escribí exactamente esta línea y nada más:
+      para lo que es de ESTE grupo y no debe salir de acá: un apodo, una joda interna, con qué lo cargan, algo que
+      admitió entre esta gente, una postura suya que quedó marcada.
+  Si dudás entre las dos, usá la segunda: lo que queda acá no molesta a nadie.
+  Sirve igual lo que alguien cuenta de sí mismo y lo que el grupo dice de otro: si se están riendo de algo de
+  Fulano, eso es un dato de Fulano. La nota es sobre esa persona, no sobre quien te escribió.
+  Lo que no sirve es lo que alguien está haciendo en este rato (está cocinando, va saliendo, pregunta una hora) ni
+  el ida y vuelta del momento. La prueba es simple: si en una semana ya no significa nada, no lo guardes; si en una
+  semana todavía sirve para entender a esa persona o para cargarla, guardalo.
+  Si el dato ya está en "Lo que fuiste sabiendo de cada uno charlando", no lo repitas. Lo que sepas por la
+  descripción del grupo NO cuenta como sabido: eso es contexto, no una nota, así que si sale en la charla guardalo
+  igual. El Nombre tiene que ser uno de los integrantes del grupo.
+- Si no salió nada de nadie, escribí exactamente esta línea y nada más:
   [memoria] -
 Estas líneas se borran antes de que el chat vea la respuesta, así que nadie las lee y NO cuentan para el máximo de
 caracteres. No las menciones ni las expliques.

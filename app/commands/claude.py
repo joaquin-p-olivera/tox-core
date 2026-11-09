@@ -85,11 +85,17 @@ def _learn(context: claude_context.Context, message, settings, text: str, *, lea
     clean, learned = person_memory.strip(text)
     # Every answer that was asked for the block leaves exactly one line about it, so what happened is read and not
     # deduced from a silence: nothing came up, it was ignored, or (below) something was kept.
+    # What the answer had to go on, because the two are not the same bet and the log is the only place the
+    # difference shows: the full-access mode is never given the latest messages (`with_history` where the context is
+    # gathered) and neither is a chat with its history off, so those answers can only learn from the question
+    # itself. They do -- rarely -- which is why they are still asked; counted together with the rest, though, they
+    # make the yield of this whole thing unreadable.
+    source = "with the conversation" if context.transcript else "from the question alone"
     if learning and not message.personal:
         if not person_memory.carried_block(text):
-            logger.info("MEMORY the answer in %s came back without the note block", message.chat_key)
+            logger.info("MEMORY the answer in %s came back without the note block (%s)", message.chat_key, source)
         elif not learned:
-            logger.info("MEMORY nothing worth keeping came up in %s", message.chat_key)
+            logger.info("MEMORY nothing worth keeping came up in %s (%s)", message.chat_key, source)
     # The personal mode is never learned from, whatever the caller thinks: there the bot writes as the owner and
     # the other side of the chat is one person who never asked for any of this. The lines are still taken off.
     if not learning or not learned or message.personal:
@@ -104,7 +110,7 @@ def _learn(context: claude_context.Context, message, settings, text: str, *, lea
         logger.exception("MEMORY could not store what it learned in %s", message.chat_key)
         return clean
     if stored:
-        logger.info("MEMORY learned %d thing(s) in %s", stored, message.chat_key)
+        logger.info("MEMORY learned %d thing(s) in %s (%s)", stored, message.chat_key, source)
     return clean
 
 
@@ -224,6 +230,9 @@ def ask_claude(ctx: CommandContext) -> str | Reply | None:
             message.chat_key, context.prompt(question, speak=speak), new_conversation, settings,
             on_done=done, full_access=full_access, tone=_setting(ctx, "CLAUDE_TONE"), learn=learning,
             refine=lambda raw: _learn(context, message, settings, raw, learning=learning),
+            # The chat's own length (!config largo), and only for the chat mode: how much a work tool may report
+            # is not something a group gets to set from inside the group.
+            limit=None if full_access else _setting(ctx, "CLAUDE_PUBLIC_MAX_ANSWER_CHARS"),
         )
     except claude_runner.Busy:
         jobs.discard(job_id)
@@ -303,6 +312,7 @@ def interject(ctx: CommandContext) -> Reply | None:
     try:
         claude_runner.start(message.chat_key, context.interjection(), False, settings, on_done=done,
                             full_access=False, tone=_setting(ctx, "CLAUDE_TONE"), learn=learning,
+                            limit=_setting(ctx, "CLAUDE_PUBLIC_MAX_ANSWER_CHARS"),
                             refine=lambda raw: _learn(context, message, settings, raw, learning=learning))
     except claude_runner.Busy:
         jobs.discard(job_id)

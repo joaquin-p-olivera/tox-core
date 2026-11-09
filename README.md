@@ -830,8 +830,9 @@ hourly pools so a busy group can't use up the admins' questions.
   joke, a nickname only used there or something said among those people goes. Claude picks, and is told to pick the
   second when in doubt. Each kind has its own ceiling, so what a group knows about somebody cannot crowd out what
   is true about them.
-  Nothing said in the **personal mode** is kept or read, like everything else the bot does on its own; only the
-  **no-access mode** learns, since the admins' session is doing work on a machine, not chatting; a name has to be
+  Nothing said in the **personal mode** is kept or read, like everything else the bot does on its own; **only a
+  group learns**, and the access level has nothing to do with it — a group is a conversation between people and the
+  admins are people in it like anybody else, so their own questions are how Tox gets to know *them*; a name has to be
   **somebody who is there** or the note is dropped, so Claude cannot invent a person to remember things about; and
   **each person owns theirs** — `!memory` shows the two kinds apart and `!memory forget` deletes every note about
   them **in every chat**, with no admin needed, because asking to be forgotten means forgotten and not forgotten in
@@ -845,7 +846,7 @@ hourly pools so a busy group can't use up the admins' questions.
   where there is no command to put a flag on: a typed `!claude -no sé qué hacer` is the question it looks like. It goes with `-t`
   in any order. Tagging somebody else in the reply does not stop the answer on its own -- a question for Tox often tags people too.
 - **It butts in now and then** (`CLAUDE_INTERJECT_CHANCE`, 0.02 of the messages; per chat with `!config`, see below): in a group whose history is on, Tox reads the
-  conversation and drops **one remark nobody asked for**, always as text (never a voice note) and always in the no-access mode,
+  conversation and drops **one remark nobody asked for**, of a single sentence, always as text (never a voice note) and always in the no-access mode,
   whoever happened to write the message that got it talking — nobody asked for anything, so it must never run commands on this PC.
   It ends with a `> Tox` line, so a remark is never taken for an answer to somebody. Whether it is worth saying anything at all is
   Claude's own call: it is told to answer `paso` (and then nothing is sent, and nobody is told) when the recent messages are mostly
@@ -883,8 +884,12 @@ hourly pools so a busy group can't use up the admins' questions.
 - **Limits.** Few at a time, never "busy": the admins' questions go one by one, the no-access ones and the summaries `CLAUDE_PARALLEL` (2) at a time, and the rest wait their turn in a line of `CLAUDE_QUEUE_MAX` (5) places (only a full line is refused); questions per hour, counted in `claude_queries`: `CLAUDE_QUESTIONS_PER_HOUR` (200, admins together)
   and `CLAUDE_PUBLIC_QUESTIONS_PER_HOUR` (100, everybody else together); `CLAUDE_MAX_BUDGET_USD` (2.5, about $U 100) per question, passed as `--max-budget-usd`; `CLAUDE_TIMEOUT_SECONDS` (600),
   after which the whole process group is killed. A cold question costs roughly US$0.30 in tokens (the CLI loads its context first).
-- **Short answers.** The system prompt asks for a summary of at most `CLAUDE_MAX_ANSWER_CHARS` (800) characters, and the API cuts
-  the text to that length anyway (the model can ignore the prompt).
+- **Short answers, and two lengths.** The prompt asks for a length and the API cuts to the same number anyway (the model can ignore the
+  prompt): `CLAUDE_MAX_ANSWER_CHARS` (800) for the admins' mode, where an answer about a log or a service needs the room, and
+  `CLAUDE_PUBLIC_MAX_ANSWER_CHARS` (200) for every other answer and for the remarks Tox makes on its own, where the chat prompt asks for
+  **one or two sentences** and forbids a preamble or a closing summary — in a group a remark that takes four lines stops being funny. One
+  function decides which of the two applies (`claude_runner.answer_limit`), so the number asked for and the number cut to cannot drift
+  apart. A chat can narrow its own with `!config largo`; the admins' one is not something a group gets to set from inside the group.
 - **No secrets.** The system prompt forbids printing `.env` contents or sensitive data (only the *structure* of a `.env` is allowed), and
   the API scrubs the answer before sending it: the values of every secret-looking variable (`*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASS*`...) of
   the `.env*` files one level under the work directory, `webapps.json` passwords, provider tokens and WhatsApp ids become `***`. The
@@ -945,6 +950,7 @@ same numbers, so **`!config` gives one chat its own value** for how talkative To
 | Typed | Setting | What it is |
 |---|---|---|
 | `tono` | `CLAUDE_TONE` | How it talks: salado, picante, tranqui or normal |
+| `largo` | `CLAUDE_PUBLIC_MAX_ANSWER_CHARS` | How long an answer may be |
 | `charla` | `CLAUDE_INTERJECT_CHANCE` | How often it butts in with nobody talking to it |
 | `espera` | `CLAUDE_INTERJECT_COOLDOWN_MINUTES` | How long it stays quiet after speaking |
 | `perfiles` | `CLAUDE_PROFILE_PEOPLE_CHANCE` | How often it is told who everybody is |
@@ -958,7 +964,7 @@ same numbers, so **`!config` gives one chat its own value** for how talkative To
   applies again. A chance is read and written as a **percentage** (`15%`, or `nunca`), a yes/no as `sí` / `no`.
 - `!config -off` is the switch the owner asked for: `charla` to `0` **in this chat**, so Tox stops butting in there while it
   still answers whoever talks to it. `!config -on` undoes it (a `-reset` of that one key, not a `0.02` written by hand).
-- **The list of settings it can touch is a whitelist** (`chat_config.OVERRIDABLE`), and only those eight. An admin typing into a
+- **The list of settings it can touch is a whitelist** (`chat_config.OVERRIDABLE`), and only those nine. An admin typing into a
   group reaches this code, so a key, a path, a money cap or `ADMIN_USER_IDS` must never be reachable from a message — the service
   refuses anything outside the list even if a command asked it to.
 - Every value is validated by **the field's own rules in `config.py`** (its type and its `ge`/`le`), so a chat cannot be given a

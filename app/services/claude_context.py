@@ -45,8 +45,11 @@ SPOKEN_NOTE = ("\n\n(Esta respuesta se va a escuchar como nota de voz, no se lee
                "sin markdown, sin listas y sin etiquetar a nadie. Que suene natural dicha en voz alta.)")
 # What is asked instead of a question when Tox butts into the conversation on its own (`Context.interjection`). Whether
 # it is worth saying anything at all is Claude's call: the answer «paso» sends nothing (commands/claude.py's `interject`).
+# No character count here: the ceiling is the one the system prompt already gave (CLAUDE_PUBLIC_MAX_ANSWER_CHARS),
+# and a second number next to it would only contradict it. What this one adds is that a remark nobody asked for is
+# shorter still than an answer: one sentence.
 INTERJECT_NOTE = ("Nadie te preguntó nada: venías leyendo la conversación y se te ocurrió meterte, como cualquiera del "
-                  "grupo. El último mensaje es de {asker}. Mandá UN solo mensaje corto (menos de 200 caracteres) sobre "
+                  "grupo. El último mensaje es de {asker}. Mandá UN solo mensaje de UNA SOLA FRASE sobre "
                   "lo que se está hablando: sin saludar, sin presentarte, sin ofrecer ayuda y sin contar que estuviste "
                   "leyendo. El comentario va sobre lo que se está diciendo, no sobre quién es cada uno.\n"
                   "Antes de escribir, decidí si vale la pena meterse. Si la conversación reciente son casi todos "

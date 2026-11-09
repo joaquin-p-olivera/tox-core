@@ -88,7 +88,11 @@ class Settings(BaseSettings):
     CLAUDE_MEMORY_MAX_CHARS: int = Field(default=120, ge=20, le=500)
     CLAUDE_PARALLEL: int = Field(default=2, ge=1, le=8)
     CLAUDE_QUEUE_MAX: int = Field(default=5, ge=0, le=50)
+    # How long an answer may be, asked for in the prompt and cut here as well. Two numbers because the two modes are
+    # not the same thing: the admins' one is a work tool and an answer about a log or a service needs the room, while in
+    # a group a remark that takes four lines stops being funny. A chat may give itself another value (!config largo).
     CLAUDE_MAX_ANSWER_CHARS: int = Field(default=800, ge=100, le=3000)
+    CLAUDE_PUBLIC_MAX_ANSWER_CHARS: int = Field(default=200, ge=80, le=3000)
     CLAUDE_PUBLIC_MAX_BUDGET_USD: float = Field(default=0.10, gt=0, le=100)  # an answer costs ~US$0.01-0.03
     CLAUDE_PUBLIC_QUESTIONS_PER_HOUR: int = Field(default=100, ge=1, le=1000)  # everybody else, all together
     CLAUDE_PUBLIC_QUESTIONS_PER_PERSON_PER_HOUR: int = Field(default=100, ge=1, le=1000)

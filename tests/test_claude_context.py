@@ -35,7 +35,7 @@ def fake_claude(settings, tmp_path, monkeypatch):
 
     monkeypatch.setattr(claude_runner, "execute", lambda question, session, settings_, tone=None, **k: reply(question))
     monkeypatch.setattr(claude_runner, "execute_public",
-                        lambda question, settings_, tone=None, learn=False: reply(question))
+                        lambda question, settings_, tone=None, learn=False, **k: reply(question))
     return seen
 
 
@@ -370,6 +370,7 @@ def test_it_falls_back_to_text_when_it_cannot_be_spoken(client, settings, fake_c
     tagged = answer(client, "!claude preguntale a Bob")
     assert tagged["text"] == "Che {@0}, vos sabés." and not tagged["audio"] and spoken == []
 
+    object.__setattr__(settings, "CLAUDE_PUBLIC_MAX_ANSWER_CHARS", 800)  # room for one the voice cannot take
     fake_claude["answer"] = "x" * 600  # longer than the voice service takes (but under the answer limit)
     assert answer(client, "!claude largo")["text"] == "x" * 600
 
