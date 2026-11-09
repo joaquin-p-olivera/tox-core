@@ -21,11 +21,13 @@ from ..config import Settings
 from ..models import ChatSetting
 from ..utils import utcnow
 
-# What !config is allowed to touch: how it talks, how often it butts in, how long it stays quiet afterwards, how much
-# it is told about the people, whether it answers when replied to, how often it speaks its answers, and how much of
-# the conversation it reads. Nothing else, and nothing that is not in Settings.
+# What !config is allowed to touch: how it talks, how long an answer may be, how often it butts in, how long it stays
+# quiet afterwards, how much it is told about the people, whether it answers when replied to, how often it speaks its
+# answers, and how much of the conversation it reads. Nothing else, and nothing that is not in Settings.
+# Only the chat mode's length is here: the admins' one is about what a work tool may report, not about how it talks.
 OVERRIDABLE: tuple[str, ...] = (
     "CLAUDE_TONE",
+    "CLAUDE_PUBLIC_MAX_ANSWER_CHARS",
     "CLAUDE_INTERJECT_CHANCE",
     "CLAUDE_INTERJECT_COOLDOWN_MINUTES",
     "CLAUDE_PROFILE_PEOPLE_CHANCE",

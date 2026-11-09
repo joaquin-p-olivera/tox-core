@@ -274,6 +274,9 @@ def test_an_answer_that_learned_nothing_says_so_too(client, db_session, settings
             time.sleep(0.02)
     assert "nothing worth keeping came up" in caplog.text
     assert "without the note block" not in caplog.text  # it did follow the request
+    # What it had to go on is part of the line: an answer with no conversation behind it can only learn from the
+    # question, and counting those together with the rest is what made the yield of this unreadable.
+    assert "from the question alone" in caplog.text  # this chat's history is off, so that is all there was
 
 
 def test_an_answer_that_ignored_the_request_says_so_in_the_log(client, db_session, settings, monkeypatch, caplog):
@@ -328,10 +331,10 @@ def test_the_notes_are_asked_for_in_the_system_prompt_or_not_at_all(settings):
 
 
 def test_the_notes_are_read_before_the_answer_is_cut(client, db_session, settings, monkeypatch):
-    """They are at the end of the answer, and the answer is cut to CLAUDE_MAX_ANSWER_CHARS before it is sent."""
+    """They are at the end of the answer, and the answer is cut (the chat mode's own limit) before it is sent."""
     monkeypatch.setattr(claude_command, "session_factory",
                         sessionmaker(bind=db_session.get_bind(), autoflush=False, expire_on_commit=False))
-    object.__setattr__(settings, "CLAUDE_MAX_ANSWER_CHARS", 60)
+    object.__setattr__(settings, "CLAUDE_PUBLIC_MAX_ANSWER_CHARS", 60)
     long_answer = "x" * 200 + "\n[memoria global] Alice: es veterinaria"
     monkeypatch.setattr(claude_runner, "execute_public",
                         lambda *a, **k: claude_runner.ClaudeResult(long_answer, None, None))

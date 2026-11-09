@@ -66,6 +66,17 @@ def test_the_command_sets_a_percentage_and_the_chat_keeps_it(send, db_session, s
     assert chat_config.value(db_session, settings, "whatsapp:g1", SETTING) == settings.CLAUDE_INTERJECT_CHANCE
 
 
+def test_a_chat_can_be_given_its_own_answer_length(send, db_session, settings):
+    """How long an answer may be is how the bot talks, so it belongs to the chat. The admins' limit does not: a group
+    cannot decide from inside the group how much a question with access to the PC may report."""
+    assert "120" in send("!config largo 120", user=ADMIN)[0]
+    assert chat_config.value(db_session, settings, "whatsapp:g1", "CLAUDE_PUBLIC_MAX_ANSWER_CHARS") == 120
+    assert chat_config.value(db_session, settings, "whatsapp:g2",
+                             "CLAUDE_PUBLIC_MAX_ANSWER_CHARS") == settings.CLAUDE_PUBLIC_MAX_ANSWER_CHARS
+    with pytest.raises(ValueError):
+        chat_config.parse("CLAUDE_MAX_ANSWER_CHARS", "120")
+
+
 def test_off_and_on_switch_the_butting_in_of_this_chat_only(send, db_session, settings):
     send("!config -off", user=ADMIN)
     assert chat_config.value(db_session, settings, "whatsapp:g1", SETTING) == 0
