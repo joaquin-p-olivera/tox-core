@@ -696,6 +696,103 @@ same as every command.
   platform. Each bot also has its own `ALERTS_POLL_INTERVAL_SECONDS` / `ALERTS_POLL_INTERVAL_MS` (default
   ~30 s) controlling how quickly it notices a queued alert — unrelated to how often the API itself checks.
 
+## Backup (`scripts/backup.sh`)
+
+Once a day, everything git does not have goes to the cloud as one `tar.gz`. The rule is not a curated list but an
+invariant: **the backup is the repo's untracked state**, so nothing has to be remembered when a new local file
+appears, and a restore is `git clone` plus one `tar -xz`.
+
+What travels: `tox.db` (what Tox learned -- notes about people, the trivia ranking, `chat_settings`, bans,
+aliases), `history.sqlite` (the saved chat text) and the hand-written local config (`.env`, `chats.json`,
+`users.json`, `services.json`, `devices.json`, `webapps.json`, `app/data/jokes.json`). About 5 MB raw, 1.4 MB
+packed. Left out: `.venv/`, `__pycache__/`, `logs/` and `media/` -- the first three regenerate, and the artworks
+and sound clips can be downloaded again (one line in `CONFIG` if that ever stops being true).
+
+**The databases are never copied with `cp`.** The API writes to them while the backup runs and `tox.db` is in
+`journal_mode=delete`, so a plain copy can catch half a transaction; the dump goes through SQLite's online backup
+API (`sqlite3 … ".backup"`), which takes a read lock, retries when busy and takes about 70 ms for both. Only the
+copies are packed, never the live files.
+
+**Rotation.** Three backups live in the cloud (`KEEP`); each one holds everything the last one did, so hundreds
+of them would buy nothing. The script uploads first and prunes afterwards, in that order on purpose: pruning
+first would leave one copy fewer every time an upload failed. Deletes pass `--drive-use-trash=false`, or the
+files would sit in Drive's trash still eating the quota they were deleted to free.
+
+**When it runs.** `tox-backup.timer` (a user timer, in `~/.config/systemd/user/` like `tox-core.service`) at
+04:00, with `RandomizedDelaySec=30m` and `Persistent=true`. This machine is a notebook that is off at four in the
+morning more often than not: without `Persistent` the day would simply be skipped and a daily backup would
+quietly become a weekly one. A run started by hand and the timer's own cannot overlap (`flock`), and the staging
+directory is removed on the way out whatever happens -- the disk has little room to spare.
+
+**How you find out it broke.** A backup that stopped running is worse than none, because you believe you have
+one. The script leaves a stamp behind when it finishes (`~/.local/state/tox-backup/last-success`) and the reason
+when it fails, and `scripts/backup.sh --check` reads both: `active` while the backups are current, and otherwise
+a few words saying why. That is the `status` action of `tox-backup` in `services.json`, so the alert monitor that
+already watches the other local services reports it to the chats in the same words it uses for them:
+
+```
+[ALERTA] 🔴 tox-backup: caído, revisar (falló hace 72 h: rclone no pudo subir el backup).
+[ALERTA] 🟢 tox-backup: se recuperó (activo).
+```
+
+It is deliberately not `systemctl is-active`: a oneshot unit reads `inactive` between runs, which would be
+reported as down every single day. The bar is `STALE_HOURS` (36), which means **one failed run is silent** --
+yesterday's backup is still current -- and only a second one in a row speaks, so a blip at four in the morning
+never wakes anybody while a real problem is told within a day and a half. A run in progress counts as healthy,
+so the catch-up run on a machine that spent three days off is not mistaken for a three-day-old backup.
+
+`!service -L host` carries the quiet side of the same stamp, next to the disk and the memory:
+
+```
+💾 Backup: 04:00:12 (hace 7 h) · 3 en la nube · 1.4 MB
+🟠 Backup: 20/09 04:00:00 (hace 1 d 16 h) · 3 en la nube · 1.4 MB — atrasado
+```
+
+A stamp that is not there shows nothing at all: whether a backup was ever set up is the alert's question, and
+this report leaves missing data out, the same as a battery the machine does not have. `!service tox-backup -up`
+runs one on demand (`--no-block`: a full backup takes longer than `SERVICE_COMMAND_TIMEOUT_SECONDS`, and the
+chat would be told it failed while it was still uploading).
+
+### Setting it up
+
+```
+sudo apt install rclone
+rclone config          # n) new remote -> name: drive -> storage: drive -> defaults -> y) auto config
+```
+
+`rclone config` opens a browser and asks for the Google account once. rclone ships its own OAuth client, so
+there is no Google Cloud project, no OAuth screen and no service account to create -- which is what used to make
+this awkward, since a service account has no Drive storage quota of its own and cannot upload to a personal
+account at all. The refresh token ends up in `~/.config/rclone/rclone.conf`.
+
+The destination is `drive:tox-backups` (`TOX_BACKUP_REMOTE` overrides it, which is also how it is pointed at
+something else entirely: the same script works against any rclone remote, e.g. Backblaze B2, where the auth is a
+key pair instead of a Google consent).
+
+```
+./scripts/backup.sh            # the first one, by hand
+./scripts/backup.sh --check    # must answer "active"
+systemctl --user enable --now tox-backup.timer
+systemctl --user list-timers tox-backup.timer
+```
+
+Only once that first backup has worked, add `tox-backup` to `ALERT_SERVICES` in `.env` and restart the API.
+Added before, the monitor's first check finds it down and alerts the chats immediately -- a service that is
+already down the first time it is seen is reported, which is the behaviour wanted for every other service.
+
+### Restoring
+
+```
+git clone git@github.com:joaquin-p-olivera/tox-core.git tox && cd tox
+rclone copy drive:tox-backups/tox-20261104-040012.tar.gz .
+tar -xzf tox-20261104-040012.tar.gz        # the databases, .env and the json files land where they belong
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+systemctl --user start tox-core
+```
+
+Worth doing once against a throwaway directory rather than the day it is needed: a restore that was never run is
+a guess, not a plan.
+
 ## The GTA VI countdown: `vi`
 
 `!vi` answers with a **card**: a picture of the game over a bar with the days, hours, minutes and seconds left until
