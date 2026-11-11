@@ -22,6 +22,14 @@ PERSONAL_PREFIX = ".b "
 # What a reply to one of the bot's own messages is answered by (see `replying_to_the_bot`)
 REPLY_COMMAND = "claude"
 
+# The one answer a "hola" in a group has always deserved, and what counts as one: the greeting on its own, however
+# somebody writes it -- any case, the diminutive ("holi", "holis"), however many letters they lean on ("holaaa",
+# "hooola") and whatever punctuation they wrap it in. Only on its own, because "hola a todos, alguien sabe a qué hora
+# juega Nacional?" is somebody talking to the group, and a bot that answers that with a joke is a bot people turn off.
+# The "h" is not optional: "ola" is a word.
+GREETING = re.compile(r"^h+o+l+(a+|i+)s?$")
+GREETING_REPLY = "Tu nariz contra mis bolas"
+
 
 def parse_command(text: str, prefixes: list[str]) -> tuple[str, str, str] | None:
     """Split ``"!roll 2d6"`` into ``("!", "roll", "2d6")``. Returns None if it isn't a command."""
@@ -66,6 +74,19 @@ def _trivia_answer(message: IncomingMessage, db: Session, settings: Settings) ->
     chat_members.record_user(db, message)
     prefix = settings.command_prefixes_list[0]
     return [Reply(text=text) for text in trivia_service.submit_answer(db, message, letter, settings, prefix)]
+
+
+def _greeting(message: IncomingMessage) -> list[Reply] | None:
+    """The joke the group gets for saying hello, or None when the message is not just a hello and goes on its way.
+
+    Groups only: in the personal mode the bot writes as the owner, so answering that would be the owner saying it
+    to whoever greeted him, and in a one-to-one chat with the bot a hello is somebody starting a conversation."""
+    if message.personal or not message.is_group:
+        return None
+    # Whitespace in the same pass as the punctuation, so "hola ! " is one too.
+    if not GREETING.match(message.text.strip(" \t\r\n!¡?¿.,;:").lower()):
+        return None
+    return [Reply(text=GREETING_REPLY)]
 
 
 def _butt_in(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply]:
@@ -138,6 +159,10 @@ def _answer(message: IncomingMessage, db: Session, settings: Settings, prefixes:
         answered = _trivia_answer(message, db, settings)
         if answered is not None:
             return answered
+        # And before Claude is asked anything: a "hola" is answered by the house, even when it is a reply to the bot.
+        greeted = _greeting(message)
+        if greeted is not None:
+            return greeted
     implicit = parsed is None and replying_to_the_bot(message, db, settings)
     if parsed is None and not implicit:
         return _butt_in(message, db, settings)

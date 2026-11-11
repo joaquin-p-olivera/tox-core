@@ -225,7 +225,9 @@ def test_when_claude_says_there_is_nothing_worth_saying_nothing_is_sent(client, 
 
 
 def test_it_stays_quiet_without_a_saved_conversation_and_right_after_speaking(client, fake_claude, always_butts_in):
-    assert chatter(client, "hola") == []  # the history of this chat is off: there is nothing to read
+    # Anything but a "hola", which in a group is answered by the house before Claude is asked (the router's
+    # `_greeting`) and would say nothing about reading a conversation.
+    assert chatter(client, "ahí andamos") == []  # the history of this chat is off: there is nothing to read
     assert fake_claude["prompts"] == []
 
     post(client, "!h -on", **{"user_id": "admin1@lid", "name": "Owner", "admin": True})
