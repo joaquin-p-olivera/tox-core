@@ -77,7 +77,11 @@ PALM = (28, 16, 44)
 ARTWORK_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp")
 
 LABELS = ("días", "horas", "minutos", "segundos")
-ARRIVED_LINE = "BIENVENIDOS A VICE CITY"
+# The welcome, in the two lines it is drawn in and sent as (services/gta_countdown.py reads it from here, like
+# GAME): the day it comes out is the one message that is not a number, so it is a sentence and not a sign.
+ARRIVED_LINE = "Llegó el gran día\nBienvenidos a Vice City"
+# Bigger than it would be on one line, which two lines leave room for: above this they crowd the bar.
+ARRIVED_SIZE = 50
 LAST_DAY_LINE = "Último día"
 GAME = "Grand Theft Auto VI"  # spelled once: the message (services/gta_countdown.py) reads it from here
 # The daily bar is a number and, beside it, what the number is counting to. The number is the whole card -- it is
@@ -309,8 +313,12 @@ def arrived_card(artwork_path: str | None = None) -> Image.Image:
     """The one card that is not a countdown: the day it finally comes out."""
     card, draw, bar = _card(artwork_path)
     left, top, right, bottom = bar
-    draw.text(((left + right) / 2, (top + bottom) / 2), ARRIVED_LINE,
-              font=_font(_BOLD_CANDIDATES, 46), fill=COLOR_NUMBER, anchor="mm")
+    lines = ARRIVED_LINE.split("\n")
+    font = _font(_BOLD_CANDIDATES, ARRIVED_SIZE)
+    spacing = ARRIVED_SIZE * 1.24  # from the middle of one line to the middle of the next
+    first = (top + bottom) / 2 - spacing * (len(lines) - 1) / 2  # the block centred in the bar, however many lines
+    for index, line in enumerate(lines):
+        draw.text(((left + right) / 2, first + index * spacing), line, font=font, fill=COLOR_NUMBER, anchor="mm")
     return card
 
 
