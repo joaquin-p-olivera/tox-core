@@ -1,12 +1,12 @@
-fastapi==0.162.0
+fastapi==0.162.5
 uvicorn[standard]==0.54.0
 SQLAlchemy==2.1.8
 pydantic==2.14.3
-pydantic-settings==2.16.2
+pydantic-settings==2.16.3
 httpx==0.28.1
 Pillow==13.0.0
 edge-tts==7.3.1
 cachetools==8.0.0
-playwright==1.64.1
+playwright==1.65.1
 qrcode==8.2
 yt-dlp==2026.10.26
