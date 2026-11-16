@@ -12,6 +12,8 @@ BEFORE_RELEASE = datetime(2026, 10, 26, 21, 30, 0)  # 18:30 in Montevideo, 23 da
 MIDNIGHT = datetime(2026, 10, 27, 3, 0, 0)  # 00:00 in Montevideo
 SIX_HOURLY_DAY = datetime(2026, 11, 16, 15, 0, 0)  # 12:00 of the 16th, one of the slots every six hours
 HOURLY_DAY = datetime(2026, 11, 18, 15, 0, 0)  # 12:00 of the 18th, the day it goes out every hour
+# Spelled here and not read from the source, so changing the welcome has to be meant in both places
+WELCOME = "🌴 Llegó el gran día\nBienvenidos a Vice City 🌴"
 
 
 @pytest.fixture
@@ -40,7 +42,7 @@ def test_the_one_a_day_message_counts_days_and_nothing_else():
     # is written for any number of days and says so
     assert gta_countdown.day_message(datetime(2026, 11, 17, 12, 0, 0)) == "🌴 1 día para Grand Theft Auto VI 🦩"
     assert gta_countdown.day_message(datetime(2026, 11, 18, 12, 0, 0)) == "🌴 Último día para Grand Theft Auto VI 🦩"
-    assert gta_countdown.day_message(datetime(2026, 11, 19, 3, 0, 0)) == "🌴 Bienvenidos a VICE CITY. 🌴"
+    assert gta_countdown.day_message(datetime(2026, 11, 19, 3, 0, 0)) == WELCOME
 
 
 def test_going_out_more_than_once_a_day_brings_the_whole_clock_back(db_session, alerting):
@@ -80,8 +82,8 @@ def test_the_days_the_cadence_changes_are_the_days_it_was_asked_to(settings):
 
 def test_once_the_day_comes_it_welcomes_everybody_to_vice_city():
     assert gta_countdown.message(datetime(2026, 11, 19, 2, 59, 59)) == "🌴 Falta 00:00:00:00:01 para Grand Theft Auto VI 🦩"
-    assert gta_countdown.message(datetime(2026, 11, 19, 3, 0, 0)) == "🌴 Bienvenidos a VICE CITY. 🌴"
-    assert gta_countdown.message(datetime(2027, 5, 1, 0, 0, 0)) == "🌴 Bienvenidos a VICE CITY. 🌴"
+    assert gta_countdown.message(datetime(2026, 11, 19, 3, 0, 0)) == WELCOME
+    assert gta_countdown.message(datetime(2027, 5, 1, 0, 0, 0)) == WELCOME
 
 
 def test_the_first_poll_only_writes_down_where_the_schedule_stands(db_session, alerting):
@@ -164,7 +166,7 @@ def test_the_welcome_is_sent_once_and_then_the_countdown_is_over_for_good(db_ses
     gta_countdown.queue_due(db_session, alerting, HOURLY_DAY)
 
     assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 19, 3, 0, 0)) == 2
-    assert queued(db_session) == [("1@g.us", "🌴 Bienvenidos a VICE CITY. 🌴"), ("2@g.us", "🌴 Bienvenidos a VICE CITY. 🌴")]
+    assert queued(db_session) == [("1@g.us", WELCOME), ("2@g.us", WELCOME)]
     assert db_session.get(CountdownState, "gta6").finished is True
 
     # never again, whatever the next poll looks like
@@ -176,7 +178,7 @@ def test_the_welcome_is_sent_once_and_then_the_countdown_is_over_for_good(db_ses
 def test_an_api_that_only_wakes_up_after_the_release_still_says_it(db_session, alerting):
     """No state at all and the day already gone by: the welcome is the one message that does not wait for a slot."""
     assert gta_countdown.queue_due(db_session, alerting, datetime(2026, 11, 20, 12, 0, 0)) == 2
-    assert queued(db_session) == [("1@g.us", "🌴 Bienvenidos a VICE CITY. 🌴"), ("2@g.us", "🌴 Bienvenidos a VICE CITY. 🌴")]
+    assert queued(db_session) == [("1@g.us", WELCOME), ("2@g.us", WELCOME)]
     assert db_session.get(CountdownState, "gta6").finished is True
 
 

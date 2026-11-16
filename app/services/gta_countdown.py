@@ -53,7 +53,7 @@ HOURLY_FROM = date(2026, 11, 18)
 SIX_HOURLY_FROM = date(2026, 11, 15)
 CADENCE = ((HOURLY_FROM, 1), (SIX_HOURLY_FROM, 6))
 DAILY = 24
-ARRIVED = "🌴 Bienvenidos a VICE CITY. 🌴"
+ARRIVED = f"🌴 {gta_card.ARRIVED_LINE} 🌴"  # the same words the card is drawn with, spelled there
 
 
 def arrived(now_utc: datetime | None = None) -> bool:
