@@ -334,6 +334,16 @@ One open question per chat; everybody in the chat competes.
 - Answer positions are shuffled per round; recently asked questions aren't repeated.
 - Claiming a round is an atomic `UPDATE`, so two simultaneous correct answers can't both win.
 
+### Saying hello
+
+A message that is nothing but `hola` **in a group** is answered with the one line it deserves, before Claude is
+asked anything (`command_router.GREETING`). However it is written: any case, the diminutive (`holi`, `holis`),
+however many letters somebody leans on (`holaaa`, `hooola`) and whatever punctuation they wrap it around. The `h` is
+not optional, because `ola` is a word. Only the greeting on its own, though: `hola a todos, alguien sabe a qué hora juega?` is
+somebody talking to the group, and a bot that answers that with a joke is a bot people turn off. Never in a
+one-to-one chat with the bot, where a hello is somebody starting a conversation, and never in the personal mode,
+where the bot writes as the owner.
+
 ## Admins
 
 `ADMIN_USER_IDS` in `.env` lists the admins as comma-separated `platform:user_id` (the IDs are platform-specific, so
