@@ -359,6 +359,7 @@ def test_four_in_ten_answers_are_sent_as_a_voice_note(client, settings, fake_cla
     object.__setattr__(settings, "CLAUDE_AUDIO_CHANCE", 1)  # the dice always says "speak"
     reply = answer(client, "!claude contame algo")
     assert reply["audio"] and reply["text"] == ""
+    assert reply["about"] == "Listo."  # the words, for whoever replies to the voice note
     assert spoken == [("Listo.", "hombre")]  # the same voice as `!voz -h`
     assert "nota de voz" in fake_claude["prompts"][-1]  # asked short and without tags, before answering
 

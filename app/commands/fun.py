@@ -138,7 +138,7 @@ def voz(ctx: CommandContext) -> str | Reply:
     except (tts_generator.TextTooLong, tts_generator.TtsError) as error:
         return str(error)
     audio_id = media_cache.store(audio, tts_generator.MIMETYPE, ctx.settings.MEDIA_CACHE_SECONDS)
-    return Reply(audio=audio_id)
+    return Reply(audio=audio_id, about=text)  # what it says, rather than what !voz is for
 
 
 @command(

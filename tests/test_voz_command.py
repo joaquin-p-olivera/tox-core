@@ -28,7 +28,7 @@ def test_default_voice_is_hombre(client, fake_synthesize):
     (reply,) = raw(client, "!voz hola a todos")
     assert reply["text"] == "" and reply["mentions"] == [] and reply["sticker"] is None
     assert fake_synthesize == [("hola a todos", "hombre", pytest.approx(20))]
-    assert reply["audio"]
+    assert reply["audio"] and reply["about"] == "hola a todos"
 
 
 @pytest.mark.parametrize("flag", ["-h", "-H", "--h", "–h"])  # last one: phone keyboard en dash

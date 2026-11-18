@@ -39,7 +39,7 @@ def _finished(text: str, context: claude_context.Context | None = None, speak_wi
     if speak_with is not None and not failed and not mentions:
         audio = _spoken(text, speak_with)
         if audio is not None:
-            answer = Reply(audio=audio)
+            answer = Reply(audio=audio, about=text)  # what it said, for a reply to the voice note to read
     return [answer, Reply(reaction=FAILED_REACTION if failed else CLEAR_REACTION)]
 
 
