@@ -139,7 +139,7 @@ Everything the chat sees is in Spanish (command names included). Code, docs and 
 | `risa`                                 |                            | Sends a random laugh audio from `media/risa`               |
 | `futbol <país>`                        | `fut`                      | This week's fixtures for Uruguay/Ecuador/Argentina/España's top league |
 | `tabla <país>`                         |                            | The current standings table, as an image                  |
-| `vi`                                   | `gta6`                     | A card with how long is left until Grand Theft Auto VI, over a random picture of the game (see below); the same one the countdown sends on its own |
+| `vi [-e]`                              | `gta6`                     | A card with how long is left until Grand Theft Auto VI, over a random picture of the game (see below); the same one the countdown sends on its own. `-e` counts to midnight in Ecuador instead |
 | `trivia [categoría]`                   | `preguntas`                | Starts a multiplayer trivia question                      |
 | `responder <A-D>`                      | `a`, `b`, `c`, `d`         | Answers the open question (a plain `b`, no prefix, works) |
 | `banderas`                             | `bandera`                  | Flags round of the trivia: which country is this flag? |
@@ -735,6 +735,10 @@ Besides the command, the API sends it **on its own to the same chats the alerts 
 - and on 19 November at 00:00, one last `🌴 Llegó el gran día / Bienvenidos a Vice City 🌴` over the official cover
   art, after which nothing is ever sent again and `!vi` answers that same card instead of a countdown. That day's
   picture is never a random one: it is always `GTA_COVER_FILE`, since the cover is the news.
+
+`!vi -e` counts to midnight in **Ecuador** instead (`America/Guayaquil`, two hours after ours), and the card says
+so with the flag and `HORA DE ECUADOR` over the artwork's corner. Only the command has it: what goes out on its
+own is ours. Between our midnight and theirs, `!vi` already welcomes and `!vi -e` is still counting.
 
 `!vi` answers in the chat it was typed in, so it works in the **personal mode** too (`.b vi`), where the bot polls
 for nothing and no alert ever lands. Anyone can use it.

@@ -32,6 +32,11 @@ _BOLD_CANDIDATES = (
     "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
 )
 
+# Colour emoji, for the flag on a card counting to another country's midnight (`_with_badge`). Noto's bitmaps come in
+# one size only, which is drawn and then scaled; with the font missing the badge is the words alone.
+_EMOJI_FONT = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"
+_EMOJI_SIZE = 109
+
 # The daily card says its one line in a serif instead of the bold sans every other text here uses: that card is all
 # bar and no numbers, and the plain sans left it reading like a placeholder. URW's P052 is Palatino, which ships with
 # the same base35 set as the rest of urw-base35; the bold chain is still behind it for a machine that has neither.
@@ -92,6 +97,15 @@ DAYS_WORDS_SIZE = 30
 DAYS_GAP = 26  # between the number and the words beside it
 DAYS_LEADING = 21  # half the distance between the two lines of words
 TITLE = "GRAND THEFT AUTO"
+# The badge over the artwork's top-left corner that says whose clock it is: a pill in the bar's colour, the flag and
+# the words. The home country's card has none.
+BADGE_INSET = 22  # from the artwork's corner
+BADGE_HEIGHT = 64
+BADGE_FLAG = 40  # the flag's height
+BADGE_TEXT_SIZE = 30
+BADGE_PADDING = 20
+BADGE_GAP = 14  # between the flag and the words
+BADGE_ALPHA = 235
 
 
 def list_artworks(directory: str) -> list[Path]:
@@ -260,6 +274,43 @@ def _card(artwork_path: str | None) -> tuple[Image.Image, ImageDraw.ImageDraw, t
     return card, draw, bar
 
 
+def _flag(emoji: str, height: int) -> Image.Image | None:
+    """A flag emoji drawn in colour, cropped to itself and scaled to `height`, or None without the font."""
+    try:
+        font = ImageFont.truetype(_EMOJI_FONT, _EMOJI_SIZE)
+    except OSError:
+        return None
+    drawn = Image.new("RGBA", (_EMOJI_SIZE * 2, _EMOJI_SIZE * 2), (0, 0, 0, 0))
+    ImageDraw.Draw(drawn).text((0, 0), emoji, font=font, embedded_color=True)
+    box = drawn.getbbox()
+    if box is None:
+        return None
+    drawn = drawn.crop(box)
+    return drawn.resize((round(drawn.width * height / drawn.height), height), Image.LANCZOS)
+
+
+def _with_badge(card: Image.Image, badge: tuple[str, str] | None) -> Image.Image:
+    """The card with whose clock it is over the artwork's corner: `badge` is (flag emoji, words). The flag is the real
+    one, coat of arms and all, which is what tells Ecuador's apart from Colombia's; the words say it anyway."""
+    if badge is None:
+        return card
+    emoji, words = badge
+    flag = _flag(emoji, BADGE_FLAG)
+    font = _font(_BOLD_CANDIDATES, BADGE_TEXT_SIZE)
+    flag_width = flag.width + BADGE_GAP if flag else 0
+    width = BADGE_PADDING * 2 + flag_width + round(ImageDraw.Draw(card).textlength(words, font=font))
+    left = top = MARGIN + BADGE_INSET
+    layer = Image.new("RGBA", card.size, (0, 0, 0, 0))
+    ImageDraw.Draw(layer).rounded_rectangle((left, top, left + width, top + BADGE_HEIGHT), radius=BADGE_HEIGHT // 2,
+                                            fill=(*COLOR_BAR, BADGE_ALPHA))
+    card = Image.alpha_composite(card.convert("RGBA"), layer)
+    if flag:
+        card.paste(flag, (left + BADGE_PADDING, top + (BADGE_HEIGHT - flag.height) // 2), flag)
+    ImageDraw.Draw(card).text((left + BADGE_PADDING + flag_width, top + BADGE_HEIGHT / 2), words, font=font,
+                              fill=COLOR_NUMBER, anchor="lm")
+    return card.convert("RGB")
+
+
 def _png(card: Image.Image) -> bytes:
     buffer = io.BytesIO()
     card.save(buffer, format="PNG")
@@ -322,9 +373,10 @@ def arrived_card(artwork_path: str | None = None) -> Image.Image:
     return card
 
 
-def render(days: int, hours: int, minutes: int, seconds: int, artwork_path: str | None = None) -> bytes:
-    """The countdown card as a PNG, which is what goes to the chats."""
-    return _png(countdown_card(days, hours, minutes, seconds, artwork_path))
+def render(days: int, hours: int, minutes: int, seconds: int, artwork_path: str | None = None,
+           badge: tuple[str, str] | None = None) -> bytes:
+    """The countdown card as a PNG, which is what goes to the chats. `badge`: whose clock it is, when not ours."""
+    return _png(_with_badge(countdown_card(days, hours, minutes, seconds, artwork_path), badge))
 
 
 def render_days(days: int, artwork_path: str | None = None) -> bytes:
@@ -332,8 +384,8 @@ def render_days(days: int, artwork_path: str | None = None) -> bytes:
     return _png(days_card(days, artwork_path))
 
 
-def render_arrived(artwork_path: str | None = None) -> bytes:
-    return _png(arrived_card(artwork_path))
+def render_arrived(artwork_path: str | None = None, badge: tuple[str, str] | None = None) -> bytes:
+    return _png(_with_badge(arrived_card(artwork_path), badge))
 
 
 def _story(card: Image.Image, artwork_path: str | None) -> bytes:

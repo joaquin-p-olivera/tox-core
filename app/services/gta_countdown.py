@@ -46,6 +46,11 @@ RELEASE_ZONE = ZoneInfo("America/Montevideo")
 RELEASE_LOCAL = datetime(2026, 11, 19, 0, 0)
 # Naive UTC, like everything stored and like utcnow(): 2026-11-19 03:00Z
 RELEASE = RELEASE_LOCAL.replace(tzinfo=RELEASE_ZONE).astimezone(timezone.utc).replace(tzinfo=None)
+# The same midnight in Ecuador, two hours later, for `!vi -e`: it comes out at midnight in each country, and part of
+# the group counts to theirs. Only `!vi` reads it; what goes out on its own is ours. The badge is what its card says.
+ECUADOR_RELEASE = (RELEASE_LOCAL.replace(tzinfo=ZoneInfo("America/Guayaquil"))
+                   .astimezone(timezone.utc).replace(tzinfo=None))
+ECUADOR_BADGE = ("🇪🇨", "HORA DE ECUADOR")
 # How many minutes apart the messages go out, from each local moment on: the first row that moment has reached wins,
 # and before any of them there is one a day. The same table decides which card is drawn (see the module docstring),
 # so adding a step here moves both at once. The last day has its own schedule, by the hour and not by the day: the
@@ -59,8 +64,8 @@ DAILY = 24 * 60
 ARRIVED = f"🌴 {gta_card.ARRIVED_LINE} 🌴"  # the same words the card is drawn with, spelled there
 
 
-def arrived(now_utc: datetime | None = None) -> bool:
-    return (now_utc or utcnow()) >= RELEASE
+def arrived(now_utc: datetime | None = None, release: datetime = RELEASE) -> bool:
+    return (now_utc or utcnow()) >= release
 
 
 def _plus_month(moment: datetime) -> datetime:
@@ -69,24 +74,24 @@ def _plus_month(moment: datetime) -> datetime:
     return moment.replace(year=year, month=month, day=min(moment.day, calendar.monthrange(year, month)[1]))
 
 
-def remaining(now_utc: datetime) -> tuple[int, int, int, int, int]:
+def remaining(now_utc: datetime, release: datetime = RELEASE) -> tuple[int, int, int, int, int]:
     """Months, days, hours, minutes and seconds left (the mm:dd:HH:MM:SS of the message). The months are calendar
     months, counted one at a time, so they shrink the way a person counts them instead of in 30-day blocks."""
     cursor, months = now_utc, 0
-    while _plus_month(cursor) <= RELEASE:
+    while _plus_month(cursor) <= release:
         cursor, months = _plus_month(cursor), months + 1
-    left = RELEASE - cursor
+    left = release - cursor
     hours, rest = divmod(left.seconds, 3600)
     minutes, seconds = divmod(rest, 60)
     return months, left.days, hours, minutes, seconds
 
 
-def message(now_utc: datetime | None = None) -> str:
+def message(now_utc: datetime | None = None, release: datetime = RELEASE) -> str:
     """What is sent (or answered): how much is left, or the welcome once the day is here."""
     now_utc = now_utc or utcnow()
-    if arrived(now_utc):
+    if arrived(now_utc, release):
         return ARRIVED
-    months, days, hours, minutes, seconds = remaining(now_utc)
+    months, days, hours, minutes, seconds = remaining(now_utc, release)
     return f"🌴 Falta {months:02d}:{days:02d}:{hours:02d}:{minutes:02d}:{seconds:02d} para {GAME} 🦩"
 
 
@@ -101,40 +106,42 @@ def day_message(now_utc: datetime | None = None) -> str:
     return f"🌴 {days} día{'' if days == 1 else 's'} para {GAME} 🦩"
 
 
-def _left(now_utc: datetime) -> tuple[int, int, int, int]:
+def _left(now_utc: datetime, release: datetime = RELEASE) -> tuple[int, int, int, int]:
     """Days, hours, minutes and seconds left. Plain days, months and all: that is what the card counts, where there
     is no room for a fifth number and nobody reads "0 meses" anyway."""
-    left = RELEASE - now_utc
+    left = release - now_utc
     hours, rest = divmod(left.seconds, 3600)
     minutes, seconds = divmod(rest, 60)
     return left.days, hours, minutes, seconds
 
 
-def _artwork(settings: Settings, now_utc: datetime) -> str | None:
+def _artwork(settings: Settings, now_utc: datetime, release: datetime = RELEASE) -> str | None:
     """Which picture goes on this card: one of GTA_ARTWORK_DIR at random, except the day it comes out, which is
     always the cover -- that one is the news, and a random screenshot would bury it."""
-    if arrived(now_utc):
+    if arrived(now_utc, release):
         return settings.GTA_COVER_FILE or None
     artworks = gta_card.list_artworks(settings.GTA_ARTWORK_DIR)
     return str(random.choice(artworks)) if artworks else None
 
 
 def card(settings: Settings, now_utc: datetime | None = None, artwork: str | None = None,
-         by_day: bool = False) -> str | None:
+         by_day: bool = False, release: datetime = RELEASE, badge: tuple[str, str] | None = None) -> str | None:
     """The message as an image, stored for the bot to download, or None when it cannot be drawn -- in which case the
     text is what goes out. Drawing must never be what keeps the countdown from being sent. Without an `artwork` one
     is picked here, which is what `!vi` wants; the countdown picks it once and passes it, so the card that goes to
     the chats and the story that goes to Instagram show the same picture. `by_day`: the days alone, what the
-    countdown sends by itself -- the default is the full clock, which is what somebody who just asked wants."""
+    countdown sends by itself -- the default is the full clock, which is what somebody who just asked wants.
+    `release` and `badge`: another country's midnight and the corner that says so (`!vi -e`), on the full clock and
+    the welcome, which are the only cards somebody asks for."""
     now_utc = now_utc or utcnow()
-    artwork = artwork or _artwork(settings, now_utc)
+    artwork = artwork or _artwork(settings, now_utc, release)
     try:
-        if arrived(now_utc):
-            png = gta_card.render_arrived(artwork)
+        if arrived(now_utc, release):
+            png = gta_card.render_arrived(artwork, badge)
         elif by_day:
             png = gta_card.render_days(_left(now_utc)[0], artwork)
         else:
-            png = gta_card.render(*_left(now_utc), artwork)
+            png = gta_card.render(*_left(now_utc, release), artwork, badge)
     except Exception:  # a broken font, an artwork that is not an image, anything: the text still goes out
         logger.exception("Could not draw the GTA VI card")
         return None
