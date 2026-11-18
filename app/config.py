@@ -96,8 +96,8 @@ class Settings(BaseSettings):
     CLAUDE_PUBLIC_MAX_BUDGET_USD: float = Field(default=0.10, gt=0, le=100)  # an answer costs ~US$0.01-0.03
     CLAUDE_PUBLIC_QUESTIONS_PER_HOUR: int = Field(default=100, ge=1, le=1000)  # everybody else, all together
     CLAUDE_PUBLIC_QUESTIONS_PER_PERSON_PER_HOUR: int = Field(default=100, ge=1, le=1000)
-    # Replying to one of the bot's own messages asks Claude without typing the command: the reply is the question
-    # (the same limits apply). Never in the personal mode, where the bot's messages are the owner's own.
+    # Replying to one of the bot's own messages, or tagging it, asks Claude without typing the command: the message is
+    # the question (the same limits apply). Never in the personal mode, where the bot's messages are the owner's own.
     CLAUDE_ON_REPLY: bool = True
     # Now and then Tox butts into a conversation nobody invited it to: it reads what is going on in the group and drops
     # one remark of its own, always as text. CLAUDE_INTERJECT_CHANCE is the share of messages that trigger one

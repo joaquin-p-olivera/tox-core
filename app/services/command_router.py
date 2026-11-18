@@ -19,8 +19,10 @@ REFUSED_REACTION = "🚫"  # what the bot reacts with to an admin-only command u
 # there, so the owner's normal chats can't trigger anything by accident.
 PERSONAL_PREFIX = ".b "
 
-# What a reply to one of the bot's own messages is answered by (see `replying_to_the_bot`)
+# What a reply to one of the bot's own messages, or a tag of it, is answered by (see `addressed_to_the_bot`)
 REPLY_COMMAND = "claude"
+# What the @ that tagged the bot reads as in the question: its name, the way somebody calling it would say it
+TAG_READS_AS = "Tox"
 
 # The one answer a "hola" in a group has always deserved, and what counts as one: the greeting on its own, however
 # somebody writes it -- any case, the diminutive ("holi", "holis"), however many letters they lean on ("holaaa",
@@ -51,14 +53,29 @@ def parse_command(text: str, prefixes: list[str]) -> tuple[str, str, str] | None
     return None
 
 
-def replying_to_the_bot(message: IncomingMessage, db: Session, settings: Settings) -> bool:
-    """Whether this message is somebody replying to one of the bot's own messages, which is the other way of talking to
-    Claude: no command typed, the reply itself is the question (CLAUDE_ON_REPLY, which a chat may turn off for itself
-    with !config). Never in the personal mode, where the bot writes as the owner, so a reply to it is the owner's own
-    chat and none of the bot's business."""
+def _tags_the_bot(message: IncomingMessage) -> bool:
+    return any(person.is_bot for person in message.mentioned or [])
+
+
+def addressed_to_the_bot(message: IncomingMessage, db: Session, settings: Settings) -> bool:
+    """Whether this message is somebody talking to the bot with no command typed -- replying to one of its own
+    messages, or tagging it -- which is the other way of asking Claude: the message itself is the question
+    (CLAUDE_ON_REPLY, which a chat may turn off for itself with !config). Never in the personal mode, where the bot
+    writes as the owner, so a reply to it is the owner's own chat and none of the bot's business."""
     return (not message.personal and bool(message.text.strip())
-            and message.quoted is not None and message.quoted.is_bot
+            and ((message.quoted is not None and message.quoted.is_bot) or _tags_the_bot(message))
             and chat_config.value(db, settings, message.chat_key, "CLAUDE_ON_REPLY"))
+
+
+def _question(message: IncomingMessage) -> str:
+    """The message as the question it is. WhatsApp writes a tag as the number behind it, so the bot's own reads as its
+    name: "@59899123 qué opinás?" asks "Tox qué opinás?", and a tag with nothing else (on somebody else's message,
+    say) is still somebody calling it rather than an empty question."""
+    text = message.text
+    for person in message.mentioned or []:
+        if person.is_bot:
+            text = re.sub(rf"@{re.escape(person.user_id.split('@')[0])}\b", TAG_READS_AS, text)
+    return text.strip()
 
 
 def _trivia_answer(message: IncomingMessage, db: Session, settings: Settings) -> list[Reply] | None:
@@ -134,12 +151,13 @@ def _afk_notices(message: IncomingMessage, db: Session, token: str | None) -> li
 
 def _talked_to_the_bot(message: IncomingMessage, db: Session, settings: Settings,
                        parsed: tuple[str, str, str] | None) -> bool:
-    """Whether this message is aimed at the bot: a command, a reply to one of its messages, or its name in the
-    text. It is what ends a run of remarks nobody picked up (services/discretion.py)."""
+    """Whether this message is aimed at the bot: a command, a reply to one of its messages, a tag of it, or its name
+    in the text. It is what ends a run of remarks nobody picked up (services/discretion.py)."""
     if message.personal or not message.is_group:
         return False
     return (parsed is not None
             or (message.quoted is not None and message.quoted.is_bot)
+            or _tags_the_bot(message)
             or discretion.names_the_bot(message.text))
 
 
@@ -163,11 +181,12 @@ def _answer(message: IncomingMessage, db: Session, settings: Settings, prefixes:
         greeted = _greeting(message)
         if greeted is not None:
             return greeted
-    implicit = parsed is None and replying_to_the_bot(message, db, settings)
+    implicit = parsed is None and addressed_to_the_bot(message, db, settings)
     if parsed is None and not implicit:
         return _butt_in(message, db, settings)
-    # A reply to the bot: the whole message is the question, and the prefix is only there for the usage messages.
-    prefix, token, raw_args = parsed or (prefixes[0], REPLY_COMMAND, message.text.strip())
+    # A reply to the bot or a tag of it: the whole message is the question, and the prefix is only there for the usage
+    # messages.
+    prefix, token, raw_args = parsed or (prefixes[0], REPLY_COMMAND, _question(message))
 
     cmd = get_command(token)
     if cmd is None:

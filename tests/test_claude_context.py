@@ -150,6 +150,15 @@ def test_replying_to_the_bot_asks_claude_without_writing_the_command(client, fak
     assert reply["text"] == "Listo."
 
 
+def test_tagging_the_bot_asks_claude_as_well_and_the_tag_reads_as_its_name(client, fake_claude):
+    tox = [{"user_id": "59899000000@s.whatsapp.net", "is_bot": True}]
+    reply = answer(client, "@59899000000 qué opinás del trailer?", mentioned=tox)
+    assert fake_claude["prompts"][-1].endswith("Pregunta de Alice: Tox qué opinás del trailer?")
+    assert reply["text"] == "Listo."
+    # Tagging somebody else is still chatter
+    assert post(client, "@59899111111 vos qué decís?", mentioned=[{"user_id": "59899111111@s.whatsapp.net"}]) == []
+
+
 def test_a_reply_with_no_text_in_it_is_a_question_all_the_same(client, fake_claude):
     """The bot's answer was a voice note: WhatsApp quotes it with no text, and the question stands on its own."""
     answer(client, "jajaja y eso?", quoted={"text": "", "is_bot": True})
