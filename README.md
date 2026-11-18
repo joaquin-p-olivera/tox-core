@@ -729,10 +729,12 @@ Besides the command, the API sends it **on its own to the same chats the alerts 
 (`ALERT_WHATSAPP_GROUP_JIDS` / `ALERT_TELEGRAM_CHAT_IDS`):
 
 - **once a day at 00:00** (`TIMEZONE`), until 14 November;
-- **every hour** from 15 November on, when waiting by the day stops being fun;
-- and on 19 November, one last `🌴 Bienvenidos a VICE CITY. 🌴` over the official cover art, after which nothing is
-  ever sent again and `!vi` answers that same card instead of a countdown. That day's picture is never a random one:
-  it is always `GTA_COVER_FILE`, since the cover is the news.
+- **every six hours** (00:00, 06:00, 12:00, 18:00) from 15 November on, when waiting by the day stops being fun;
+- **tighter as the last day goes**, on 18 November: **every two hours** up to 16:00, **every hour** from 17:00, and
+  **every ten minutes** through the last one, from 23:00 to 23:50;
+- and on 19 November at 00:00, one last `🌴 Llegó el gran día / Bienvenidos a Vice City 🌴` over the official cover
+  art, after which nothing is ever sent again and `!vi` answers that same card instead of a countdown. That day's
+  picture is never a random one: it is always `GTA_COVER_FILE`, since the cover is the news.
 
 `!vi` answers in the chat it was typed in, so it works in the **personal mode** too (`.b vi`), where the bot polls
 for nothing and no alert ever lands. Anyone can use it.
@@ -740,7 +742,7 @@ for nothing and no alert ever lands. Anyone can use it.
 Like reminders, nothing runs in the background: each bot poll of `GET /api/v1/alerts/pending` first queues whatever
 is due. What the `countdown_states` table remembers is the **scheduled moment already sent**, not when it was sent,
 which is what makes it both catch up and never repeat itself: a poll after a restart still sends the slot nobody
-sent, ten polls inside the same hour send one message, and a whole day the API spent down is one missed message
+sent, ten polls inside the same slot send one message, and a whole day the API spent down is one missed message
 instead of a burst of them. The first poll ever sends nothing — it only writes down where the schedule stands, so a
 restart never fires a message by itself.
 

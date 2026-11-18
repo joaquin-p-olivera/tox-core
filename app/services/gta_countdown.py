@@ -1,8 +1,8 @@
 """The countdown to Grand Theft Auto VI, sent on its own as a card (services/gta_card.py) to the same groups the
 alerts go to, and -- when it is set up (services/instagram.py) -- published as an Instagram story at the same moments (ALERT_WHATSAPP_GROUP_JIDS
 and ALERT_TELEGRAM_CHAT_IDS, see `alert_monitor.destinations`). It gets closer together as the day gets closer: once
-a day at midnight, every six hours over the last four days, and every hour on the last one, when waiting by the day
-stops being fun. The day it comes out, one last message welcomes everybody to Vice City and the countdown is over
+a day at midnight, every six hours over the last four days, and on the last one two hours apart, then every hour
+from the evening and every ten minutes through the final hour, when waiting by the day stops being fun. The day it comes out, one last message welcomes everybody to Vice City and the countdown is over
 for good -- `!vi` included.
 
 Nothing runs in the background, the same way reminders work (services/reminders.py): the bots already poll for pending
@@ -27,7 +27,7 @@ import calendar
 import logging
 import random
 import threading
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
@@ -46,13 +46,16 @@ RELEASE_ZONE = ZoneInfo("America/Montevideo")
 RELEASE_LOCAL = datetime(2026, 11, 19, 0, 0)
 # Naive UTC, like everything stored and like utcnow(): 2026-11-19 03:00Z
 RELEASE = RELEASE_LOCAL.replace(tzinfo=RELEASE_ZONE).astimezone(timezone.utc).replace(tzinfo=None)
-# How many hours apart the messages go out, from each day on: the first row the day has reached wins, and before
-# any of them there is one a day. The same table decides which card is drawn (see the module docstring), so adding
-# a step here moves both at once.
-HOURLY_FROM = date(2026, 11, 18)
-SIX_HOURLY_FROM = date(2026, 11, 15)
-CADENCE = ((HOURLY_FROM, 1), (SIX_HOURLY_FROM, 6))
-DAILY = 24
+# How many minutes apart the messages go out, from each local moment on: the first row that moment has reached wins,
+# and before any of them there is one a day. The same table decides which card is drawn (see the module docstring),
+# so adding a step here moves both at once. The last day has its own schedule, by the hour and not by the day: the
+# morning and the afternoon two hours apart, the evening one, and the final hour ten minutes at a time.
+TEN_MINUTELY_FROM = datetime(2026, 11, 18, 23, 0)
+HOURLY_FROM = datetime(2026, 11, 18, 17, 0)
+TWO_HOURLY_FROM = datetime(2026, 11, 18, 0, 0)
+SIX_HOURLY_FROM = datetime(2026, 11, 15, 0, 0)
+CADENCE = ((TEN_MINUTELY_FROM, 10), (HOURLY_FROM, 60), (TWO_HOURLY_FROM, 120), (SIX_HOURLY_FROM, 360))
+DAILY = 24 * 60
 ARRIVED = f"🌴 {gta_card.ARRIVED_LINE} 🌴"  # the same words the card is drawn with, spelled there
 
 
@@ -161,17 +164,18 @@ def _publish_story(settings: Settings, now_utc: datetime, artwork: str | None, b
 
 
 def every(now_utc: datetime, timezone_name: str) -> int:
-    """How many hours apart the messages go out at this moment, read off CADENCE by the local day."""
-    today = now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(timezone_name)).date()
-    return next((hours for day, hours in CADENCE if today >= day), DAILY)
+    """How many minutes apart the messages go out at this moment, read off CADENCE by the local time."""
+    local = now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(timezone_name)).replace(tzinfo=None)
+    return next((minutes for moment, minutes in CADENCE if local >= moment), DAILY)
 
 
 def _slot(now_utc: datetime, timezone_name: str) -> datetime:
-    """The scheduled moment this instant belongs to: the local hour floored to the cadence, which for one a day is
-    midnight. Naive UTC, so it can be compared with what is stored."""
+    """The scheduled moment this instant belongs to: the local time of day floored to the cadence, which for one a
+    day is midnight. Naive UTC, so it can be compared with what is stored."""
     local = now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(timezone_name))
     step = every(now_utc, timezone_name)
-    return local.replace(hour=local.hour // step * step, minute=0, second=0,
+    minute = (local.hour * 60 + local.minute) // step * step
+    return local.replace(hour=minute // 60, minute=minute % 60, second=0,
                          microsecond=0).astimezone(timezone.utc).replace(tzinfo=None)
 
 
