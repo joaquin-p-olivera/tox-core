@@ -26,6 +26,10 @@ BATTERY_LOW_PERCENT = 20
 BATTERY_HEALTH_WARN_PERCENT = 70
 TOP_PROCESSES = 3
 MAX_DISKS = 4
+# The daily backup (scripts/backup.sh) leaves a stamp behind when it finishes; the same bar its `--check`
+# answers the alert monitor with, so the chat's alert and this line can never disagree about what is late.
+BACKUP_STAMP = os.path.expanduser("~/.local/state/tox-backup/last-success")
+BACKUP_STALE_HOURS = 36
 REAL_FILESYSTEMS = {"ext2", "ext3", "ext4", "xfs", "btrfs", "f2fs", "vfat", "ntfs", "ntfs3", "fuseblk", "exfat"}
 _SESSION_ID = re.compile(r"^[A-Za-z0-9]{1,16}$")
 _SESSION_TYPES = {"x11": "gráfica", "wayland": "gráfica", "mir": "gráfica", "tty": "consola", "unspecified": "sesión"}
@@ -39,6 +43,15 @@ class Memory:
     available: int
     swap_total: int = 0
     swap_free: int = 0
+
+
+@dataclass(frozen=True)
+class Backup:
+    """The last backup that finished: when, how many are kept in the cloud, and how big that one was."""
+
+    at: datetime
+    copies: int
+    size: int
 
 
 @dataclass(frozen=True)
@@ -95,6 +108,7 @@ class Snapshot:
     top_memory: list[tuple[str, float]] = field(default_factory=list)
     failed_units: list[str] = field(default_factory=list)
     reboot_required: bool = False
+    backup: Backup | None = None
 
 
 # ---- parsers (pure) -----------------------------------------------------------------------------
@@ -102,6 +116,21 @@ class Snapshot:
 def parse_os_release(text: str) -> str:
     match = re.search(r'^PRETTY_NAME="?([^"\n]+)"?', text, re.MULTILINE)
     return match.group(1) if match else "Linux"
+
+
+def parse_backup(text: str) -> Backup | None:
+    """The one line scripts/backup.sh writes when it finishes: a local moment, how many copies are in the cloud
+    and the size of the last one. Anything unreadable is no backup at all, which is what a missing file means
+    too -- there is nothing a half-parsed stamp could honestly say."""
+    parts = text.split()
+    if len(parts) < 3:
+        return None
+    try:
+        at = datetime.fromisoformat(parts[0])
+        return Backup(at=at.astimezone().replace(tzinfo=None) if at.tzinfo else at,
+                      copies=int(parts[1]), size=int(parts[2]))
+    except ValueError:
+        return None
 
 
 def parse_uptime_seconds(text: str) -> float | None:
@@ -411,6 +440,7 @@ def read_snapshot(now: datetime, sources: Sources | None = None, sample_seconds:
         memory=parse_meminfo(src.read("/proc/meminfo") or ""), disks=disks, battery=battery,
         sessions=sessions_job.result(), top_memory=parse_memory_by_process(memory_job.result() or ""),
         failed_units=failed, reboot_required=src.exists("/var/run/reboot-required"),
+        backup=parse_backup(src.read(BACKUP_STAMP) or ""),
     )
 
 
@@ -513,6 +543,14 @@ def describe(snapshot: Snapshot, now: datetime) -> tuple[int, list[str]]:
         problems += 1
         shown = ", ".join(s.failed_units[:3]) + (f" y {len(s.failed_units) - 3} más" if len(s.failed_units) > 3 else "")
         lines.append(f"🟠 Servicios con fallos: {len(s.failed_units)} ({shown})")
+    if s.backup is not None:
+        # A stamp that isn't there says nothing here, like a battery this machine doesn't have: whether a
+        # backup was ever set up at all is the alert's question (scripts/backup.sh --check), not this line's.
+        late = (now - s.backup.at).total_seconds() > BACKUP_STALE_HOURS * 3600
+        problems += late
+        lines.append(f"{'🟠' if late else '💾'} Backup: {_since(s.backup.at, now)} · "
+                     f"{s.backup.copies} en la nube · {systemd_info.fmt_bytes(s.backup.size)}"
+                     + (" — atrasado" if late else ""))
     if s.reboot_required:
         problems += 1
         lines.append("🟠 Hay un reinicio pendiente (por actualizaciones)")
