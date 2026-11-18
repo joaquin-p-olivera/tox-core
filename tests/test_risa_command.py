@@ -9,6 +9,7 @@ def test_risa_sends_an_audio(client, risa_audios_dir):
     add_audio(risa_audios_dir)
     (reply,) = raw(client, "!risa")
     assert reply["audio"] == "risa.ogg"
+    assert reply["about"] == "Manda un audio de risa"  # what the command is for, unless it says better
 
 
 def test_risa_says_so_when_there_are_no_audios(client):

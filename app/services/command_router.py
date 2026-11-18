@@ -199,4 +199,9 @@ def _answer(message: IncomingMessage, db: Session, settings: Settings, prefixes:
     if result is None:
         return []
     items = result if isinstance(result, list) else [result]
-    return [Reply(text=item) if isinstance(item, str) else item for item in items]
+    replies = [Reply(text=item) if isinstance(item, str) else item for item in items]
+    for reply in replies:
+        # What the media is, said by default with what the command is for (a command knowing better says it itself)
+        if reply.about is None and (reply.audio or reply.sticker or reply.image or reply.video):
+            reply.about = cmd.description
+    return replies

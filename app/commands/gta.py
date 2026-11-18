@@ -14,4 +14,5 @@ def gta_six(ctx: CommandContext) -> Reply:
     It answers in the chat it was asked in, which is what makes it work in the personal mode too, where the bot
     never polls for anything and no alert ever lands. The text is the answer when the card cannot be drawn."""
     image = gta_countdown.card(ctx.settings)
-    return Reply(image=image) if image else Reply(text=gta_countdown.message())
+    # The card says it in numbers; the same words are what a reply to it gets to read
+    return Reply(image=image, about=gta_countdown.message()) if image else Reply(text=gta_countdown.message())

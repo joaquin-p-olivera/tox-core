@@ -133,6 +133,13 @@ class Reply(BaseModel):
         description="Id of a video to send instead of text (!yt), downloaded from GET /api/v1/videos/{id}. "
         "Short-lived and up to YT_MAX_BYTES: fetch it right away.",
     )
+    about: str | None = Field(
+        default=None,
+        max_length=500,
+        description="What the audio, sticker, image or video is, in words. None of those carries text, so the bot "
+        "keeps this and hands it back as the quoted text when somebody replies to that message: without it Claude "
+        "is answering a reply to something it cannot see. Commands with media get their own description by default.",
+    )
     job: str | None = Field(
         default=None,
         description="Id of a long-running job (e.g. !claude). The bot sends `text` now, then polls "

@@ -212,7 +212,9 @@ def test_the_countdown_rides_the_poll_the_bots_already_make(client, alerting, db
 
 
 def test_vi_answers_by_hand_with_the_full_clock(client):
-    assert raw(client, "!vi")[0]["image"]  # the card, not a text message
+    (card,) = raw(client, "!vi")
+    assert card["image"]  # the card, not a text message
+    assert "para Grand Theft Auto VI" in card["about"]  # and in words, for whoever replies to it
     assert raw(client, "!gta6")[0]["image"]
 
 
